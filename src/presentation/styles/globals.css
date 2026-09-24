@@ -15,6 +15,8 @@
 
   --color-accent: #6C5CE7;
   --color-accent-hover: #5A4BD1;
+  /* Акцент активной вкладки нижней навигации — чуть светлее брендового */
+  --tab-active-bg: #7C6EF0;
   --color-danger: #FF3B30;
   --color-success: #34C759;
   --color-warning: #FF9F0A;
@@ -124,7 +126,7 @@ main {
   flex: 0 0 auto;
   display: flex;
   justify-content: center;
-  padding: var(--spacing-2) var(--spacing-4) calc(var(--spacing-5, 20px) + var(--safe-bottom));
+  padding: var(--spacing-2) var(--spacing-4) calc(var(--spacing-6) + var(--safe-bottom));
 }
 
 /* Скроем скроллбар для html/body, оставим для контента при необходимости */
