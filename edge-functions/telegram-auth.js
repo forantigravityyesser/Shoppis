@@ -5,8 +5,12 @@
 // Шаги: проверить HMAC-подпись initData по токену бота → резолвить/создать
 // User + TelegramIdentity → выдать подписанную сессию (HMAC, секрет SESSION_SECRET).
 //
-// Env: INSFORGE_BASE_URL, ANON_KEY, SESSION_SECRET,
+// Env: INSFORGE_BASE_URL, ANON_KEY, SESSION_SECRET, SESSION_TTL_SECONDS?,
 //      BUYER_BOT_TOKEN / SELLER_BOT_TOKEN (fallback BOT_TOKEN).
+//
+// Сессия — runtime authorization внутри одного запуска Mini App: клиент
+// аутентифицируется заново при каждом открытии (свежий initData), поэтому TTL
+// короткий, а не 30 дней.
 
 import { createClient } from 'npm:@insforge/sdk';
 
@@ -166,8 +170,9 @@ export default async function (request) {
     }
 
     const now = Math.floor(Date.now() / 1000);
+    const ttlSeconds = Number(env('SESSION_TTL_SECONDS')) || 60 * 60 * 6;
     const token = await signSession(
-      { uid: userId, tg: telegramUserId, iat: now, exp: now + 60 * 60 * 24 * 30 },
+      { uid: userId, tg: telegramUserId, iat: now, exp: now + ttlSeconds },
       sessionSecret,
     );
 

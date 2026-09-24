@@ -13,3 +13,12 @@ export const BUYER_APP_SHORTNAME = optional('VITE_BUYER_APP_SHORTNAME', 'app');
 
 /** Публичный бакет для изображений товаров и логотипов */
 export const MEDIA_BUCKET = 'shoppis-media';
+
+/**
+ * Явный dev-режим авторизации. В нём допускается mock identity, когда Mini App
+ * открыт вне Telegram. В production-сборке всегда false.
+ * Переопределение: VITE_DEV_AUTH_MODE=true|false.
+ */
+export const DEV_AUTH_MODE =
+  (import.meta.env.VITE_DEV_AUTH_MODE as string | undefined) === 'true' ||
+  (import.meta.env.DEV && (import.meta.env.VITE_DEV_AUTH_MODE as string | undefined) !== 'false');

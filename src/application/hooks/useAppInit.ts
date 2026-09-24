@@ -1,26 +1,21 @@
 import { useEffect } from 'react';
 import { useStore } from '../store';
-import { getRawInitData, getStartParam, getTelegramUser } from '../../infrastructure/telegram/telegram-app';
-import { authenticateTelegram } from '../../infrastructure/functions/auth-api';
+import { getStartParam } from '../../infrastructure/telegram/telegram-app';
+import { authenticate } from '../services/auth-service';
 import type { AppContext } from '../../domain/constants/app-context';
 
 /**
- * Инициализация входа: Telegram WebApp, получение User, определение контекста
- * (панель продавца / витрина) по start_param, загрузка магазина продавца.
+ * Инициализация входа. Порядок — источник истины задаёт серверная сессия:
+ *   Telegram environment → raw initData → server authentication → session/user
+ *   → context (панель продавца / витрина) → загрузка магазина продавца.
  *
- * Контекст — это не роль пользователя: один User может владеть магазином и
+ * Пользователь Telegram-профиля до серверной проверки не используется.
+ * Контекст — не роль пользователя: один User может владеть магазином и
  * покупать в других витринах. 01 §5
  */
 export function useAppInit(): void {
   useEffect(() => {
     const initAppFlow = async () => {
-      const setContext = useStore.getState().setContext;
-      const setStoreId = useStore.getState().setStoreId;
-      const setUser = useStore.getState().setUser;
-      const setSession = useStore.getState().setSession;
-      const fetchUserProfile = useStore.getState().fetchUserProfile;
-      const setIsAppInitializing = useStore.getState().setIsAppInitializing;
-
       try {
         // --- 1. Telegram WebApp допавечки ---
         try {
@@ -37,15 +32,22 @@ export function useAppInit(): void {
           // вне Telegram — пропускаем
         }
 
-        // --- 2. Получаем user ПЕРЕД БД ---
-        const user = getTelegramUser();
-        const tid = user?.id ?? '';
+        // --- 2. Серверная аутентификация: initData → session/user ---
+        let authenticated = false;
+        try {
+          const session = await authenticate();
+          useStore.getState().setSession(session.token, session.user);
+          authenticated = true;
+        } catch (e) {
+          console.warn('[appInit] authentication failed:', e);
+          useStore.getState().clearSession();
+        }
 
         // --- 3. Контекст входа по start_param (два бота) ---
         let finalContext: AppContext = 'buyer';
         let finalStoreId: string | null = null;
 
-        if (tid) {
+        if (authenticated) {
           const startParam = getStartParam();
 
           if (startParam === 'seller') {
@@ -66,40 +68,22 @@ export function useAppInit(): void {
             }
           }
         } else {
-          // tid undefined — fallback: продавец, чтобы onboarding показался
+          // Нет серверной identity — показываем онбординг продавца.
           finalContext = 'seller';
         }
 
-        // --- 4. Теперь безопасно ставим user + profile ---
-        if (user) {
-          setUser(user);
-          await fetchUserProfile();
-        }
-
-        // --- 4.5 Серверная валидация Telegram identity (initData → сессия) ---
-        const rawInitData = getRawInitData();
-        if (rawInitData) {
-          try {
-            const session = await authenticateTelegram(rawInitData);
-            setSession(session.token, session.user);
-          } catch (e) {
-            console.warn('[appInit] telegram-auth failed:', e);
-          }
-        }
-
-        // --- 5. Применяем контекст и storeId ---
-        setContext(finalContext);
-        setStoreId(finalStoreId);
+        // --- 4. Применяем контекст и storeId ---
+        useStore.getState().setContext(finalContext);
+        useStore.getState().setStoreId(finalStoreId);
 
         // Если контекст продавца — пробуем загрузить его существующий магазин
-        if (finalContext === 'seller' && user) {
-          const loadSellerStore = useStore.getState().loadSellerStore;
-          await loadSellerStore();
+        if (finalContext === 'seller' && authenticated) {
+          await useStore.getState().loadSellerStore();
         }
       } catch (e) {
         console.warn('[appInit] failed, fallback to seller onboarding:', e);
       } finally {
-        setIsAppInitializing(false);
+        useStore.getState().setIsAppInitializing(false);
       }
     };
 

@@ -149,9 +149,8 @@ export const createOrderSlice: StateCreator<RootStore, [], [], OrderSlice> = (se
     },
 
     placeOrder: async (recipient: RecipientInfo) => {
-      const { storeId, user, sessionToken, cartByStore } = get();
+      const { storeId, sessionToken, cartByStore } = get();
       if (!storeId) throw new Error('No store selected');
-      if (!user) throw new Error('No Telegram user');
       if (!sessionToken) throw new Error('Not authenticated');
       const items = cartByStore[storeId] ?? [];
       if (!canCheckout(items, recipient)) throw new Error('Cart or recipient is invalid');

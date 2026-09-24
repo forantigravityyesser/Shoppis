@@ -7,7 +7,7 @@ const CURRENCY_SYMBOLS: Record<StoreCurrency, string> = {
   BYN: 'Br',
 };
 
-interface StoreRow {
+export interface StoreRow {
   id: string;
   owner_user_id: string | null;
   owner_telegram_id: string | null;
@@ -24,7 +24,7 @@ interface StoreRow {
   created_at: string;
 }
 
-function mapStore(row: StoreRow): Store {
+export function mapStore(row: StoreRow): Store {
   return {
     id: row.id,
     ownerUserId: row.owner_user_id ?? null,
@@ -54,11 +54,12 @@ export async function fetchStore(storeId: string): Promise<Store | null> {
   return row ? mapStore(row) : null;
 }
 
-export async function fetchStoresByOwner(ownerTelegramId: string): Promise<Store[]> {
+/** Витрины серверного User (authoritative identity), поиск по owner_user_id. */
+export async function fetchStoresByOwnerUser(ownerUserId: string): Promise<Store[]> {
   const { data, error } = await insforge.database
     .from('stores')
     .select('*')
-    .eq('owner_telegram_id', ownerTelegramId);
+    .eq('owner_user_id', ownerUserId);
   if (error) throw error;
   return ((data ?? []) as StoreRow[]).map(mapStore);
 }
@@ -92,27 +93,9 @@ export async function createStore(input: CreateStoreInput): Promise<Store> {
   return mapStore(row);
 }
 
-export async function checkOwnership(storeId: string, telegramId: string): Promise<boolean> {
+export async function checkOwnershipByUser(storeId: string, userId: string): Promise<boolean> {
   const store = await fetchStore(storeId);
-  return store?.ownerTelegramId === telegramId;
-}
-
-/** Порт storeApi.checkStoreOwnership/verifyStore: чей магазин / существует ли витрина */
-export async function checkStoreOwnership(telegramId: string): Promise<string | null> {
-  if (!telegramId) return null;
-  const { data, error } = await insforge.database
-    .from('stores')
-    .select('id')
-    .eq('owner_telegram_id', telegramId)
-    .maybeSingle();
-  if (error || !data) return null;
-  return (data as { id: string }).id;
-}
-
-export async function verifyStore(id: string): Promise<boolean> {
-  if (!id) return false;
-  const { data, error } = await insforge.database.from('stores').select('id').eq('id', id).maybeSingle();
-  return !!(data && !error);
+  return store?.ownerUserId === userId;
 }
 
 export interface StoreProfilePatch {

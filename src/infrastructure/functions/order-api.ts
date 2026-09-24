@@ -1,22 +1,22 @@
-import { insforge } from '../insforge/client';
+import { invokeFunction } from '../insforge/functions-gateway';
 import type { DeliveryOutcome, OrderStatus, RefusalReasonCode } from '../../domain/models/order';
-
-type InvokeOptions = { body?: unknown; headers?: Record<string, string> };
 
 export type OrderActor = 'buyer' | 'seller';
 
+interface OrderActionResponse {
+  success?: boolean;
+  result?: unknown;
+  error?: string;
+}
+
 async function callOrderAction(sessionToken: string, body: Record<string, unknown>): Promise<unknown> {
-  const { data, error } = await (insforge.functions.invoke as unknown as (
-    name: string,
-    options?: InvokeOptions,
-  ) => Promise<{ data: unknown; error: unknown }>)('order-actions', {
+  const { data, error } = await invokeFunction<OrderActionResponse>('order-actions', {
     body,
-    headers: { Authorization: `Bearer ${sessionToken}` },
+    token: sessionToken,
   });
-  if (error) throw error;
-  const res = data as { success?: boolean; result?: unknown; error?: string } | null;
-  if (!res?.success) throw new Error(res?.error ?? 'Order action failed');
-  return res.result;
+  if (error) throw new Error(error.message);
+  if (!data?.success) throw new Error(data?.error ?? 'Order action failed');
+  return data.result;
 }
 
 export function cancelOrder(

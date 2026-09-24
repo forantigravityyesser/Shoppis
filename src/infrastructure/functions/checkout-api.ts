@@ -1,4 +1,4 @@
-import { insforge } from '../insforge/client';
+import { invokeFunction } from '../insforge/functions-gateway';
 import type { CartItem } from '../../domain/models/cart';
 import type { RecipientInfo } from '../../domain/models/customer';
 
@@ -17,7 +17,14 @@ export interface CheckoutResult {
   currencyCode: string;
 }
 
-type InvokeOptions = { body?: unknown; headers?: Record<string, string> };
+interface CheckoutResponse {
+  success?: boolean;
+  orderId?: string;
+  orderNumber?: string;
+  totalMinor?: number;
+  currencyCode?: string;
+  error?: string;
+}
 
 /**
  * Оформление заказа через edge-функцию process-checkout.
@@ -31,10 +38,7 @@ export async function invokeCheckout(payload: CheckoutPayload): Promise<Checkout
     .map((i) => ({ variantId: i.productVariantId ?? '', quantity: i.quantity }))
     .filter((i) => i.variantId);
 
-  const { data, error } = await (insforge.functions.invoke as unknown as (
-    name: string,
-    options?: InvokeOptions,
-  ) => Promise<{ data: unknown; error: unknown }>)('process-checkout', {
+  const { data, error } = await invokeFunction<CheckoutResponse>('process-checkout', {
     body: {
       storeId: payload.storeId,
       idempotencyKey,
@@ -45,25 +49,17 @@ export async function invokeCheckout(payload: CheckoutPayload): Promise<Checkout
         address: payload.recipientInfo.address,
       },
     },
-    headers: { Authorization: `Bearer ${payload.sessionToken}` },
+    token: payload.sessionToken,
   });
-  if (error) throw error;
+  if (error) throw new Error(error.message);
 
-  const res = data as {
-    success?: boolean;
-    orderId?: string;
-    orderNumber?: string;
-    totalMinor?: number;
-    currencyCode?: string;
-    error?: string;
-  } | null;
-  if (!res?.success || !res.orderId) {
-    throw new Error(res?.error ?? 'Checkout failed');
+  if (!data?.success || !data.orderId) {
+    throw new Error(data?.error ?? 'Checkout failed');
   }
   return {
-    orderId: res.orderId,
-    orderNumber: res.orderNumber ?? '',
-    totalMinor: Number(res.totalMinor ?? 0),
-    currencyCode: res.currencyCode ?? '',
+    orderId: data.orderId,
+    orderNumber: data.orderNumber ?? '',
+    totalMinor: Number(data.totalMinor ?? 0),
+    currencyCode: data.currencyCode ?? '',
   };
 }

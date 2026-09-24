@@ -1,4 +1,4 @@
-import { insforge } from '../insforge/client';
+import { invokeFunction } from '../insforge/functions-gateway';
 import type { Store } from '../../domain/models/store';
 
 export interface CreateShopPayload {
@@ -8,22 +8,22 @@ export interface CreateShopPayload {
   bannerUrl?: string;
 }
 
-type InvokeOptions = { body?: unknown; headers?: Record<string, string> };
+interface CreateShopResponse {
+  success?: boolean;
+  store?: Store;
+  error?: string;
+}
 
 /**
  * Создание магазина через edge-функцию shop-create.
  * owner_user_id проставляет сервер по валидной сессии; клиентский telegram id не передаётся.
  */
 export async function createShopViaApi(token: string, payload: CreateShopPayload): Promise<Store> {
-  const { data, error } = await (insforge.functions.invoke as unknown as (
-    name: string,
-    options?: InvokeOptions,
-  ) => Promise<{ data: unknown; error: unknown }>)('shop-create', {
+  const { data, error } = await invokeFunction<CreateShopResponse>('shop-create', {
     body: payload,
-    headers: { Authorization: `Bearer ${token}` },
+    token,
   });
-  if (error) throw error;
-  const res = data as { success?: boolean; store?: Store; error?: string } | null;
-  if (!res?.success || !res.store) throw new Error(res?.error ?? 'Store creation failed');
-  return res.store;
+  if (error) throw new Error(error.message);
+  if (!data?.success || !data.store) throw new Error(data?.error ?? 'Store creation failed');
+  return data.store;
 }

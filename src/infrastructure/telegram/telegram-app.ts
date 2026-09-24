@@ -105,16 +105,6 @@ export function getTelegramUser(): TelegramUser | null {
     // ignore
   }
 
-  // Fallback for local development outside Telegram
-  if (import.meta.env && import.meta.env.DEV) {
-    return {
-      id: 'mock_12345',
-      username: 'mock_user',
-      firstName: 'Mock Dev User',
-      languageCode: 'ru',
-    };
-  }
-
   return null;
 }
 
