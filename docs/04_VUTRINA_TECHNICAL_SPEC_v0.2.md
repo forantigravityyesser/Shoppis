@@ -32,6 +32,8 @@ Critical mutations go through backend/domain functions:
 
 Simple reads may use InsForge APIs under RLS.
 
+Edge functions access the database and run server-side logic through the official InsForge SDK (`npm:@insforge/sdk`): `client.database.from(...)` for CRUD and `client.database.rpc(...)` for stored functions. Raw REST calls are not used. The SDK provides typed access, consistent error handling and a single call convention, which improves reliability and keeps edge functions small and predictable. Multi-step critical mutations are implemented as PL/pgSQL functions and invoked via `rpc()` so they run atomically.
+
 ## 4. Order creation
 1. authenticate buyer;
 2. verify shop ACTIVE;

@@ -278,10 +278,11 @@
   color: var(--color-text-on-accent);
 }
 
-.status-badge.pending { background: var(--color-stats-pending); color: var(--color-text-primary); }
-.status-badge.shipped { background: var(--color-stats-shipped); color: var(--color-text-primary); }
-.status-badge.delivered { background: var(--color-stats-delivered); color: var(--color-text-primary); }
-.status-badge.cancelled { background: var(--color-stats-cancelled); color: var(--color-text-primary); }
+.status-badge.NEW { background: var(--color-stats-new); color: var(--color-text-primary); }
+.status-badge.IN_TRANSIT { background: var(--color-stats-in-transit); color: var(--color-text-primary); }
+.status-badge.DELIVERED { background: var(--color-stats-delivered); color: var(--color-text-primary); }
+.status-badge.REFUSED { background: var(--color-stats-refused); color: var(--color-text-primary); }
+.status-badge.CANCELLED { background: var(--color-stats-cancelled); color: var(--color-text-primary); }
 
 /* ---- BottomSheet ---- */
 .bottom-sheet .handle {

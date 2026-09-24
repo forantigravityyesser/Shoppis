@@ -1,257 +1,361 @@
-import { calcSalePrice } from '../../domain/rules/product-rules';
-import type {
-  Product,
-  ProductCharacteristic,
-  ProductVariant,
-} from '../../domain/models/product';
 import { insforge } from '../insforge/client';
+import type {
+  Inventory,
+  Product,
+  ProductAttribute,
+  ProductImage,
+  ProductLinkAttribute,
+  ProductStatus,
+  Variant,
+  VariantPriceMode,
+  VariantStatus,
+} from '../../domain/models/product';
 
-interface ProductVariantRow {
+interface ProductImageRow {
   id: string;
   product_id: string;
-  size: string;
-  stock_quantity: number;
+  storage_key: string;
+  sort_order: number;
 }
 
-interface ProductCharacteristicRow {
+interface ProductAttributeRow {
   id: string;
   product_id: string;
-  label: string;
+  name: string;
   value: string;
+  sort_order: number;
+}
+
+interface ProductLinkAttributeRow {
+  id: string;
+  product_id: string;
+  name: string;
+  value: string;
+  sort_order: number;
+}
+
+interface InventoryRow {
+  variant_id: string;
+  available_quantity: number;
+  held_quantity: number;
+}
+
+interface VariantRow {
+  id: string;
+  product_id: string;
+  name: string;
+  value: string;
+  sort_order: number;
+  status: VariantStatus;
+  price_mode: VariantPriceMode;
+  custom_original_amount_minor: number | null;
+  custom_discount_percent: number | null;
+  inventory?: InventoryRow | InventoryRow[] | null;
 }
 
 interface ProductRow {
   id: string;
   store_id: string;
+  product_group_id: string | null;
+  category_id: string | null;
   title: string;
   description: string;
-  price: number;
-  old_price: number | null;
-  category_id: string | null;
-  image_url: string;
-  image_urls: string[];
+  status: ProductStatus;
+  sort_order: number;
+  original_amount_minor: number;
+  discount_percent: number;
   created_at: string;
-  product_variants?: ProductVariantRow[];
-  product_characteristics?: ProductCharacteristicRow[];
+  updated_at: string;
+  product_images?: ProductImageRow[];
+  product_attributes?: ProductAttributeRow[];
+  product_link_attributes?: ProductLinkAttributeRow[];
+  variants?: VariantRow[];
 }
 
 export interface ProductCatalog {
   products: Product[];
-  variants: ProductVariant[];
-  characteristics: ProductCharacteristic[];
+  variants: Variant[];
+  inventories: Inventory[];
+  images: ProductImage[];
+  attributes: ProductAttribute[];
+  linkAttributes: ProductLinkAttribute[];
 }
 
-function mapVariant(row: ProductVariantRow): ProductVariant {
+function mapInventory(row: InventoryRow): Inventory {
   return {
-    id: row.id,
-    productId: row.product_id,
-    size: row.size,
-    stockQuantity: row.stock_quantity,
+    variantId: row.variant_id,
+    availableQuantity: row.available_quantity,
+    heldQuantity: row.held_quantity,
   };
 }
 
-function mapCharacteristic(row: ProductCharacteristicRow): ProductCharacteristic {
+function mapVariant(row: VariantRow): Variant {
   return {
     id: row.id,
     productId: row.product_id,
-    label: row.label,
+    name: row.name,
     value: row.value,
+    sortOrder: row.sort_order,
+    status: row.status,
+    priceMode: row.price_mode,
+    customOriginalAmountMinor: row.custom_original_amount_minor ?? null,
+    customDiscountPercent: row.custom_discount_percent ?? null,
   };
-}
-
-function deriveDiscountPercent(price: number, oldPrice: number | null): number {
-  // TODO (этап карточек товара): миграция БД — колонка products.discount_percent,
-  // чтобы % хранился явно для редактирования. Сейчас выводится из price/old_price,
-  // т.к. колонки в схеме пока нет.
-  if (!oldPrice || oldPrice <= 0) return 0;
-  return ((oldPrice - price) / oldPrice) * 100;
 }
 
 function mapProduct(row: ProductRow): Product {
   return {
     id: row.id,
     storeId: row.store_id,
+    productGroupId: row.product_group_id ?? null,
+    categoryId: row.category_id ?? null,
     title: row.title,
     description: row.description ?? '',
-    price: Number(row.price),
-    oldPrice: row.old_price == null ? null : Number(row.old_price),
-    discountPercent: deriveDiscountPercent(Number(row.price), row.old_price == null ? null : Number(row.old_price)),
-    categoryId: row.category_id,
-    imageUrl: row.image_url ?? '',
-    imageUrls: row.image_urls ?? [],
+    status: row.status,
+    sortOrder: row.sort_order ?? 0,
+    originalAmountMinor: Number(row.original_amount_minor ?? 0),
+    discountPercent: row.discount_percent ?? 0,
     createdAt: row.created_at,
+    updatedAt: row.updated_at,
   };
+}
+
+function pickInventory(row: VariantRow): InventoryRow | null {
+  const inv = row.inventory;
+  if (!inv) return null;
+  return Array.isArray(inv) ? (inv[0] ?? null) : inv;
 }
 
 function splitCatalog(rows: ProductRow[]): ProductCatalog {
   const products: Product[] = [];
-  const variants: ProductVariant[] = [];
-  const characteristics: ProductCharacteristic[] = [];
+  const variants: Variant[] = [];
+  const inventories: Inventory[] = [];
+  const images: ProductImage[] = [];
+  const attributes: ProductAttribute[] = [];
+  const linkAttributes: ProductLinkAttribute[] = [];
+
   for (const row of rows) {
     products.push(mapProduct(row));
-    for (const v of row.product_variants ?? []) variants.push(mapVariant(v));
-    for (const c of row.product_characteristics ?? []) characteristics.push(mapCharacteristic(c));
+    for (const i of row.product_images ?? []) {
+      images.push({ id: i.id, productId: i.product_id, storageKey: i.storage_key, sortOrder: i.sort_order });
+    }
+    for (const a of row.product_attributes ?? []) {
+      attributes.push({ id: a.id, productId: a.product_id, name: a.name, value: a.value, sortOrder: a.sort_order });
+    }
+    for (const l of row.product_link_attributes ?? []) {
+      linkAttributes.push({ id: l.id, productId: l.product_id, name: l.name, value: l.value, sortOrder: l.sort_order });
+    }
+    for (const v of row.variants ?? []) {
+      variants.push(mapVariant(v));
+      const inv = pickInventory(v);
+      if (inv) inventories.push(mapInventory(inv));
+    }
   }
-  return { products, variants, characteristics };
+
+  return { products, variants, inventories, images, attributes, linkAttributes };
 }
 
-/** Весь каталог витрины одним запросом */
+/** Весь каталог витрины одним запросом (без N+1). */
 export async function fetchCatalog(storeId: string): Promise<ProductCatalog> {
   const { data, error } = await insforge.database
     .from('products')
-    .select('*, product_variants(*), product_characteristics(*)')
+    .select('*, product_images(*), product_attributes(*), product_link_attributes(*), variants(*, inventory(*))')
     .eq('store_id', storeId);
   if (error) throw error;
   return splitCatalog((data ?? []) as ProductRow[]);
+}
+
+export interface NewVariantInput {
+  name: string;
+  value: string;
+  availableQuantity: number;
+  priceMode?: VariantPriceMode;
+  customOriginalAmountMinor?: number | null;
+  customDiscountPercent?: number | null;
 }
 
 export interface NewProductInput {
   storeId: string;
   title: string;
   description: string;
-  /** Изначальная цена (истина) — ляжет в old_price */
-  originalPrice: number;
-  /** % скидки — цена продажи считается через calcSalePrice, без округлений */
+  originalAmountMinor: number;
   discountPercent: number;
   categoryId: string | null;
-  imageUrls: string[];
-  variants: Array<{ size: string; stockQuantity: number }>;
-  characteristics: Array<{ label: string; value: string }>;
+  images: string[];
+  variants: NewVariantInput[];
+  attributes: Array<{ name: string; value: string }>;
+  linkAttributes: Array<{ name: string; value: string }>;
+}
+
+function normalize(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+async function insertVariants(productId: string, variants: NewVariantInput[]): Promise<void> {
+  if (!variants.length) return;
+  const { data: variantRows, error } = await insforge.database
+    .from('variants')
+    .insert(
+      variants.map((v, index) => ({
+        product_id: productId,
+        name: v.name,
+        value: v.value,
+        normalized_value: normalize(v.value),
+        sort_order: index,
+        price_mode: v.priceMode ?? 'USE_PRODUCT_PRICE',
+        custom_original_amount_minor: v.customOriginalAmountMinor ?? null,
+        custom_discount_percent: v.customDiscountPercent ?? null,
+      })),
+    )
+    .select();
+  if (error) throw error;
+
+  const inventoryRows = ((variantRows ?? []) as Array<{ id: string }>).map((row, index) => ({
+    variant_id: row.id,
+    available_quantity: variants[index]?.availableQuantity ?? 0,
+    held_quantity: 0,
+  }));
+  if (inventoryRows.length) {
+    const { error: invError } = await insforge.database.from('inventory').insert(inventoryRows);
+    if (invError) throw invError;
+  }
 }
 
 export async function addProduct(input: NewProductInput): Promise<Product> {
-  const salePrice = calcSalePrice(input.originalPrice, input.discountPercent);
   const { data, error } = await insforge.database
     .from('products')
     .insert({
       store_id: input.storeId,
       title: input.title,
       description: input.description,
-      price: salePrice,
-      old_price: input.originalPrice,
       category_id: input.categoryId,
-      image_url: input.imageUrls[0] ?? '',
-      image_urls: input.imageUrls,
+      original_amount_minor: input.originalAmountMinor,
+      discount_percent: input.discountPercent,
+      status: 'ACTIVE',
     })
     .select();
   if (error) throw error;
   const row = (data ?? [])[0] as ProductRow | undefined;
   if (!row) throw new Error('Product insert returned no data');
 
-  if (input.variants.length) {
-    const { error: vError } = await insforge.database.from('product_variants').insert(
-      input.variants.map((v) => ({
+  if (input.images.length) {
+    const { error: imgError } = await insforge.database.from('product_images').insert(
+      input.images.map((storageKey, index) => ({
         product_id: row.id,
-        size: v.size,
-        stock_quantity: v.stockQuantity,
+        storage_key: storageKey,
+        sort_order: index,
       })),
     );
-    if (vError) throw vError;
+    if (imgError) throw imgError;
   }
-  if (input.characteristics.length) {
-    const { error: cError } = await insforge.database.from('product_characteristics').insert(
-      input.characteristics.map((c) => ({
+  if (input.attributes.length) {
+    const { error: attrError } = await insforge.database.from('product_attributes').insert(
+      input.attributes.map((a, index) => ({
         product_id: row.id,
-        label: c.label,
-        value: c.value,
+        name: a.name,
+        value: a.value,
+        sort_order: index,
       })),
     );
-    if (cError) throw cError;
+    if (attrError) throw attrError;
   }
+  if (input.linkAttributes.length) {
+    const { error: linkError } = await insforge.database.from('product_link_attributes').insert(
+      input.linkAttributes.map((l, index) => ({
+        product_id: row.id,
+        name: l.name,
+        value: l.value,
+        sort_order: index,
+      })),
+    );
+    if (linkError) throw linkError;
+  }
+  await insertVariants(row.id, input.variants);
+
   return mapProduct(row);
 }
 
 export interface UpdateProductPatch {
   title?: string;
   description?: string;
-  originalPrice?: number;
+  status?: ProductStatus;
+  originalAmountMinor?: number;
   discountPercent?: number;
   categoryId?: string | null;
-  imageUrls?: string[];
-  variants?: Array<{ size: string; stockQuantity: number }>;
-  characteristics?: Array<{ label: string; value: string }>;
+  images?: string[];
+  variants?: NewVariantInput[];
+  attributes?: Array<{ name: string; value: string }>;
+  linkAttributes?: Array<{ name: string; value: string }>;
 }
 
-export async function updateProduct(id: string, patch: UpdateProductPatch): Promise<Product> {
-  const { data: currentData, error: currentError } = await insforge.database
-    .from('products')
-    .select('*')
-    .eq('id', id)
-    .maybeSingle();
-  if (currentError) throw currentError;
-  const current = currentData as ProductRow | null;
-  if (!current) throw new Error('Product not found');
-
-  const values: Record<string, unknown> = {};
+export async function updateProduct(id: string, patch: UpdateProductPatch): Promise<void> {
+  const values: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (patch.title !== undefined) values.title = patch.title;
   if (patch.description !== undefined) values.description = patch.description;
+  if (patch.status !== undefined) values.status = patch.status;
   if (patch.categoryId !== undefined) values.category_id = patch.categoryId;
-  if (patch.imageUrls !== undefined) {
-    values.image_urls = patch.imageUrls;
-    values.image_url = patch.imageUrls[0] ?? '';
-  }
-  if (patch.originalPrice !== undefined || patch.discountPercent !== undefined) {
-    const original = patch.originalPrice ?? Number(current.old_price ?? current.price);
-    const discount =
-      patch.discountPercent ?? deriveDiscountPercent(Number(current.price), Number(current.old_price));
-    values.old_price = original;
-    values.price = calcSalePrice(original, discount);
-  }
+  if (patch.originalAmountMinor !== undefined) values.original_amount_minor = patch.originalAmountMinor;
+  if (patch.discountPercent !== undefined) values.discount_percent = patch.discountPercent;
 
-  if (Object.keys(values).length) {
-    const { error } = await insforge.database.from('products').update(values).eq('id', id);
-    if (error) throw error;
-  }
-  if (patch.variants !== undefined) {
-    const { error: delError } = await insforge.database
-      .from('product_variants')
-      .delete()
-      .eq('product_id', id);
+  const { error } = await insforge.database.from('products').update(values).eq('id', id);
+  if (error) throw error;
+
+  if (patch.images !== undefined) {
+    const { error: delError } = await insforge.database.from('product_images').delete().eq('product_id', id);
     if (delError) throw delError;
-    if (patch.variants.length) {
-      const { error: insError } = await insforge.database.from('product_variants').insert(
-        patch.variants.map((v) => ({
-          product_id: id,
-          size: v.size,
-          stock_quantity: v.stockQuantity,
-        })),
+    if (patch.images.length) {
+      const { error: insError } = await insforge.database.from('product_images').insert(
+        patch.images.map((storageKey, index) => ({ product_id: id, storage_key: storageKey, sort_order: index })),
       );
       if (insError) throw insError;
     }
   }
-  if (patch.characteristics !== undefined) {
-    const { error: delError } = await insforge.database
-      .from('product_characteristics')
-      .delete()
-      .eq('product_id', id);
+  if (patch.attributes !== undefined) {
+    const { error: delError } = await insforge.database.from('product_attributes').delete().eq('product_id', id);
     if (delError) throw delError;
-    if (patch.characteristics.length) {
-      const { error: insError } = await insforge.database
-        .from('product_characteristics')
-        .insert(
-          patch.characteristics.map((c) => ({
-            product_id: id,
-            label: c.label,
-            value: c.value,
-          })),
-        );
+    if (patch.attributes.length) {
+      const { error: insError } = await insforge.database.from('product_attributes').insert(
+        patch.attributes.map((a, index) => ({ product_id: id, name: a.name, value: a.value, sort_order: index })),
+      );
       if (insError) throw insError;
     }
   }
-
-  const { data, error } = await insforge.database
-    .from('products')
-    .select('*, product_variants(*), product_characteristics(*)')
-    .eq('id', id)
-    .maybeSingle();
-  if (error) throw error;
-  const row = data as ProductRow | null;
-  if (!row) throw new Error('Product not found after update');
-  return mapProduct(row);
+  if (patch.linkAttributes !== undefined) {
+    const { error: delError } = await insforge.database
+      .from('product_link_attributes')
+      .delete()
+      .eq('product_id', id);
+    if (delError) throw delError;
+    if (patch.linkAttributes.length) {
+      const { error: insError } = await insforge.database.from('product_link_attributes').insert(
+        patch.linkAttributes.map((l, index) => ({ product_id: id, name: l.name, value: l.value, sort_order: index })),
+      );
+      if (insError) throw insError;
+    }
+  }
+  if (patch.variants !== undefined) {
+    const { error: delError } = await insforge.database.from('variants').delete().eq('product_id', id);
+    if (delError) throw delError;
+    await insertVariants(id, patch.variants);
+  }
 }
 
-/** Варианты/характеристики удаляются каскадом (FK ON DELETE CASCADE) */
-export async function removeProduct(id: string): Promise<void> {
-  const { error } = await insforge.database.from('products').delete().eq('id', id);
+/** Архив-first: товар помечается ARCHIVED, остаётся в истории заказов. 03 §27 */
+export async function setProductStatus(id: string, status: ProductStatus): Promise<void> {
+  const { error } = await insforge.database
+    .from('products')
+    .update({ status, archived_at: status === 'ARCHIVED' ? new Date().toISOString() : null })
+    .eq('id', id);
   if (error) throw error;
+}
+
+/** Постоянное удаление — только для товара из архива. 03 §27 */
+export async function deleteProduct(id: string): Promise<void> {
+  const { data, error } = await insforge.database.from('products').select('status').eq('id', id).maybeSingle();
+  if (error) throw error;
+  if ((data as { status?: ProductStatus } | null)?.status !== 'ARCHIVED') {
+    throw new Error('Товар можно удалить только из архива');
+  }
+  const { error: delError } = await insforge.database.from('products').delete().eq('id', id);
+  if (delError) throw delError;
 }

@@ -29,7 +29,6 @@ export const useStore = create<RootStore>()(
       partialize: (s) => ({
         cartByStore: s.cartByStore,
         favoritesByStore: s.favoritesByStore,
-        role: s.role,
         storeId: s.storeId,
         userSettings: s.userSettings,
         defaultRecipient: s.defaultRecipient,

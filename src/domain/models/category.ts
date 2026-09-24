@@ -1,7 +1,10 @@
+export type CategoryStatus = 'ACTIVE' | 'ARCHIVED';
+
 export interface Category {
   id: string;
   storeId: string;
   name: string;
-  orderIndex: number;
+  sortOrder: number;
+  status: CategoryStatus;
   createdAt: string;
 }

@@ -11,7 +11,7 @@ export function calcSubtotal(items: CartItem[]): number {
   return activeItems(items).reduce((sum, i) => sum + i.price * i.quantity, 0);
 }
 
-/** Промокодов нет: итог равен subtotal */
+/** Итог равен сумме выбранных товаров */
 export function calcTotal(items: CartItem[]): number {
   return calcSubtotal(items);
 }

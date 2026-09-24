@@ -3,7 +3,7 @@ import type { Category } from '../../../domain/models/category';
 import {
   addCategory as addCategoryRepo,
   fetchCategories as fetchCategoriesRepo,
-  removeCategory as removeCategoryRepo,
+  setCategoryStatus as setCategoryStatusRepo,
 } from '../../../infrastructure/repositories/category-repository';
 import type { RootStore } from '../index';
 
@@ -13,7 +13,7 @@ export interface CategorySlice {
   categoriesError: string | null;
   fetchCategories: (storeId: string) => Promise<void>;
   addCategory: (name: string) => Promise<Category>;
-  removeCategory: (id: string) => Promise<void>;
+  archiveCategory: (id: string) => Promise<void>;
 }
 
 export const createCategorySlice: StateCreator<RootStore, [], [], CategorySlice> = (set, get) => ({
@@ -39,8 +39,8 @@ export const createCategorySlice: StateCreator<RootStore, [], [], CategorySlice>
     return category;
   },
 
-  removeCategory: async (id: string) => {
-    await removeCategoryRepo(id);
+  archiveCategory: async (id: string) => {
+    await setCategoryStatusRepo(id, 'ARCHIVED');
     set((s) => ({ categories: s.categories.filter((c) => c.id !== id) }));
   },
 });

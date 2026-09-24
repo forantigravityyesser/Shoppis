@@ -47,8 +47,6 @@ export const templates = {
     `📦 <b>Статус заказа изменился</b>\n\nНомер: <code>${String(orderId).slice(0, 8)}</code>\nНовый статус: <b>${statusRu}</b>`,
   newOrderForSeller: (orderId, total, symbol = '') =>
     `🔔 <b>Новый заказ!</b>\n\nНомер: <code>${String(orderId).slice(0, 8)}</code>\nСумма: <b>${total} ${symbol}</b>\n\nОткройте панель продавца для обработки.`,
-  promo: (storeName, code, discount) =>
-    `🎁 <b>${storeName}</b>: акция!\n\nПромокод <code>${code}</code> — скидка ${discount}%`,
 };
 
 export default {

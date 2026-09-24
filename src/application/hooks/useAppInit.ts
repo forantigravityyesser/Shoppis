@@ -1,36 +1,28 @@
 import { useEffect } from 'react';
 import { useStore } from '../store';
-import { getStartParam, getTelegramUser } from '../../infrastructure/telegram/telegram-app';
-import type { UserRole } from '../../domain/constants/roles';
+import { getRawInitData, getStartParam, getTelegramUser } from '../../infrastructure/telegram/telegram-app';
+import { authenticateTelegram } from '../../infrastructure/functions/auth-api';
+import type { AppContext } from '../../domain/constants/app-context';
 
 /**
- * Авторизация для схемы из двух отдельных ботов (продавец / покупатель).
- * 
- * ГЛАВНОЕ ИСПРАВЛЕНИЕ: user получается ПЕРЕД createStore/checkStoreOwnership,
- * поэтому ошибка "not telegram user" больше не возникает.
- * 
- * Порядок (исправленный):
- * 1. initApp() — SDK инициализация
- * 2. **user = getTelegramUser()** — фиксируем ID сразу, до любых async- проверок
- * 3. Определяем роль по start_param (два бota: seller и buyer по ссылке)
- * 4. setUser + fetchUserProfile — теперь user гарантированно заполнен
- * 5. setRole / setStoreId
- * 6. setIsAppInitializing(false)
- * 
- * После этого createStore в auth-slice получит user уже существующим,
- * и throw new Error('No Telegram user') не сработает.
+ * Инициализация входа: Telegram WebApp, получение User, определение контекста
+ * (панель продавца / витрина) по start_param, загрузка магазина продавца.
+ *
+ * Контекст — это не роль пользователя: один User может владеть магазином и
+ * покупать в других витринах. 01 §5
  */
 export function useAppInit(): void {
   useEffect(() => {
     const initAppFlow = async () => {
-      const setRole = useStore.getState().setRole;
+      const setContext = useStore.getState().setContext;
       const setStoreId = useStore.getState().setStoreId;
       const setUser = useStore.getState().setUser;
+      const setSession = useStore.getState().setSession;
       const fetchUserProfile = useStore.getState().fetchUserProfile;
       const setIsAppInitializing = useStore.getState().setIsAppInitializing;
 
       try {
-        // --- 1. Telegram WebApp допавечки (как было) ---
+        // --- 1. Telegram WebApp допавечки ---
         try {
           const tg = (window as unknown as { Telegram?: { WebApp?: any } }).Telegram?.WebApp;
           if (tg) {
@@ -45,59 +37,65 @@ export function useAppInit(): void {
           // вне Telegram — пропускаем
         }
 
-        // --- 2. ГЛАВНОЕ: получаем user ПЕРЕД БД ---
+        // --- 2. Получаем user ПЕРЕД БД ---
         const user = getTelegramUser();
         const tid = user?.id ?? '';
 
-        // --- 3. Определяем роль по start_param (два бota) ---
-        let finalRole = 'buyer';
+        // --- 3. Контекст входа по start_param (два бота) ---
+        let finalContext: AppContext = 'buyer';
         let finalStoreId: string | null = null;
 
         if (tid) {
-          // Пользователь известен — определяем роль
           const startParam = getStartParam();
 
           if (startParam === 'seller') {
             // --- БОТ ПРОДАВЦА: любой пользователь может создать магазин ---
-            finalRole = 'seller';
+            finalContext = 'seller';
             // storeId оставим null → App покажет SellerOnboardingView
           } else if (startParam && startParam.startsWith('store_')) {
             // --- БОТ ПОКУПАТЕЛЯ по ссылке ---
-            finalRole = 'buyer';
+            finalContext = 'buyer';
             finalStoreId = startParam.slice(6);
             localStorage.setItem('last_visited_store_id', finalStoreId);
           } else {
             // Вход без параметра: проверяем, был ли last visited store
             const lastId = localStorage.getItem('last_visited_store_id');
             if (lastId) {
-              finalRole = 'buyer';
+              finalContext = 'buyer';
               finalStoreId = lastId;
-            } else {
-              // Первый вход buyer без магазина → покажем каталог/приветство
-              finalRole = 'buyer';
             }
           }
         } else {
           // tid undefined — fallback: продавец, чтобы onboarding показался
-          finalRole = 'seller';
+          finalContext = 'seller';
         }
 
-        // --- 4. Теперь безопасно ставим user + profile (ошибки "not user" уже не будет) ---
+        // --- 4. Теперь безопасно ставим user + profile ---
         if (user) {
           setUser(user);
           await fetchUserProfile();
         }
 
-        // --- 5. Применяем роль и storeId ---
-        setRole(finalRole as UserRole);
+        // --- 4.5 Серверная валидация Telegram identity (initData → сессия) ---
+        const rawInitData = getRawInitData();
+        if (rawInitData) {
+          try {
+            const session = await authenticateTelegram(rawInitData);
+            setSession(session.token, session.user);
+          } catch (e) {
+            console.warn('[appInit] telegram-auth failed:', e);
+          }
+        }
+
+        // --- 5. Применяем контекст и storeId ---
+        setContext(finalContext);
         setStoreId(finalStoreId);
 
-        // Если это продавец, пробуем загрузить его существующий магазин
-        if (finalRole === 'seller' && user) {
+        // Если контекст продавца — пробуем загрузить его существующий магазин
+        if (finalContext === 'seller' && user) {
           const loadSellerStore = useStore.getState().loadSellerStore;
           await loadSellerStore();
         }
-
       } catch (e) {
         console.warn('[appInit] failed, fallback to seller onboarding:', e);
       } finally {

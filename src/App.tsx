@@ -1,14 +1,12 @@
 import { useStore } from './application/store';
 import { useAppInit } from './application/hooks/useAppInit';
-import { useCustomerSync } from './application/hooks/useCustomerSync';
 import AppRouter from './router';
 
-/** Точка входа: init/resolve auth → customer sync → роутер buyer/seller */
+/** Точка входа: init/resolve auth → роутер buyer/seller */
 export default function App() {
   const isAppInitializing = useStore((s) => s.isAppInitializing);
 
   useAppInit();
-  useCustomerSync();
 
   if (isAppInitializing) {
     return (

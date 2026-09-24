@@ -40,7 +40,9 @@ Product has zero or one category.
 Product has zero or one `product_group_id`. All members must share the same shop.
 
 ## 6. Product
-`id, shop_id, product_group_id nullable, category_id nullable, title, description, status ACTIVE/ARCHIVED, sort_order, created_at, updated_at, archived_at, deleted_at`.
+`id, shop_id, product_group_id nullable, category_id nullable, title, description, status ACTIVE/ARCHIVED, sort_order, original_amount_minor, discount_percent, created_at, updated_at, archived_at, deleted_at`.
+
+Product stores the seller's original price (`original_amount_minor`, integer minor units) and `discount_percent` (0..100). Current price is derived server-side (`10. Money`). A variant may override pricing via `price_mode = CUSTOM_PRICE` (`9. Variant`).
 
 ## 7. ProductImage
 `id, product_id, storage_key, sort_order, width, height, mime_type, file_size_bytes, created_at`.
@@ -104,8 +106,6 @@ Foreign keys are historical references only; snapshots are the display source of
 
 ## 15. OrderStatusHistory
 `id, order_id, from_status, to_status, actor_type, actor_user_id, reason_code nullable, created_at, metadata`.
-
-Every transition is recorded.
 
 Every transition is recorded.
 

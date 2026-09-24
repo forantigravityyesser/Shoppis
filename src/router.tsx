@@ -20,10 +20,10 @@ const SellerOnboardingView = lazy(() => import('./presentation/seller/views/Sell
 
 /** Порт router.jsx: ветки buyer/seller с гардами по storeId */
 export default function AppRouter() {
-  const role = useStore((s) => s.role);
+  const context = useStore((s) => s.context);
   const storeId = useStore((s) => s.storeId);
 
-  if (role === 'seller') {
+  if (context === 'seller') {
     return (
       <Routes>
         <Route element={<SellerLayout />}>

@@ -8,8 +8,6 @@
 3. `03_VUTRINA_DOMAIN_DATABASE_SPEC_v0.2.md` — сущности, БД, состояния, инварианты, транзакции и RLS.
 4. `04_VUTRINA_TECHNICAL_SPEC_v0.2.md` — React/Vite, InsForge, Telegram, auth, storage, security.
 5. `05_VUTRINA_CODEX_IMPLEMENTATION_PLAN_v0.2.md` — маленькие независимые engineering tasks.
-6. `06_VUTRINA_GLOBAL_DEVELOPMENT_ROADMAP_v0.1.md` — глобальные этапы разработки 0–15 и точки готовности Gate A–E.
-7. `07_VUTRINA_STAGE_EXECUTION_PLAN_v0.2.md` — конкретные задачи текущего этапа, ход и решения (рабочий документ).
 
 ## Принцип двух сред проверки
 Telegram — не финальная интеграция, а целевая среда исполнения и проверки с первых этапов. Каждый глобальный этап имеет два состояния: `LOCAL VERIFIED` (браузер / локальный контур) и `TELEGRAM VERIFIED` (реальный Telegram Mini App на development-окружении). Этап не закрывается без обоих.
@@ -19,8 +17,6 @@ Telegram — не финальная интеграция, а целевая с�
 - Схема данных → Domain & Database Spec.
 - Инфраструктура → Technical Spec.
 - Принцип/граница → Constitution.
-- Порядок глобальных этапов → Global Development Roadmap.
-- Состав и статус задач текущего этапа → Stage Execution Plan.
 - Конкретная реализация → код.
 
 ## Domain foundation

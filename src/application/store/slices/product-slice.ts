@@ -1,14 +1,18 @@
 import type { StateCreator } from 'zustand';
 import { validateProduct } from '../../../domain/rules/product-rules';
 import type {
+  Inventory,
   Product,
-  ProductCharacteristic,
-  ProductVariant,
+  ProductAttribute,
+  ProductImage,
+  ProductLinkAttribute,
+  Variant,
 } from '../../../domain/models/product';
 import {
   addProduct as addProductRepo,
+  deleteProduct as deleteProductRepo,
   fetchCatalog as fetchCatalogRepo,
-  removeProduct as removeProductRepo,
+  setProductStatus as setProductStatusRepo,
   updateProduct as updateProductRepo,
   type NewProductInput,
   type UpdateProductPatch,
@@ -17,20 +21,28 @@ import type { RootStore } from '../index';
 
 export interface ProductSlice {
   products: Product[];
-  variants: ProductVariant[];
-  characteristics: ProductCharacteristic[];
+  variants: Variant[];
+  inventories: Inventory[];
+  images: ProductImage[];
+  attributes: ProductAttribute[];
+  linkAttributes: ProductLinkAttribute[];
   catalogLoading: boolean;
   catalogError: string | null;
   fetchCatalog: (storeId: string) => Promise<void>;
   resetCatalog: () => void;
-  saveProduct: (input: NewProductInput | ({ id: string } & UpdateProductPatch)) => Promise<Product>;
+  saveProduct: (input: NewProductInput | ({ id: string } & UpdateProductPatch)) => Promise<void>;
+  archiveProduct: (id: string) => Promise<void>;
+  restoreProduct: (id: string) => Promise<void>;
   deleteProduct: (id: string) => Promise<void>;
 }
 
 export const createProductSlice: StateCreator<RootStore, [], [], ProductSlice> = (set, get) => ({
   products: [],
   variants: [],
-  characteristics: [],
+  inventories: [],
+  images: [],
+  attributes: [],
+  linkAttributes: [],
   catalogLoading: false,
   catalogError: null,
 
@@ -45,39 +57,70 @@ export const createProductSlice: StateCreator<RootStore, [], [], ProductSlice> =
     }
   },
 
-  resetCatalog: () => set({ products: [], variants: [], characteristics: [], catalogError: null }),
+  resetCatalog: () =>
+    set({
+      products: [],
+      variants: [],
+      inventories: [],
+      images: [],
+      attributes: [],
+      linkAttributes: [],
+      catalogError: null,
+    }),
 
   saveProduct: async (input) => {
     const { storeId } = get();
     if (!storeId) throw new Error('No store selected');
     set({ catalogLoading: true, catalogError: null });
     try {
-      let saved: Product;
       if ('id' in input) {
         const { id, ...patch } = input;
-        if (patch.title !== undefined || patch.originalPrice !== undefined) {
-          const probe = get().products.find((p) => p.id === id);
-          const errors = validateProduct({
-            title: patch.title ?? probe?.title ?? '',
-            price: patch.originalPrice ?? probe?.oldPrice ?? probe?.price ?? 0,
-            discountPercent: patch.discountPercent ?? probe?.discountPercent ?? 0,
-            imageUrls: patch.imageUrls ?? probe?.imageUrls ?? [],
-          });
-          if (errors.length) throw new Error(errors.join('; '));
-        }
-        saved = await updateProductRepo(id, patch);
+        const probe = get().products.find((p) => p.id === id);
+        const errors = validateProduct({
+          title: patch.title ?? probe?.title ?? '',
+          originalAmountMinor: patch.originalAmountMinor ?? probe?.originalAmountMinor ?? 1,
+          discountPercent: patch.discountPercent ?? probe?.discountPercent ?? 0,
+          imageCount: patch.images?.length ?? get().images.filter((i) => i.productId === id).length,
+        });
+        if (errors.length) throw new Error(errors.join('; '));
+        await updateProductRepo(id, patch);
       } else {
         const errors = validateProduct({
           title: input.title,
-          price: input.originalPrice,
+          originalAmountMinor: input.originalAmountMinor,
           discountPercent: input.discountPercent,
-          imageUrls: input.imageUrls,
+          imageCount: input.images.length,
         });
         if (errors.length) throw new Error(errors.join('; '));
-        saved = await addProductRepo(input);
+        await addProductRepo(input);
       }
       await get().fetchCatalog(storeId);
-      return saved;
+    } catch (e) {
+      set({ catalogLoading: false, catalogError: (e as Error).message });
+      throw e;
+    }
+  },
+
+  archiveProduct: async (id: string) => {
+    const { storeId } = get();
+    if (!storeId) throw new Error('No store selected');
+    set({ catalogLoading: true, catalogError: null });
+    try {
+      await setProductStatusRepo(id, 'ARCHIVED');
+      await get().fetchCatalog(storeId);
+    } catch (e) {
+      set({ catalogLoading: false, catalogError: (e as Error).message });
+      throw e;
+    }
+  },
+
+  restoreProduct: async (id: string) => {
+    const { storeId } = get();
+    if (!storeId) throw new Error('No store selected');
+    set({ catalogLoading: true, catalogError: null });
+    try {
+      await setProductStatusRepo(id, 'ACTIVE');
+      await get().fetchCatalog(storeId);
     } catch (e) {
       set({ catalogLoading: false, catalogError: (e as Error).message });
       throw e;
@@ -89,7 +132,7 @@ export const createProductSlice: StateCreator<RootStore, [], [], ProductSlice> =
     if (!storeId) throw new Error('No store selected');
     set({ catalogLoading: true, catalogError: null });
     try {
-      await removeProductRepo(id);
+      await deleteProductRepo(id);
       await get().fetchCatalog(storeId);
     } catch (e) {
       set({ catalogLoading: false, catalogError: (e as Error).message });

@@ -1,28 +1,23 @@
 // process-checkout.js — серверное оформление заказа (InsForge edge-функция).
 //
-// Вызывается фронтом витрины ПОКУПАТЕЛЯ (CartView → store.createOrder):
-//   insforge.functions.invoke('process-checkout', { body: {...} })
-//
-// Request body:
+// POST body:
 //   {
-//     items: [{ id, quantity, variantId? }],
-//     promoCode?: string,
-//     recipientInfo: { name, phone, email },
-//     telegramId: string,
 //     storeId: string,
-//     username?: string
+//     idempotencyKey: string,
+//     items: [{ variantId, quantity }],
+//     recipient: { name, phone, address }
 //   }
+// Header: Authorization: Bearer <session token from telegram-auth>
 //
-// Шаги: валидация магазина → валидация товаров → subtotal → промокод →
-// upsert customers(store_id, telegram_id) → insert orders → insert order_items →
-// уведомления через telegram-notify (buyer: заказ принят, seller: новый заказ).
-// Уведомления — best-effort: заказ уже создан, ошибка отправки не роняет ответ.
+// Логика: проверить сессию → атомарный rpc('create_order_atomic')
+// (идемпотентность, перепроверка цены/остатка, AVAILABLE->HELD, снапшоты, история)
+// → уведомления (best-effort, вне транзакции).
 //
-// Env:
-//   INSFORGE_BASE_URL, ANON_KEY — доступ к БД (обязательны)
-//   TELEGRAM_NOTIFY_URL — URL функции telegram-notify (опционально; если нет —
-//     шлём напрямую через Bot API по токенам ниже)
-//   BUYER_BOT_TOKEN, SELLER_BOT_TOKEN (fallback BOT_TOKEN), APP_URL — для уведомлений
+// Env: INSFORGE_BASE_URL, ANON_KEY, SESSION_SECRET,
+//      BUYER_BOT_TOKEN / SELLER_BOT_TOKEN (fallback BOT_TOKEN),
+//      TELEGRAM_NOTIFY_URL? , APP_URL?
+
+import { createClient } from 'npm:@insforge/sdk';
 
 const JSON_HEADERS = {
   'Content-Type': 'application/json',
@@ -38,51 +33,103 @@ function env(name, fallback = '') {
   }
 }
 
-function dbHeaders(anonKey, extra = {}) {
-  return {
-    apikey: anonKey,
-    Authorization: `Bearer ${anonKey}`,
-    'Content-Type': 'application/json',
-    ...extra,
-  };
+function json(payload, status = 200) {
+  return new Response(JSON.stringify(payload), { status, headers: JSON_HEADERS });
 }
 
-function apiBase(baseUrl) {
-  return baseUrl.replace(/\/$/, '');
+const enc = (s) => new TextEncoder().encode(s);
+
+function b64url(bytes) {
+  let bin = '';
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-// --- Уведомления: сначала через telegram-notify, иначе напрямую в Bot API ---
-async function notifyViaHelper(notifyUrl, payload) {
-  if (!notifyUrl) return false;
+function b64urlDecode(str) {
+  const pad = str.length % 4 === 0 ? '' : '='.repeat(4 - (str.length % 4));
+  const b64 = str.replace(/-/g, '+').replace(/_/g, '/') + pad;
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+
+async function hmac(secret, message) {
+  const key = await crypto.subtle.importKey(
+    'raw',
+    typeof secret === 'string' ? enc(secret) : secret,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, enc(message));
+  return new Uint8Array(sig);
+}
+
+async function verifySession(token, secret) {
+  const [body, sig] = String(token || '').split('.');
+  if (!body || !sig) return null;
+  const expected = b64url(await hmac(secret, body));
+  if (expected !== sig) return null;
   try {
-    const res = await fetch(notifyUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    // helper всегда отвечает 200 с {success}; даже success:false — считаем попыткой
-    return res.ok;
-  } catch (e) {
-    console.error('[checkout] notify helper error:', e);
-    return false;
+    const payload = JSON.parse(new TextDecoder().decode(b64urlDecode(body)));
+    if (!payload?.uid || !payload?.exp) return null;
+    if (payload.exp < Math.floor(Date.now() / 1000)) return null;
+    return payload;
+  } catch {
+    return null;
   }
 }
 
-async function notifyDirect(bot, chatId, text, storeId) {
+const ERROR_STATUS = {
+  EMPTY_CART: 400,
+  INVALID_QUANTITY: 400,
+  STORE_NOT_FOUND: 404,
+  STORE_PAUSED: 409,
+  VARIANT_NOT_FOUND: 404,
+  FOREIGN_VARIANT: 400,
+  PRODUCT_NOT_ACTIVE: 409,
+  INVENTORY_NOT_FOUND: 409,
+  INSUFFICIENT_STOCK: 409,
+};
+
+function rpcErrorToResponse(message) {
+  const code = Object.keys(ERROR_STATUS).find((key) => String(message).includes(key));
+  const status = code ? ERROR_STATUS[code] : 500;
+  return json({ success: false, error: code || 'Order placement failed' }, status);
+}
+
+async function notify(bot, chatId, text, storeId) {
+  if (!chatId) return;
+  const appUrl = (env('APP_URL') || '').replace(/\/$/, '');
+  let reply_markup;
+  if (storeId && appUrl) {
+    const url = bot === 'seller' ? `${appUrl}?startapp=seller` : `${appUrl}?startapp=store_${storeId}`;
+    reply_markup = {
+      inline_keyboard: [[{ text: bot === 'seller' ? '🏪 Открыть панель' : '🛍️ Открыть витрину', web_app: { url } }]],
+    };
+  }
+
+  const notifyUrl = env('TELEGRAM_NOTIFY_URL');
+  const payload = { bot, chatId: String(chatId), text, storeId, ...(reply_markup ? { replyMarkup: reply_markup } : {}) };
+  if (notifyUrl) {
+    try {
+      const res = await fetch(notifyUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) return;
+    } catch (e) {
+      console.error('[checkout] notify helper error:', e);
+    }
+  }
+
   const token =
     bot === 'seller'
       ? env('SELLER_BOT_TOKEN') || env('BOT_TOKEN')
       : env('BUYER_BOT_TOKEN') || env('BOT_TOKEN');
-  if (!token || !chatId) return;
-  const appUrl = (env('APP_URL') || '').replace(/\/$/, '');
-  let reply_markup;
-  if (storeId && appUrl) {
-    // Покупателю — кнопка в его витрину (прямой Mini App линк через startapp).
-    // Продавцу — кнопка в его панель (?startapp=seller).
-    const url =
-      bot === 'seller' ? `${appUrl}?startapp=seller` : `${appUrl}?startapp=store_${storeId}`;
-    reply_markup = { inline_keyboard: [[{ text: bot === 'seller' ? '🏪 Открыть панель' : '🛍️ Открыть витрину', web_app: { url } }]] };
-  }
+  if (!token) return;
   try {
     await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: 'POST',
@@ -100,321 +147,102 @@ async function notifyDirect(bot, chatId, text, storeId) {
   }
 }
 
-async function notifyOrderCreated({ orderId, total, symbol, buyerChatId, sellerChatId, storeId }) {
-  const notifyUrl = env('TELEGRAM_NOTIFY_URL');
-  const buyerText =
-    `🧾 <b>Заказ принят!</b>\n\nНомер: <code>${String(orderId).slice(0, 8)}</code>\n` +
-    `Сумма: <b>${total} ${symbol}</b>\nСтатус: Подготовка\n\nМы пришлём сюда смену статуса.`;
-  const sellerText =
-    `🔔 <b>Новый заказ!</b>\n\nНомер: <code>${String(orderId).slice(0, 8)}</code>\n` +
-    `Сумма: <b>${total} ${symbol}</b>\n\nОткройте панель продавца для обработки.`;
+export default async function (request) {
+  if (request.method === 'OPTIONS') {
+    return new Response(null, {
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      },
+    });
+  }
+  if (request.method !== 'POST') return json({ success: false, error: 'Use POST' }, 405);
 
-  // 1) Покупатель — в БОТ ПОКУПАТЕЛЯ (сюда же придут статусы/акции после requestWriteAccess).
-  const buyerPayload = { bot: 'buyer', chatId: String(buyerChatId), text: buyerText, storeId };
-  if (!(await notifyViaHelper(notifyUrl, buyerPayload))) {
-    await notifyDirect('buyer', String(buyerChatId), buyerText, storeId);
+  const baseUrl = env('INSFORGE_BASE_URL');
+  const anonKey = env('ANON_KEY');
+  const sessionSecret = env('SESSION_SECRET');
+  if (!baseUrl || !anonKey || !sessionSecret) {
+    return json({ success: false, error: 'Backend is not configured' }, 500);
   }
-  // 2) Продавец — в БОТ ПРОДАВЦА.
-  if (sellerChatId) {
-    const sellerPayload = { bot: 'seller', chatId: String(sellerChatId), text: sellerText, storeId };
-    if (!(await notifyViaHelper(notifyUrl, sellerPayload))) {
-      await notifyDirect('seller', String(sellerChatId), sellerText, storeId);
-    }
+
+  const authHeader = request.headers.get('Authorization') || '';
+  const token = authHeader.replace(/^Bearer\s+/i, '');
+  const session = await verifySession(token, sessionSecret);
+  if (!session) return json({ success: false, error: 'Unauthorized' }, 401);
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ success: false, error: 'Invalid JSON payload' }, 400);
   }
+
+  const storeId = String(body?.storeId || '');
+  const idempotencyKey = String(body?.idempotencyKey || '');
+  const items = Array.isArray(body?.items) ? body.items : [];
+  const name = String(body?.recipient?.name || '').trim();
+  const phone = String(body?.recipient?.phone || '').trim();
+  const address = String(body?.recipient?.address || '').trim();
+
+  if (!storeId) return json({ success: false, error: 'storeId is required' }, 400);
+  if (!items.length) return json({ success: false, error: 'Cart is empty' }, 400);
+  if (!name || !phone || !address) {
+    return json({ success: false, error: 'Recipient name, phone and address are required' }, 400);
+  }
+
+  const rpcItems = items
+    .map((it) => ({ variantId: String(it?.variantId || ''), quantity: Number(it?.quantity) }))
+    .filter((it) => it.variantId && Number.isInteger(it.quantity) && it.quantity > 0);
+  if (!rpcItems.length) return json({ success: false, error: 'Invalid cart items' }, 400);
+
+  let result;
+  try {
+    const client = createClient({ baseUrl, anonKey });
+    const { data, error } = await client.database.rpc('create_order_atomic', {
+      p_store_id: storeId,
+      p_buyer_user_id: session.uid,
+      p_idempotency_key: idempotencyKey,
+      p_full_name: name,
+      p_phone: phone,
+      p_address: address,
+      p_telegram_username: null,
+      p_items: rpcItems,
+    });
+    if (error) return rpcErrorToResponse(error.message || error);
+
+    result = Array.isArray(data) ? data[0] : data;
+    if (!result?.orderId) return json({ success: false, error: 'Order placement failed' }, 500);
+  } catch (e) {
+    console.error('[checkout] rpc error:', e);
+    return rpcErrorToResponse(e?.message || e);
+  }
+
+  const symbol = result.currencySymbol || '';
+  const orderNumber = String(result.orderNumber || result.orderId).slice(0, 12);
+  notify(
+    'buyer',
+    session.tg,
+    `🧾 <b>Заказ принят!</b>\n\nНомер: <code>${orderNumber}</code>\nСумма: <b>${result.totalMinor} ${symbol}</b>\nСтатус: Новый`,
+    storeId,
+  ).catch((e) => console.error('[checkout] buyer notify error:', e));
+
+  if (result.sellerTelegramId) {
+    notify(
+      'seller',
+      result.sellerTelegramId,
+      `🔔 <b>Новый заказ!</b>\n\nНомер: <code>${orderNumber}</code>\nСумма: <b>${result.totalMinor} ${symbol}</b>`,
+      storeId,
+    ).catch((e) => console.error('[checkout] seller notify error:', e));
+  }
+
+  return json({
+    success: true,
+    orderId: result.orderId,
+    orderNumber: result.orderNumber,
+    subtotalMinor: result.subtotalMinor,
+    totalMinor: result.totalMinor,
+    currencyCode: result.currencyCode,
+    idempotent: result.idempotent === true,
+  });
 }
-
-export default {
-  async fetch(request) {
-    if (request.method === 'OPTIONS') {
-      return new Response(null, {
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'POST, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type',
-        },
-      });
-    }
-    if (request.method !== 'POST') {
-      return new Response(JSON.stringify({ success: false, error: 'Use POST' }), {
-        status: 405,
-        headers: JSON_HEADERS,
-      });
-    }
-
-    const baseUrl = env('INSFORGE_BASE_URL');
-    const anonKey = env('ANON_KEY');
-    if (!baseUrl || !anonKey) {
-      return new Response(JSON.stringify({ success: false, error: 'Backend is not configured' }), {
-        status: 500,
-        headers: JSON_HEADERS,
-      });
-    }
-
-    let body;
-    try {
-      body = await request.json();
-    } catch {
-      return new Response(JSON.stringify({ success: false, error: 'Invalid JSON payload' }), {
-        status: 400,
-        headers: JSON_HEADERS,
-      });
-    }
-
-    const { items, promoCode, recipientInfo, telegramId, storeId, username } = body || {};
-    if (!storeId || !telegramId) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'storeId and telegramId are required' }),
-        { status: 400, headers: JSON_HEADERS }
-      );
-    }
-    if (!Array.isArray(items) || !items.length) {
-      return new Response(JSON.stringify({ success: false, error: 'Cart is empty' }), {
-        status: 400,
-        headers: JSON_HEADERS,
-      });
-    }
-    const name = (recipientInfo?.name || '').trim();
-    const phone = (recipientInfo?.phone || '').trim();
-    const address = (recipientInfo?.email || '').trim();
-    if (!name || !phone || !address) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Recipient name, phone and address are required' }),
-        { status: 400, headers: JSON_HEADERS }
-      );
-    }
-
-    try {
-      const base = apiBase(baseUrl);
-      const H = dbHeaders(anonKey);
-
-      // 1. Магазин (нужен owner для уведомления продавца + валюта + простые промокоды).
-      const storeRes = await fetch(
-        `${base}/api/database/stores?id=eq.${encodeURIComponent(storeId)}&select=id,owner_telegram_id,currency_symbol,simple_promocodes`,
-        { headers: H }
-      );
-      if (!storeRes.ok) {
-        return new Response(
-          JSON.stringify({ success: false, error: 'Store not found or inaccessible' }),
-          { status: 404, headers: JSON_HEADERS }
-        );
-      }
-      const storeJson = await storeRes.json();
-      const storeRows = Array.isArray(storeJson) ? storeJson : (storeJson?.data ?? []);
-      const store = storeRows[0];
-      if (!store) {
-        return new Response(
-          JSON.stringify({ success: false, error: 'Store not found or inaccessible' }),
-          { status: 404, headers: JSON_HEADERS }
-        );
-      }
-      const symbol = store.currency_symbol || '';
-      const ownerTelegramId = store.owner_telegram_id || '';
-
-      // 2. Товары витрины — цены берём ТОЛЬКО с сервера.
-      const itemIds = [...new Set(items.map((i) => i?.id).filter(Boolean))];
-      const prodRes = await fetch(
-        `${base}/api/database/products?store_id=eq.${encodeURIComponent(storeId)}&id=in.(${itemIds.map(encodeURIComponent).join(',')})&select=id,price`,
-        { headers: H }
-      );
-      if (!prodRes.ok) {
-        return new Response(JSON.stringify({ success: false, error: 'Failed to validate products' }), {
-          status: 500,
-          headers: JSON_HEADERS,
-        });
-      }
-      const prodJson = await prodRes.json();
-      const prodRows = Array.isArray(prodJson) ? prodJson : (prodJson?.data ?? []);
-      const priceById = new Map(prodRows.map((p) => [p.id, Number(p.price)]));
-      for (const it of items) {
-        if (!priceById.has(it.id)) {
-          return new Response(
-            JSON.stringify({ success: false, error: `Product ${it.id} not found in store inventory` }),
-            { status: 400, headers: JSON_HEADERS }
-          );
-        }
-        if (!Number.isInteger(it.quantity) || it.quantity < 1 || it.quantity > 99) {
-          return new Response(JSON.stringify({ success: false, error: 'Invalid quantity' }), {
-            status: 400,
-            headers: JSON_HEADERS,
-          });
-        }
-      }
-      const subtotal = items.reduce((s, it) => s + priceById.get(it.id) * it.quantity, 0);
-
-      // 3. Промокод: сначала таблица promo_codes, затем simple_promocodes витрины.
-      let discount = 0;
-      let promoCodeId = null;
-      const code = (promoCode || '').trim();
-      if (code) {
-        const promoRes = await fetch(
-          `${base}/api/database/promo_codes?store_id=eq.${encodeURIComponent(storeId)}&code=eq.${encodeURIComponent(code)}&select=id,discount_percent,discount_fixed,is_active,usage_limit,used_count`,
-          { headers: H }
-        );
-        if (promoRes.ok) {
-          const pj = await promoRes.json();
-          const prows = Array.isArray(pj) ? pj : (pj?.data ?? []);
-          const promo = prows.find((p) => p.is_active !== false);
-          if (promo) {
-            if (promo.usage_limit != null && Number(promo.used_count || 0) >= Number(promo.usage_limit)) {
-              return new Response(JSON.stringify({ success: false, error: 'Promo code limit exceeded' }), {
-                status: 400,
-                headers: JSON_HEADERS,
-              });
-            }
-            if (promo.discount_percent != null) discount = (subtotal * Number(promo.discount_percent)) / 100;
-            else if (promo.discount_fixed != null) discount = Number(promo.discount_fixed);
-            promoCodeId = promo.id;
-          }
-        }
-        if (!promoCodeId) {
-          const simple = Array.isArray(store.simple_promocodes) ? store.simple_promocodes : [];
-          const found = simple.find(
-            (p) => String(p?.code || '').toUpperCase() === code.toUpperCase()
-          );
-          if (found) {
-            discount = (subtotal * Number(found.discount_percent || 0)) / 100;
-          } else if (!discount) {
-            return new Response(JSON.stringify({ success: false, error: 'Invalid promo code' }), {
-              status: 400,
-              headers: JSON_HEADERS,
-            });
-          }
-        }
-      }
-      discount = Math.min(Math.max(discount, 0), subtotal);
-      const total = Math.round((subtotal - discount) * 100) / 100;
-
-      // 4. Upsert покупателя (строка = привязка к витрине для /myshops бота покупателя).
-      const upsertRes = await fetch(
-        `${base}/api/database/customers?on_conflict=store_id,telegram_id`,
-        {
-          method: 'POST',
-          headers: dbHeaders(anonKey, { Prefer: 'resolution=merge-duplicates,return=representation' }),
-          body: JSON.stringify({
-            store_id: storeId,
-            telegram_id: String(telegramId),
-            username: username || 'User',
-            name,
-            phone,
-            email: address,
-          }),
-        }
-      );
-      if (!upsertRes.ok) {
-        console.error('[checkout] customer upsert failed:', await upsertRes.text());
-        return new Response(JSON.stringify({ success: false, error: 'Customer identification failed' }), {
-          status: 500,
-          headers: JSON_HEADERS,
-        });
-      }
-      const upJson = await upsertRes.json();
-      const upRows = Array.isArray(upJson) ? upJson : (upJson?.data ?? []);
-      const customer = upRows[0];
-      if (!customer?.id) {
-        return new Response(JSON.stringify({ success: false, error: 'Customer identification failed' }), {
-          status: 500,
-          headers: JSON_HEADERS,
-        });
-      }
-
-      // 5. Заказ.
-      const orderRes = await fetch(`${base}/api/database/orders`, {
-        method: 'POST',
-        headers: dbHeaders(anonKey, { Prefer: 'return=representation' }),
-        body: JSON.stringify({
-          store_id: storeId,
-          customer_id: customer.id,
-          subtotal,
-          total,
-          discount_applied: discount,
-          promo_code_id: promoCodeId,
-          recipient_name: name,
-          recipient_phone: phone,
-          recipient_address: address,
-          status: 'pending',
-        }),
-      });
-      if (!orderRes.ok) {
-        console.error('[checkout] order insert failed:', await orderRes.text());
-        return new Response(JSON.stringify({ success: false, error: 'Order placement failed' }), {
-          status: 500,
-          headers: JSON_HEADERS,
-        });
-      }
-      const orderJson = await orderRes.json();
-      const orderRows = Array.isArray(orderJson) ? orderJson : (orderJson?.data ?? []);
-      const order = orderRows[0];
-      if (!order?.id) {
-        return new Response(JSON.stringify({ success: false, error: 'Order placement failed' }), {
-          status: 500,
-          headers: JSON_HEADERS,
-        });
-      }
-
-      // 6. Позиции заказа.
-      const orderItems = items.map((it) => ({
-        order_id: order.id,
-        product_id: it.id,
-        product_variant_id: it.variantId || null,
-        quantity: it.quantity,
-        unit_price: priceById.get(it.id),
-      }));
-      const itemsRes = await fetch(`${base}/api/database/order_items`, {
-        method: 'POST',
-        headers: dbHeaders(anonKey, { Prefer: 'return=minimal' }),
-        body: JSON.stringify(orderItems),
-      });
-      if (!itemsRes.ok) {
-        console.error('[checkout] order_items insert failed:', await itemsRes.text());
-        return new Response(
-          JSON.stringify({ success: false, error: `Failed to save items for order ${order.id}` }),
-          { status: 500, headers: JSON_HEADERS }
-        );
-      }
-
-      // 7. Счётчик промокода (best-effort).
-      if (promoCodeId) {
-        try {
-          const cur = await fetch(
-            `${base}/api/database/promo_codes?id=eq.${encodeURIComponent(promoCodeId)}&select=used_count`,
-            { headers: H }
-          );
-          if (cur.ok) {
-            const cj = await cur.json();
-            const rows = Array.isArray(cj) ? cj : (cj?.data ?? []);
-            const used = Number(rows[0]?.used_count || 0) + 1;
-            await fetch(`${base}/api/database/promo_codes?id=eq.${encodeURIComponent(promoCodeId)}`, {
-              method: 'PATCH',
-              headers: dbHeaders(anonKey, { Prefer: 'return=minimal' }),
-              body: JSON.stringify({ used_count: used }),
-            });
-          }
-        } catch (e) {
-          console.error('[checkout] promo used_count error:', e);
-        }
-      }
-
-      // 8. Уведомления двум ботам (fire-and-forget, ответ не блокируем надолго).
-      // Покупателю — бот покупателя; продавцу — бот продавца.
-      notifyOrderCreated({
-        orderId: order.id,
-        total,
-        symbol,
-        buyerChatId: telegramId,
-        sellerChatId: ownerTelegramId,
-        storeId,
-      }).catch((e) => console.error('[checkout] notify error:', e));
-
-      return new Response(
-        JSON.stringify({ success: true, orderId: order.id, total, message: 'Заказ успешно оформлен' }),
-        { headers: JSON_HEADERS }
-      );
-    } catch (e) {
-      console.error('[checkout] error:', e);
-      return new Response(JSON.stringify({ success: false, error: 'Internal error' }), {
-        status: 500,
-        headers: JSON_HEADERS,
-      });
-    }
-  },
-};

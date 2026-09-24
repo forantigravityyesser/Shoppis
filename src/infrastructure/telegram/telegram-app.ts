@@ -133,6 +133,32 @@ export function getStartParam(): string {
   return new URLSearchParams(window.location.search).get('startapp') ?? '';
 }
 
+/**
+ * Сырой initData для серверной валидации подписи (telegram-auth).
+ * Порядок: SDK → window.Telegram.WebApp.initData → tgWebAppData из URL.
+ */
+export function getRawInitData(): string {
+  try {
+    const raw = (initData as unknown as { raw?: () => string }).raw?.();
+    if (raw) return raw;
+  } catch {
+    // ignore, fallback ниже
+  }
+  try {
+    const raw = (window as unknown as { Telegram?: { WebApp?: { initData?: string } } }).Telegram?.WebApp
+      ?.initData;
+    if (raw) return raw;
+  } catch {
+    // ignore, fallback ниже
+  }
+  try {
+    const src = `${window.location.search}&${window.location.hash.replace(/^#/, '')}`;
+    return new URLSearchParams(src).get('tgWebAppData') ?? '';
+  } catch {
+    return '';
+  }
+}
+
 /** Временная диагностика окружения (без секретов: только флаги и имена ключей) */
 export function logTelegramDiagnostics(): void {
   try {

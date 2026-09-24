@@ -20,9 +20,10 @@
   --color-warning: #FF9F0A;
 
   --color-badge-discount: #FF3B5C;
-  --color-stats-pending: #FF9F0A;
-  --color-stats-shipped: #007AFF;
+  --color-stats-new: #FF9F0A;
+  --color-stats-in-transit: #007AFF;
   --color-stats-delivered: #34C759;
+  --color-stats-refused: #FF9500;
   --color-stats-cancelled: #FF3B30;
 
   --color-input-bg: #F2F2F7;

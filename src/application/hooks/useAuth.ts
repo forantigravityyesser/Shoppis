@@ -2,14 +2,14 @@ import { useStore } from '../store';
 
 export function useAuth() {
   const user = useStore((s) => s.user);
-  const role = useStore((s) => s.role);
+  const context = useStore((s) => s.context);
   const storeId = useStore((s) => s.storeId);
   const authLoading = useStore((s) => s.authLoading);
   const authError = useStore((s) => s.authError);
   const initAuth = useStore((s) => s.initAuth);
-  const setRole = useStore((s) => s.setRole);
+  const setContext = useStore((s) => s.setContext);
   const setStoreId = useStore((s) => s.setStoreId);
   const checkOwnership = useStore((s) => s.checkOwnership);
   const createStore = useStore((s) => s.createStore);
-  return { user, role, storeId, authLoading, authError, initAuth, setRole, setStoreId, checkOwnership, createStore };
+  return { user, context, storeId, authLoading, authError, initAuth, setContext, setStoreId, checkOwnership, createStore };
 }

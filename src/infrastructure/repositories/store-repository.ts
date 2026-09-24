@@ -1,5 +1,5 @@
 import { insforge } from '../insforge/client';
-import type { Store, StoreCurrency, StoreLanguage } from '../../domain/models/store';
+import type { Store, StoreCurrency, StoreLanguage, StoreStatus } from '../../domain/models/store';
 
 const CURRENCY_SYMBOLS: Record<StoreCurrency, string> = {
   USD: '$',
@@ -9,7 +9,8 @@ const CURRENCY_SYMBOLS: Record<StoreCurrency, string> = {
 
 interface StoreRow {
   id: string;
-  owner_telegram_id: string;
+  owner_user_id: string | null;
+  owner_telegram_id: string | null;
   name: string;
   description: string;
   logo_url: string;
@@ -18,21 +19,26 @@ interface StoreRow {
   currency: string;
   currency_symbol: string;
   language: string;
+  status: string | null;
+  public_id: string | null;
   created_at: string;
 }
 
 function mapStore(row: StoreRow): Store {
   return {
     id: row.id,
-    ownerTelegramId: row.owner_telegram_id,
+    ownerUserId: row.owner_user_id ?? null,
+    ownerTelegramId: row.owner_telegram_id ?? '',
     name: row.name,
     description: row.description ?? '',
     logoUrl: row.logo_url ?? '',
     bannerUrl: row.banner_url ?? '',
     supportHandle: row.support_handle ?? '',
-    currency: (row.currency as StoreCurrency) ?? 'USD',
+    currencyCode: (row.currency as StoreCurrency) ?? 'USD',
     currencySymbol: row.currency_symbol ?? '$',
     language: (row.language as StoreLanguage) ?? 'ru',
+    status: (row.status as StoreStatus) ?? 'ACTIVE',
+    publicId: row.public_id ?? '',
     createdAt: row.created_at,
   };
 }

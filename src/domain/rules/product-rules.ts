@@ -1,34 +1,59 @@
 import { MAX_IMAGES } from '../constants/limits';
-import type { Product } from '../models/product';
+import type { Product, Variant } from '../models/product';
 
 /**
- * Цена продажи из изначальной цены и % скидки.
- * Округлений нет — истина продавца хранится как есть.
+ * Текущая цена в minor units: round(original * (100 - discount) / 100). 03 §10
+ * Единая точка формулы, без float-арифметики на границах.
  */
-export function calcSalePrice(originalPrice: number, discountPercent: number): number {
-  if (!discountPercent) return originalPrice;
-  return originalPrice - (originalPrice * discountPercent) / 100;
+export function currentPriceMinor(originalAmountMinor: number, discountPercent: number): number {
+  if (!discountPercent) return originalAmountMinor;
+  return Math.round((originalAmountMinor * (100 - discountPercent)) / 100);
 }
 
-export function validateProduct(
-  input: Pick<Product, 'title' | 'price' | 'discountPercent' | 'imageUrls'>,
-): string[] {
+export interface EffectivePrice {
+  originalAmountMinor: number;
+  discountPercent: number;
+  currentAmountMinor: number;
+}
+
+/**
+ * Цена позиции: вариант с CUSTOM_PRICE переопределяет цену товара. 02 §3, 03 §9.
+ */
+export function effectivePrice(
+  variant: Pick<Variant, 'priceMode' | 'customOriginalAmountMinor' | 'customDiscountPercent'>,
+  product: Pick<Product, 'originalAmountMinor' | 'discountPercent'>,
+): EffectivePrice {
+  const useCustom = variant.priceMode === 'CUSTOM_PRICE' && variant.customOriginalAmountMinor != null;
+  const originalAmountMinor = useCustom ? (variant.customOriginalAmountMinor as number) : product.originalAmountMinor;
+  const discountPercent = useCustom ? (variant.customDiscountPercent ?? 0) : product.discountPercent;
+  return {
+    originalAmountMinor,
+    discountPercent,
+    currentAmountMinor: currentPriceMinor(originalAmountMinor, discountPercent),
+  };
+}
+
+export function validateProduct(input: {
+  title: string;
+  originalAmountMinor: number;
+  discountPercent: number;
+  imageCount: number;
+}): string[] {
   const errors: string[] = [];
   if (!input.title.trim()) errors.push('Название товара обязательно');
-  if (!(input.price > 0)) errors.push('Цена должна быть больше нуля');
+  if (!(input.originalAmountMinor > 0)) errors.push('Цена должна быть больше нуля');
   if (input.discountPercent < 0 || input.discountPercent > 100)
     errors.push('Скидка должна быть от 0 до 100%');
-  if (input.imageUrls.length > MAX_IMAGES)
-    errors.push(`Максимум ${MAX_IMAGES} изображений`);
+  if (input.imageCount > MAX_IMAGES) errors.push(`Максимум ${MAX_IMAGES} изображений`);
   return errors;
 }
 
-export function isInStock(stockQuantity: number): boolean {
-  return stockQuantity > 0;
+export function isInStock(availableQuantity: number): boolean {
+  return availableQuantity > 0;
 }
 
-/** Только для отображения — данные не меняет */
-export function formatMoney(value: number, symbol: string): string {
-  const trimmed = String(Number(value.toFixed(2)));
-  return symbol ? `${trimmed} ${symbol}` : trimmed;
+/** Только для отображения. Minor units → человекочитаемая строка. */
+export function formatMoneyMinor(minor: number, symbol: string): string {
+  const value = String(Number((minor / 100).toFixed(2)));
+  return symbol ? `${value} ${symbol}` : value;
 }

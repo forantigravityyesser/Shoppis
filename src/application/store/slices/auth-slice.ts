@@ -1,5 +1,5 @@
 import type { StateCreator } from 'zustand';
-import type { UserRole } from '../../../domain/constants/roles';
+import type { AppContext } from '../../../domain/constants/app-context';
 import type { Store } from '../../../domain/models/store';
 import {
   checkOwnership as checkOwnershipRepo,
@@ -9,6 +9,8 @@ import {
   type CreateStoreInput,
 } from '../../../infrastructure/repositories/store-repository';
 import { insforge } from '../../../infrastructure/insforge/client';
+import { createShopViaApi } from '../../../infrastructure/functions/shop-api';
+import type { ServerUser } from '../../../infrastructure/functions/auth-api';
 import { uploadFile } from '../../../infrastructure/storage/file-storage';
 import { compressImage } from '../../../utils/image';
 import { getStartParam, getTelegramUser, type TelegramUser } from '../../../infrastructure/telegram/telegram-app';
@@ -16,7 +18,12 @@ import type { RootStore } from '../index';
 
 export interface AuthSlice {
   user: TelegramUser | null;
-  role: UserRole;
+  /** Контекст входа: панель продавца или витрина. Не является ролью пользователя. 01 §5 */
+  context: AppContext;
+  /** Серверная сессия (HMAC), полученная после валидации initData. */
+  sessionToken: string | null;
+  /** Серверный User (внутренний id для приватных операций). */
+  serverUser: ServerUser | null;
   /** Текущая витрина. Персистится — нет startParam = последний магазин. */
   storeId: string | null;
   /** Витрина продавца (для дашборда/онбординга) */
@@ -30,7 +37,8 @@ export interface AuthSlice {
   setUser: (user: TelegramUser | null) => void;
   /** Порт fetchUserProfile: подтянуть юзера из Telegram WebApp */
   fetchUserProfile: () => void;
-  setRole: (role: UserRole) => void;
+  setContext: (context: AppContext) => void;
+  setSession: (token: string | null, user?: ServerUser | null) => void;
   setStoreId: (storeId: string | null) => void;
   checkOwnership: () => Promise<boolean>;
   /**
@@ -52,7 +60,9 @@ export interface AuthSlice {
 
 export const createAuthSlice: StateCreator<RootStore, [], [], AuthSlice> = (set, get) => ({
   user: null,
-  role: 'buyer',
+  context: 'buyer',
+  sessionToken: null,
+  serverUser: null,
   storeId: null,
   currentStore: null,
   authLoading: false,
@@ -69,7 +79,7 @@ export const createAuthSlice: StateCreator<RootStore, [], [], AuthSlice> = (set,
     const user = getTelegramUser();
     const param = getStartParam();
     if (param === 'seller') {
-      set({ user, role: 'seller', currentStore: null });
+      set({ user, context: 'seller', currentStore: null });
       return;
     }
     if (param.startsWith('store_')) {
@@ -77,14 +87,16 @@ export const createAuthSlice: StateCreator<RootStore, [], [], AuthSlice> = (set,
       if (storeId) {
         get().resetCatalog();
         get().resetOrders();
-        set({ user, role: 'buyer', storeId, currentStore: null });
+        set({ user, context: 'buyer', storeId, currentStore: null });
         return;
       }
     }
-    set({ user, role: 'buyer' });
+    set({ user, context: 'buyer' });
   },
 
-  setRole: (role) => set({ role }),
+  setContext: (context) => set({ context }),
+
+  setSession: (token, serverUser = null) => set({ sessionToken: token, serverUser }),
 
   setUser: (user) => set({ user }),
 
@@ -106,43 +118,51 @@ export const createAuthSlice: StateCreator<RootStore, [], [], AuthSlice> = (set,
   },
 
   createStore: async (input: Omit<CreateStoreInput, 'ownerTelegramId'>) => {
-    // telegramId получаем внутри, так как useAppInit уже установил user к моменту вызова
-    const { user } = get();
-
-    let telegramId: string;
-    if (user && !user.id.startsWith('mock_')) {
-      // Реальный пользователь Telegram — используем его ID
-      telegramId = user.id;
-    } else {
-      // Пользователь без Telegram (или режим разработки) — генерируем временный ID
-      // Магазин создастся, а после можно связать с Telegram
-      telegramId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    }
-
+    const { user, sessionToken } = get();
     if (!input.name.trim()) throw new Error('Store name is required');
 
     set({ authLoading: true, authError: null });
     try {
-      const store = await createStoreRepo({ ...input, name: input.name.trim(), ownerTelegramId: telegramId });
-      // Автоматически устанавливаем состояние после создания
-      get().resetCatalog();
-      get().resetOrders();
+      let store: Store;
 
-      // Если магазин создавался без Telegram (временный ID) — не сохраняем состояние seller,
-      // а показываем ошибку и возвращаемся на экран приветствия
-      if (telegramId.startsWith('temp_')) {
-        set({ authError: 'Магазин создан без привязки к Telegram. Чтобы сохранить его permanently, войдите через Telegram.', storeId: null, currentStore: null, authLoading: false, role: 'buyer' });
-        // Удаляем временную витрину из базы, чтобы она "не сохранялась"
-        try {
-          await insforge.database.from('stores').delete().eq('id', store.id);
-        } catch {}
-        return store.id;
+      if (sessionToken) {
+        // Сервер-валидированная identity: owner_user_id проставляет edge-функция.
+        store = await createShopViaApi(sessionToken, {
+          name: input.name.trim(),
+          currency: input.currency,
+          language: input.language,
+          bannerUrl: input.bannerUrl,
+        });
+      } else {
+        // Fallback вне Telegram (локальная разработка) — legacy-путь.
+        const telegramId =
+          user && !user.id.startsWith('mock_')
+            ? user.id
+            : `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        store = await createStoreRepo({ ...input, name: input.name.trim(), ownerTelegramId: telegramId });
+
+        if (telegramId.startsWith('temp_')) {
+          get().resetCatalog();
+          get().resetOrders();
+          set({
+            authError:
+              'Магазин создан без привязки к Telegram. Чтобы сохранить его permanently, войдите через Telegram.',
+            storeId: null,
+            currentStore: null,
+            authLoading: false,
+            context: 'buyer',
+          });
+          try {
+            await insforge.database.from('stores').delete().eq('id', store.id);
+          } catch {}
+          return store.id;
+        }
       }
 
-      set({ storeId: store.id, currentStore: store, authLoading: false, role: 'seller' });
+      get().resetCatalog();
+      get().resetOrders();
+      set({ storeId: store.id, currentStore: store, authLoading: false, context: 'seller' });
 
-      // Синхронизируем покупателя ( создать строку customers + setDefaultRecipient )
-      // useCustomerSync сработает при следующем storeId change, но можно и тут:
       const setDefaultRecipient = get()['setDefaultRecipient'];
       if (setDefaultRecipient) {
         setDefaultRecipient({ name: (user?.firstName || 'Пользователь'), phone: '', address: '' });
@@ -156,8 +176,8 @@ export const createAuthSlice: StateCreator<RootStore, [], [], AuthSlice> = (set,
   },
 
   loadSellerStore: async () => {
-    const { role, user } = get();
-    if (role !== 'seller' || !user) return null;
+    const { context, user } = get();
+    if (context !== 'seller' || !user) return null;
     try {
       const stores = await fetchStoresByOwnerRepo(user.id);
       const first = stores[0] ?? null;

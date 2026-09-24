@@ -42,7 +42,7 @@ export default function SellerDashboard() {
 
       <div style={styles.card}>
         <div style={styles.sectionTitle}>Настройки магазина</div>
-        <Row label="Валюта" value={`${currentStore.currency} (${currentStore.currencySymbol})`} />
+        <Row label="Валюта" value={`${currentStore.currencyCode} (${currentStore.currencySymbol})`} />
         <Row label="Язык" value={currentStore.language === 'ru' ? 'Русский' : 'English'} />
         <Row label="Поддержка" value={currentStore.supportHandle || '—'} />
         <div style={styles.note}>Полные настройки (товары, заказы, ссылка-приглашение) — следующие этапы</div>
