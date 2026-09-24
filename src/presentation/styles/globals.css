@@ -55,10 +55,17 @@
   --shadow-nav: 0 -2px 16px rgba(0, 0, 0, 0.06);
 
   /* --- Отступы --- */
+  --spacing-1: 4px;
   --spacing-2: 8px;
   --spacing-3: 12px;
   --spacing-4: 16px;
+  --spacing-5: 20px;
   --spacing-6: 24px;
+
+  /* --- Layout shell --- */
+  --navbar-height: 64px;
+  /* Нижний safe-area: Telegram отдаёт --tg-safe-area-bottom, в браузере — env() */
+  --safe-bottom: max(env(safe-area-inset-bottom), var(--tg-safe-area-bottom, 0px));
 }
 
 * {
@@ -87,6 +94,37 @@ body.keyboard-is-open body {
 /* Базовые стили для контента */
 main {
   padding: var(--spacing-3) var(--spacing-2);
+}
+
+/* ============================================================
+   App shell — flex-колонка: контент скроллится, навбар не перекрывает
+   ============================================================ */
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  max-width: 480px;
+  margin: 0 auto;
+  overflow: hidden;
+  background: var(--color-bg-app);
+}
+
+.scrollable-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Обёртка нижней навигации: во flex-потоке, поэтому не перекрывает контент.
+   Панель компактная и центрированная, с отступом от краёв и от низа экрана. */
+.bottom-nav {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: center;
+  padding: var(--spacing-2) var(--spacing-4) calc(var(--spacing-5, 20px) + var(--safe-bottom));
 }
 
 /* Скроем скроллбар для html/body, оставим для контента при необходимости */

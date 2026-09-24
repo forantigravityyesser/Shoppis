@@ -15,7 +15,8 @@ const AccountView = lazy(() => import('./presentation/buyer/views/AccountView'))
 const SellerDashboard = lazy(() => import('./presentation/seller/views/SellerDashboard'));
 const InventoryView = lazy(() => import('./presentation/seller/views/InventoryView'));
 const SellerOrdersView = lazy(() => import('./presentation/seller/views/SellerOrdersView'));
-const SellerManagementView = lazy(() => import('./presentation/seller/views/SellerManagementView'));
+const SellerOrdersHistoryView = lazy(() => import('./presentation/seller/views/SellerOrdersHistoryView'));
+const SellerSettingsView = lazy(() => import('./presentation/seller/views/SellerSettingsView'));
 const SellerOnboardingView = lazy(() => import('./presentation/seller/views/SellerOnboardingView'));
 
 /** Порт router.jsx: ветки buyer/seller с гардами по storeId */
@@ -31,7 +32,8 @@ export default function AppRouter() {
           <Route path="/seller/dashboard" element={storeId ? <SellerDashboard /> : <Navigate to="/seller" replace />} />
           <Route path="/seller/inventory" element={storeId ? <InventoryView /> : <Navigate to="/seller" replace />} />
           <Route path="/seller/orders" element={storeId ? <SellerOrdersView /> : <Navigate to="/seller" replace />} />
-          <Route path="/seller/management" element={storeId ? <SellerManagementView /> : <Navigate to="/seller" replace />} />
+          <Route path="/seller/orders/history" element={storeId ? <SellerOrdersHistoryView /> : <Navigate to="/seller" replace />} />
+          <Route path="/seller/settings" element={storeId ? <SellerSettingsView /> : <Navigate to="/seller" replace />} />
           <Route path="*" element={<Navigate to="/seller" replace />} />
         </Route>
       </Routes>

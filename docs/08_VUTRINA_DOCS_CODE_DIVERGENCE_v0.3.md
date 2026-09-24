@@ -1,6 +1,6 @@
 # VUTRINA — ОСТАТОК РАБОТ (незакрытые расхождения)
 
-**Version:** 0.2
+**Version:** 0.3
 **Статус:** рабочий список незавершённого. Закрытые пункты удалены.
 **Дата:** 2026-09-24
 
@@ -56,10 +56,19 @@ Severity: **S1** критично · **S2** высоко · **S3** средне.
 - **Сейчас:** `src/presentation/buyer/components/SearchBar.tsx` пуст; поиска нет.
 - **Задача:** поиск по `title` + `description`, shop-scoped, только `ACTIVE` товары.
 
-### [ ] 2.11 UI — заглушки
-- **Док:** `05` (сквозной сценарий), `02` (UX).
-- **Сейчас:** реально работают только `SellerOnboardingView`, заглушка `SellerDashboard`, `SettingsView`.
-- **Задача:** buyer-экраны (`HomeView`, `DetailsView`, `CartView`, `FavoritesView`, `OrdersView`, `OrderDetailView`, `AccountView`), seller (`SellerOrdersView`, `SellerManagementView`, `InventoryView`, `SellerOrderDetailView`, `SellerProductFeedbackView`), компоненты (`ProductCard`, `ProductGrid`, `CartItemCard`, `CheckoutModal`, `SearchBar`, `ProductImageCarousel`, `OrderManagementCard`, `InventoryTable`, `ProductForm`, `StatsCard` и пр.), плюс delivery-feedback (RECEIVED/REFUSED, рейтинг 1–5, skip).
+### [ ] 2.11 UI — остальные экраны
+- **Док:** `05` (сквозной сценарий), `02` (UX), `02 §17`.
+- **Сделано (этап 2, Seller App Shell):** shell `SellerLayout` (safe-area, внутренний скролл, навбар не
+  перекрывает контент); переиспользуемый `BottomNavBar` + адаптер `SellerNavBar`; маршруты
+  `/seller/{dashboard,inventory,orders,orders/history,settings}` (clean rename `management` → `settings`);
+  `SellerOnboardingView` и `SellerSettingsView` (профиль витрины) работают; `SellerDashboard` — операционный каркас.
+- **Сейчас (остаток):** большинство экранов и компонентов — заглушки.
+- **Задача:** buyer-экраны (`HomeView`, `DetailsView`, `CartView`, `FavoritesView`, `OrdersView`,
+  `OrderDetailView`, `AccountView`), seller feature-экраны (`SellerOrdersView`, `SellerOrdersHistoryView`,
+  `InventoryView`, `SellerOrderDetailView`, `SellerProductFeedbackView`), компоненты (`ProductCard`,
+  `ProductGrid`, `CartItemCard`, `CheckoutModal`, `SearchBar`, `ProductImageCarousel`, `OrderManagementCard`,
+  `InventoryTable`, `ProductForm`, `StatsCard` и пр.), `FloatingNavBar` покупателя, плюс delivery-feedback
+  (RECEIVED/REFUSED, рейтинг 1–5, skip).
 
 ### [ ] 2.8 Монки-патч `invoke`
 - **Файл:** `src/infrastructure/insforge/client.ts:29`.

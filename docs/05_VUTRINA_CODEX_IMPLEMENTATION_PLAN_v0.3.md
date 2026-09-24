@@ -1,9 +1,24 @@
 # VUTRINA — CODEX IMPLEMENTATION PLAN
 
-**Version:** 0.2
+**Version:** 0.3
 
 ## Rule
 Codex receives one bounded task at a time. Each task states objective, files/modules, constraints, acceptance criteria and tests.
+
+## Delivery stages (ход работ)
+
+- **Stage 0 — Foundation** — выполнено: React/Vite/TS, Tailwind 3.4, InsForge client, Telegram bridge, app shell.
+- **Stage 1 — Identity** — выполнено: серверная валидация `initData` (`telegram-auth`), Shoppis User + runtime-сессия,
+  контекст входа buyer/seller, онбординг продавца. Vertical slice 1 закрыт.
+- **Stage 2 — Seller App Shell** — текущий этап:
+  - **2.1** `SellerLayout`: app shell, safe-area, внутренний скролл, отсутствие перекрытия контента навбаром;
+  - **2.2** `SellerNavBar` на переиспользуемом `BottomNavBar` (pill, liquid-анимации);
+  - **2.3** маршруты: `/seller/dashboard`, `/seller/inventory`, `/seller/orders`, `/seller/orders/history`, `/seller/settings`;
+  - **2.4** пустые экраны-каркасы без API и расчётов;
+  - разделение Dashboard (операционный) ↔ Settings → Магазин (профиль витрины).
+- **Далее** — vertical slices 2–16 (Shop, Categories, Product, …), каждая как отдельная маленькая задача.
+
+Правило сохраняется: одна ограниченная задача за раз, с objective, файлами, ограничениями, acceptance и тестами.
 
 ## Vertical slices
 

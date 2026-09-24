@@ -1,6 +1,6 @@
 # VUTRINA — TECHNICAL SPECIFICATION
 
-**Version:** 0.2  
+**Version:** 0.3  
 **Stack:** React + Vite + Tailwind + TypeScript + InsForge + Telegram Mini App
 
 ## 1. System shape
@@ -78,20 +78,36 @@ Use controlled storage keys. Never expose arbitrary internal storage paths. Sell
 MVP: title + description, shop-scoped, active products only.
 
 ## 9. Frontend boundaries
-Suggested:
+
+Фактическая структура (`src/`):
+
 ```text
-src/
-  app/
-  pages/
-  features/
-    auth/ shop/ catalog/ cart/ orders/ reviews/ questions/
-  entities/
-    user/ shop/ product/ variant/ inventory/ order/
-  shared/
-    ui/ lib/ telegram/ api/ validation/
+domain/          # модели, константы, правила — без React
+  models/ constants/ rules/
+application/     # состояние и сценарии
+  store/         # zustand-слайсы (auth, product, cart, order, settings, ui …)
+  hooks/ services/ i18n.ts queryClient.ts
+infrastructure/  # адаптеры к внешнему миру
+  insforge/ functions/ repositories/ storage/ telegram/ auth/ i18n/
+presentation/    # React UI
+  layouts/       # BuyerLayout, SellerLayout (app shell)
+  buyer/ seller/ shared/ styles/
+router.tsx  App.tsx  main.tsx
 ```
 
+Направление зависимостей: `presentation → application → domain`; инфраструктура вызывается из `application`.
+
 Security, money, inventory and state transitions are not React-only logic.
+
+### 9.1 App shell, safe-area, keyboard
+- Один контекст — один layout-шелл: `.app-shell` (flex-колонка, `height: 100dvh`, `overflow: hidden`).
+- Контент — `.scrollable-content` (`flex: 1`, внутренний скролл); навбар — flex-элемент снизу, поэтому
+  последний блок не перекрывается навбаром.
+- Нижний safe-area: `--safe-bottom = max(env(safe-area-inset-bottom), var(--tg-safe-area-bottom, 0px))`,
+  применяется к обёртке `.bottom-nav`. `useAppInit` выставляет `--tg-safe-area-bottom` из `tg.safeAreaInset.bottom`.
+- При открытой клавиатуре `body.keyboard-is-open .bottom-nav { display: none }` (см. `useKeyboardFix`).
+- Нижняя навигация — router-agnostic `BottomNavBar` (`presentation/shared/components`): активная
+  вкладка и `onTabChange` передаются адаптерами (`SellerNavBar`; в будущем `FloatingNavBar` для покупателя).
 
 ## 10. UI states
 Every critical screen has loading, empty, recoverable error and mutation-processing states. Critical mutations prevent double submission.

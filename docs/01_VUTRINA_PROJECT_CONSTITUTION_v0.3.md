@@ -1,6 +1,6 @@
 # VUTRINA — PROJECT CONSTITUTION
 
-**Version:** 0.2  
+**Version:** 0.3  
 **Status:** Locked project principles / source of truth
 
 ## 1. Identity

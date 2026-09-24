@@ -312,6 +312,144 @@
   background: var(--color-accent-hover);
 }
 
+/* ---- Screens (панели и заглушки) ---- */
+.screen {
+  padding: var(--spacing-4);
+}
+
+.screen__title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--color-text-primary);
+}
+
+.screen__subtitle {
+  margin: var(--spacing-1) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.screen__header {
+  margin-bottom: var(--spacing-4);
+}
+
+.card {
+  background: var(--color-bg-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: var(--spacing-4);
+  margin-bottom: var(--spacing-3);
+}
+
+.card__title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--spacing-2);
+}
+
+.card__muted {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--spacing-3);
+  padding: var(--spacing-2) 0;
+  font-size: var(--font-size-md);
+}
+
+.row__label {
+  color: var(--color-text-secondary);
+}
+
+.row__value {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+  text-align: right;
+}
+
+/* ---- BottomNavBar (pill / liquid tabs) ----
+   Неактивная вкладка — белый круг, активная — акцентный pill с иконкой + label.
+   Слайдинг pill анимируется framer-motion (layoutId). */
+.bottom-nav__bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-1);
+  width: fit-content;
+  max-width: 100%;
+  padding: 6px 8px;
+  border-radius: 32px;
+  background: rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+.bottom-nav__tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 44px;
+  border: none;
+  background: transparent;
+  color: #9e9e9e;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 300ms ease, transform 150ms ease;
+}
+
+.bottom-nav__tab:active {
+  transform: scale(0.92);
+}
+
+.bottom-nav__tab--inactive {
+  flex: 0 0 44px;
+  width: 44px;
+  background: #ffffff;
+  border-radius: var(--radius-full);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.bottom-nav__tab--active {
+  padding: 0 18px;
+  color: var(--color-text-on-accent);
+}
+
+.bottom-nav__pill {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+}
+
+.bottom-nav__icon {
+  position: relative;
+  z-index: 1;
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+}
+
+.bottom-nav__label {
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+}
+
 /* ---- Skeleton (shimmer) ---- */
 .skeleton {
   background: linear-gradient(90deg, var(--color-input-bg) 25%, var(--color-input-bg) 50%, var(--color-input-bg) 75%);

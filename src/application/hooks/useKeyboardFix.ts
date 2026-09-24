@@ -1,10 +1,22 @@
 import { useEffect } from 'react';
 
-/** Прячет нижнюю навигацию при открытой клавиатуре, скроллит к активному input */
+/** Текстовый ввод — только он открывает клавиатуру и прячет нижнюю навигацию. */
+function isTextEntry(target: EventTarget | null): boolean {
+  const el = target as HTMLElement | null;
+  if (!el || !el.tagName) return false;
+  const tag = el.tagName.toUpperCase();
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable;
+}
+
+/** Прячет нижнюю навигацию при открытой клавиатуре (фокус на текстовом поле), скроллит к активному input */
 export function useKeyboardFix(): void {
   useEffect(() => {
-    const onFocusIn = () => document.body.classList.add('keyboard-is-open');
-    const onFocusOut = () => document.body.classList.remove('keyboard-is-open');
+    const onFocusIn = (e: FocusEvent) => {
+      if (isTextEntry(e.target)) document.body.classList.add('keyboard-is-open');
+    };
+    const onFocusOut = (e: FocusEvent) => {
+      if (isTextEntry(e.target)) document.body.classList.remove('keyboard-is-open');
+    };
     const viewport = window.visualViewport;
     const onResize = () => {
       const active = document.activeElement as HTMLElement | null;
