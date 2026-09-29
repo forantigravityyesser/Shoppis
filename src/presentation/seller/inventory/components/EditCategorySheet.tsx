@@ -3,8 +3,8 @@ import { Plus, X } from 'lucide-react';
 import BottomSheet from '../../../shared/components/BottomSheet';
 import type { InventoryCategoryItem } from '../../../../application/hooks/useInventory';
 import { useInventoryActions } from '../../../../application/hooks/useInventoryActions';
+import { uploadCategoryCoverImage } from '../../../../application/services/image-service';
 import { isSystemCategory } from '../../../../domain/rules/category-rules';
-import { uploadCategoryCover } from '../../../../infrastructure/storage/image-upload';
 
 interface EditCategorySheetProps {
   open: boolean;
@@ -53,7 +53,7 @@ export default function EditCategorySheet({
     setProcessing(true);
     setUploadError(null);
     try {
-      setPhoto(await uploadCategoryCover(file));
+      setPhoto(await uploadCategoryCoverImage(file));
     } catch (e) {
       console.error('[inventory] category photo upload failed', e);
       setUploadError('Не удалось загрузить фото. Попробуйте ещё раз.');

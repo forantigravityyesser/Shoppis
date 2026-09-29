@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import type { InventoryCategoryItem } from '../../../application/hooks/useInventory';
 import type { InventoryProductDetail } from '../../../application/hooks/useProduct';
+import { uploadCatalogImages } from '../../../application/services/image-service';
 import type {
   InventoryImageItem,
   ProductFormPayload,
@@ -9,8 +10,6 @@ import type {
 import { UNCATEGORIZED_ID } from '../../../domain/constants/categories';
 import { MAX_IMAGES, MAX_VARIANTS } from '../../../domain/constants/limits';
 import type { ProductStatus } from '../../../domain/models/product';
-import { removeFilesByUrl } from '../../../infrastructure/storage/file-storage';
-import { uploadCatalogImage } from '../../../infrastructure/storage/image-upload';
 
 export interface Characteristic {
   name: string;
@@ -89,30 +88,6 @@ function parseDiscountPercent(value: string): number {
   return Math.min(100, Math.max(0, Math.round(n)));
 }
 
-/**
- * Загружает выбранные фото с ограничением параллелизма (2), сохраняя порядок.
- * При сбое партии удаляет уже загруженные файлы — чтобы не плодить «сирот» в Storage.
- */
-async function uploadSelectedImages(files: File[]): Promise<InventoryImageItem[]> {
-  const uploaded: InventoryImageItem[] = [];
-  try {
-    for (let i = 0; i < files.length; i += 2) {
-      const settled = await Promise.allSettled(
-        files.slice(i, i + 2).map((file) => uploadCatalogImage(file)),
-      );
-      const failed = settled.some((r) => r.status === 'rejected');
-      for (const result of settled) {
-        if (result.status === 'fulfilled') uploaded.push(result.value);
-      }
-      if (failed) throw new Error('photo upload failed');
-    }
-    return uploaded;
-  } catch (e) {
-    void removeFilesByUrl(uploaded.flatMap((img) => [img.url, img.thumbUrl]));
-    throw e;
-  }
-}
-
 /** Плоские данные товара → значения формы (для режима редактирования). */
 export function detailToFormValues(detail: InventoryProductDetail): ProductFormValues {
   const baseName = detail.variants[0]?.name ?? '';
@@ -169,7 +144,7 @@ export default function ProductForm({ categories, initial, onSubmit }: ProductFo
     setProcessing(true);
     setUploadError(null);
     try {
-      const uploaded = await uploadSelectedImages(selected);
+      const uploaded = await uploadCatalogImages(selected);
       setPhotos((prev) => [...prev, ...uploaded].slice(0, MAX_IMAGES));
     } catch (e) {
       console.error('[inventory] photo upload failed', e);

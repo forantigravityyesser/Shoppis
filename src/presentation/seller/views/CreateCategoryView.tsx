@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { ArrowLeft, Plus, X } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { useInventoryActions } from '../../../application/hooks/useInventoryActions';
-import { uploadCategoryCover } from '../../../infrastructure/storage/image-upload';
+import { uploadCategoryCoverImage } from '../../../application/services/image-service';
 import '../inventory/inventory.css';
 
 /** Создание категории: одно фото (квадрат) + название. */
@@ -24,7 +24,7 @@ export default function CreateCategoryView() {
     setProcessing(true);
     setUploadError(null);
     try {
-      setPhoto(await uploadCategoryCover(file));
+      setPhoto(await uploadCategoryCoverImage(file));
     } catch (e) {
       console.error('[inventory] category photo upload failed', e);
       setUploadError('Не удалось загрузить фото. Попробуйте ещё раз.');

@@ -76,6 +76,7 @@ MVP:
 stored in `product_images.storage_key` / `thumb_storage_key`). Category cover: `thumb` 320px only.
 Store banner: 1024px q0.78. Lists load `thumb`, hero/gallery load `full`. Detached files are removed
 from storage on update/delete (best-effort). Server-side derivatives/validation remain future work.
+Загрузка из UI идёт через `application/services/image-service.ts` (§9.0), а не напрямую в `infrastructure/storage`.
 
 ## 7. Storage
 Use controlled storage keys. Never expose arbitrary internal storage paths. Seller may mutate only owned product images.
@@ -104,6 +105,20 @@ router.tsx  App.tsx  main.tsx
 Направление зависимостей: `presentation → application → domain`; инфраструктура вызывается из `application`.
 
 Security, money, inventory and state transitions are not React-only logic.
+
+### 9.0 Граница `presentation` → `application` (без прямых импортов из `infrastructure`)
+
+Правило соблюдается в код-ревью: `presentation` **не импортирует** `infrastructure` напрямую.
+Инфраструктурные возможности выставляются наружу только через `application`:
+
+- `application/hooks/useHaptic.ts` — тактильная отдача (Telegram Haptics). Компонент вызывает
+  `const { selectTick } = useHaptic()` и не знает о Telegram SDK; вне Telegram — безопасный no-op.
+- `application/services/image-service.ts` — Use Case загрузки изображений: `uploadCatalogImages(File[])`
+  (параллелизм 2, сохранение порядка, удаление «сирот» при сбое партии) и `uploadCategoryCoverImage(File)`
+  (обложка категории). Presentation отдаёт `File` и получает готовые публичные URL.
+
+Стор-слайсы (`product-slice`, `category-slice`) используют `infrastructure/storage` для очистки
+откреплённых файлов при мутациях — это слой `application`, нарушение границы только со стороны UI.
 
 ### 9.1 App shell, safe-area, keyboard
 - Один контекст — один layout-шелл: `.app-shell` (flex-колонка, `height: 100dvh`, `overflow: hidden`).

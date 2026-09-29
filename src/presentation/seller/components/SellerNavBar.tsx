@@ -1,7 +1,7 @@
 import { LayoutDashboard, Package, ClipboardList, Settings } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router';
 import BottomNavBar, { type NavTab } from '../../shared/components/BottomNavBar';
-import { selectTick } from '../../../infrastructure/telegram/telegram-haptic';
+import { useHaptic } from '../../../application/hooks/useHaptic';
 
 const TABS: NavTab[] = [
   { id: '/seller/dashboard', icon: LayoutDashboard, label: 'Главная' },
@@ -20,6 +20,7 @@ function resolveActive(pathname: string): string {
 export default function SellerNavBar() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
+  const { selectTick } = useHaptic();
   const active = resolveActive(pathname);
 
   const handleChange = (id: string) => {

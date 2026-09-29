@@ -1,6 +1,6 @@
 import { ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router';
-import { selectTick } from '../../../infrastructure/telegram/telegram-haptic';
+import { useHaptic } from '../../../application/hooks/useHaptic';
 
 interface BackButtonProps {
   /**
@@ -24,6 +24,7 @@ function canGoBack(): boolean {
  */
 export default function BackButton({ fallback, label = 'Назад' }: BackButtonProps) {
   const navigate = useNavigate();
+  const { selectTick } = useHaptic();
 
   const goBack = () => {
     selectTick();

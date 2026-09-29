@@ -4,6 +4,10 @@
 Identity-слоем и Seller App Shell (маршруты панели продавца, нижняя навигация, разделение
 Dashboard ↔ Settings).
 
+Граница слоёв: `presentation` не импортирует `infrastructure` напрямую — доступ к haptics и
+загрузке изображений идёт через `application` (`useHaptic`, `image-service`). Детали — Technical
+Spec §9.0.
+
 ## Документы
 1. `01_SHOPPIS_PROJECT_CONSTITUTION_v0.3.md` — принципы, границы MVP и правила.
 2. `02_SHOPPIS_PRODUCT_SPEC_v0.3.md` — точное поведение продукта и UX.
