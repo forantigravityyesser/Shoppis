@@ -1,16 +1,16 @@
-# VUTRINA — DOCUMENTATION SET v0.3
+# SHOPPIS — DOCUMENTATION SET v0.3
 
 Статус: рабочая техническая база. v0.3 синхронизирует документы с фактически реализованным
 Identity-слоем и Seller App Shell (маршруты панели продавца, нижняя навигация, разделение
 Dashboard ↔ Settings).
 
 ## Документы
-1. `01_VUTRINA_PROJECT_CONSTITUTION_v0.3.md` — принципы, границы MVP и правила.
-2. `02_VUTRINA_PRODUCT_SPEC_v0.3.md` — точное поведение продукта и UX.
-3. `03_VUTRINA_DOMAIN_DATABASE_SPEC_v0.3.md` — сущности, БД, состояния, инварианты, транзакции и RLS.
-4. `04_VUTRINA_TECHNICAL_SPEC_v0.3.md` — React/Vite, InsForge, Telegram, auth, storage, security.
-5. `05_VUTRINA_CODEX_IMPLEMENTATION_PLAN_v0.3.md` — маленькие независимые engineering tasks.
-6. `08_VUTRINA_DOCS_CODE_DIVERGENCE_v0.3.md` — незакрытые расхождения кода и документации.
+1. `01_SHOPPIS_PROJECT_CONSTITUTION_v0.3.md` — принципы, границы MVP и правила.
+2. `02_SHOPPIS_PRODUCT_SPEC_v0.3.md` — точное поведение продукта и UX.
+3. `03_SHOPPIS_DOMAIN_DATABASE_SPEC_v0.3.md` — сущности, БД, состояния, инварианты, транзакции и RLS.
+4. `04_SHOPPIS_TECHNICAL_SPEC_v0.3.md` — React/Vite, InsForge, Telegram, auth, storage, security.
+5. `05_SHOPPIS_CODEX_IMPLEMENTATION_PLAN_v0.3.md` — маленькие независимые engineering tasks.
+6. `08_SHOPPIS_DOCS_CODE_DIVERGENCE_v0.3.md` — незакрытые расхождения кода и документации.
 
 ## Принцип двух сред проверки
 Telegram — не финальная интеграция, а целевая среда исполнения и проверки с первых этапов. Каждый глобальный этап имеет два состояния: `LOCAL VERIFIED` (браузер / локальный контур) и `TELEGRAM VERIFIED` (реальный Telegram Mini App на development-окружении). Этап не закрывается без обоих.

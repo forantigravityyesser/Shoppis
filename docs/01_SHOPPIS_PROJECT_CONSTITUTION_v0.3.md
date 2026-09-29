@@ -1,10 +1,10 @@
-# VUTRINA — PROJECT CONSTITUTION
+# SHOPPIS — PROJECT CONSTITUTION
 
 **Version:** 0.3  
 **Status:** Locked project principles / source of truth
 
 ## 1. Identity
-Vutrina — Telegram-first платформа для быстрого создания цифровой витрины бизнеса.
+Shoppis — Telegram-first платформа для быстрого создания цифровой витрины бизнеса.
 
 Первый сценарий:
 `Seller Bot → Mini App → Shop → Catalog → Public storefront → Buyer → Order`

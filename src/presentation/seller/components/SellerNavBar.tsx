@@ -5,7 +5,7 @@ import { selectTick } from '../../../infrastructure/telegram/telegram-haptic';
 
 const TABS: NavTab[] = [
   { id: '/seller/dashboard', icon: LayoutDashboard, label: 'Главная' },
-  { id: '/seller/inventory', icon: Package, label: 'Склад' },
+  { id: '/seller/inventory', icon: Package, label: 'Инвентарь' },
   { id: '/seller/orders', icon: ClipboardList, label: 'Заказы' },
   { id: '/seller/settings', icon: Settings, label: 'Настройки' },
 ];

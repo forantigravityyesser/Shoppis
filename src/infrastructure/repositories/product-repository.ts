@@ -10,12 +10,31 @@ import type {
   VariantPriceMode,
   VariantStatus,
 } from '../../domain/models/product';
+import type { ProductStatusErrorCode } from '../../domain/rules/product-rules';
+
+/** Ошибка смены статуса товара, несущая машинный код для UI. */
+export class ProductStatusError extends Error {
+  constructor(
+    public readonly code: ProductStatusErrorCode,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'ProductStatusError';
+  }
+}
 
 interface ProductImageRow {
   id: string;
   product_id: string;
   storage_key: string;
+  thumb_storage_key: string | null;
   sort_order: number;
+}
+
+/** Входное изображение товара: полный файл + опциональная миниатюра. */
+export interface ProductImageInput {
+  storageKey: string;
+  thumbStorageKey?: string | null;
 }
 
 interface ProductAttributeRow {
@@ -137,7 +156,13 @@ function splitCatalog(rows: ProductRow[]): ProductCatalog {
   for (const row of rows) {
     products.push(mapProduct(row));
     for (const i of row.product_images ?? []) {
-      images.push({ id: i.id, productId: i.product_id, storageKey: i.storage_key, sortOrder: i.sort_order });
+      images.push({
+        id: i.id,
+        productId: i.product_id,
+        storageKey: i.storage_key,
+        thumbStorageKey: i.thumb_storage_key ?? null,
+        sortOrder: i.sort_order,
+      });
     }
     for (const a of row.product_attributes ?? []) {
       attributes.push({ id: a.id, productId: a.product_id, name: a.name, value: a.value, sortOrder: a.sort_order });
@@ -160,7 +185,9 @@ export async function fetchCatalog(storeId: string): Promise<ProductCatalog> {
   const { data, error } = await insforge.database
     .from('products')
     .select('*, product_images(*), product_attributes(*), product_link_attributes(*), variants(*, inventory(*))')
-    .eq('store_id', storeId);
+    .eq('store_id', storeId)
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: true });
   if (error) throw error;
   return splitCatalog((data ?? []) as ProductRow[]);
 }
@@ -181,7 +208,8 @@ export interface NewProductInput {
   originalAmountMinor: number;
   discountPercent: number;
   categoryId: string | null;
-  images: string[];
+  status?: ProductStatus;
+  images: ProductImageInput[];
   variants: NewVariantInput[];
   attributes: Array<{ name: string; value: string }>;
   linkAttributes: Array<{ name: string; value: string }>;
@@ -222,6 +250,7 @@ async function insertVariants(productId: string, variants: NewVariantInput[]): P
 }
 
 export async function addProduct(input: NewProductInput): Promise<Product> {
+  const status = input.status ?? 'ACTIVE';
   const { data, error } = await insforge.database
     .from('products')
     .insert({
@@ -231,7 +260,8 @@ export async function addProduct(input: NewProductInput): Promise<Product> {
       category_id: input.categoryId,
       original_amount_minor: input.originalAmountMinor,
       discount_percent: input.discountPercent,
-      status: 'ACTIVE',
+      status,
+      archived_at: status === 'ARCHIVED' ? new Date().toISOString() : null,
     })
     .select();
   if (error) throw error;
@@ -240,9 +270,10 @@ export async function addProduct(input: NewProductInput): Promise<Product> {
 
   if (input.images.length) {
     const { error: imgError } = await insforge.database.from('product_images').insert(
-      input.images.map((storageKey, index) => ({
+      input.images.map((image, index) => ({
         product_id: row.id,
-        storage_key: storageKey,
+        storage_key: image.storageKey,
+        thumb_storage_key: image.thumbStorageKey ?? null,
         sort_order: index,
       })),
     );
@@ -282,7 +313,7 @@ export interface UpdateProductPatch {
   originalAmountMinor?: number;
   discountPercent?: number;
   categoryId?: string | null;
-  images?: string[];
+  images?: ProductImageInput[];
   variants?: NewVariantInput[];
   attributes?: Array<{ name: string; value: string }>;
   linkAttributes?: Array<{ name: string; value: string }>;
@@ -305,7 +336,12 @@ export async function updateProduct(id: string, patch: UpdateProductPatch): Prom
     if (delError) throw delError;
     if (patch.images.length) {
       const { error: insError } = await insforge.database.from('product_images').insert(
-        patch.images.map((storageKey, index) => ({ product_id: id, storage_key: storageKey, sort_order: index })),
+        patch.images.map((image, index) => ({
+          product_id: id,
+          storage_key: image.storageKey,
+          thumb_storage_key: image.thumbStorageKey ?? null,
+          sort_order: index,
+        })),
       );
       if (insError) throw insError;
     }
@@ -340,8 +376,121 @@ export async function updateProduct(id: string, patch: UpdateProductPatch): Prom
   }
 }
 
-/** Архив-first: товар помечается ARCHIVED, остаётся в истории заказов. 03 §27 */
+export interface VariantStockPatch {
+  availableQuantity?: number;
+  heldQuantity?: number;
+}
+
+/** Прямое редактирование остатков варианта (контроль остатков). 02 §4 */
+export async function updateVariantStock(
+  variantId: string,
+  patch: VariantStockPatch,
+): Promise<void> {
+  const updateData: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (patch.availableQuantity !== undefined) {
+    updateData.available_quantity = Math.max(0, Math.round(patch.availableQuantity));
+  }
+  if (patch.heldQuantity !== undefined) {
+    updateData.held_quantity = Math.max(0, Math.round(patch.heldQuantity));
+  }
+  const { error } = await insforge.database
+    .from('inventory')
+    .update(updateData)
+    .eq('variant_id', variantId);
+  if (error) throw error;
+}
+
+export interface AddVariantInput extends NewVariantInput {
+  /** Базовая цена товара. Применяется только если это первый вариант товара. */
+  baseOriginalAmountMinor?: number;
+  baseDiscountPercent?: number;
+}
+
+/** Быстрое добавление одного варианта из «Контроля остатков»: variants + inventory. */
+export async function addVariantToProduct(
+  productId: string,
+  variant: AddVariantInput,
+): Promise<Variant> {
+  const { data: maxData, error: maxError } = await insforge.database
+    .from('variants')
+    .select('sort_order')
+    .eq('product_id', productId)
+    .order('sort_order', { ascending: false })
+    .limit(1);
+  if (maxError) throw maxError;
+  const maxIndex = (maxData ?? [])[0] as { sort_order: number } | undefined;
+  const isFirst = !maxIndex;
+
+  const { data, error } = await insforge.database
+    .from('variants')
+    .insert({
+      product_id: productId,
+      name: variant.name,
+      value: variant.value,
+      normalized_value: normalize(variant.value),
+      sort_order: (maxIndex?.sort_order ?? -1) + 1,
+      price_mode: variant.priceMode ?? 'USE_PRODUCT_PRICE',
+      custom_original_amount_minor: variant.customOriginalAmountMinor ?? null,
+      custom_discount_percent: variant.customDiscountPercent ?? null,
+    })
+    .select();
+  if (error) throw error;
+  const row = (data ?? [])[0] as VariantRow | undefined;
+  if (!row) throw new Error('Variant insert returned no data');
+
+  const { error: invError } = await insforge.database.from('inventory').insert({
+    variant_id: row.id,
+    available_quantity: Math.max(0, Math.round(variant.availableQuantity ?? 0)),
+    held_quantity: 0,
+  });
+  if (invError) throw invError;
+
+  // Первый вариант задаёт базовую цену/скидку товара (без вариантов товар — только архив).
+  if (isFirst && variant.baseOriginalAmountMinor !== undefined) {
+    const { error: productError } = await insforge.database
+      .from('products')
+      .update({
+        original_amount_minor: variant.baseOriginalAmountMinor,
+        discount_percent: variant.baseDiscountPercent ?? 0,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', productId);
+    if (productError) throw productError;
+  }
+
+  return mapVariant(row);
+}
+
+/**
+ * Архив-first: товар помечается ARCHIVED, остаётся в истории заказов. 03 §27
+ * ADR-06.8: вернуть на витрину (ACTIVE) можно только при ≥1 активном варианте.
+ * Бросает `ProductStatusError` с машинным кодом.
+ */
 export async function setProductStatus(id: string, status: ProductStatus): Promise<void> {
+  const { data: found, error: findError } = await insforge.database
+    .from('products')
+    .select('id')
+    .eq('id', id)
+    .maybeSingle();
+  if (findError) throw findError;
+  if (!found) throw new ProductStatusError('NOT_FOUND', 'Товар не найден');
+
+  if (status === 'ACTIVE') {
+    const { data: activeVariants, error: variantsError } = await insforge.database
+      .from('variants')
+      .select('id')
+      .eq('product_id', id)
+      .eq('status', 'ACTIVE')
+      .limit(1);
+    if (variantsError) throw variantsError;
+    if (!activeVariants || activeVariants.length === 0) {
+      throw new ProductStatusError(
+        'NO_ACTIVE_VARIANT',
+        'Нельзя выставить на витрину товар без варианта покупки',
+      );
+    }
+  }
+
   const { error } = await insforge.database
     .from('products')
     .update({ status, archived_at: status === 'ARCHIVED' ? new Date().toISOString() : null })
@@ -349,13 +498,30 @@ export async function setProductStatus(id: string, status: ProductStatus): Promi
   if (error) throw error;
 }
 
-/** Постоянное удаление — только для товара из архива. 03 §27 */
-export async function deleteProduct(id: string): Promise<void> {
+/**
+ * Постоянное удаление — только для товара из архива. 03 §27
+ * Возвращает storage-ключи фото (full+thumb), чтобы вызывающий очистил Storage
+ * (не зависит от того, загружен ли каталог в стейт).
+ */
+export async function deleteProduct(
+  id: string,
+): Promise<Array<{ storageKey: string; thumbStorageKey: string | null }>> {
   const { data, error } = await insforge.database.from('products').select('status').eq('id', id).maybeSingle();
   if (error) throw error;
   if ((data as { status?: ProductStatus } | null)?.status !== 'ARCHIVED') {
     throw new Error('Товар можно удалить только из архива');
   }
+
+  const { data: images, error: imagesError } = await insforge.database
+    .from('product_images')
+    .select('storage_key, thumb_storage_key')
+    .eq('product_id', id);
+  if (imagesError) throw imagesError;
+
   const { error: delError } = await insforge.database.from('products').delete().eq('id', id);
   if (delError) throw delError;
+
+  return ((images ?? []) as Array<{ storage_key: string; thumb_storage_key: string | null }>).map(
+    (row) => ({ storageKey: row.storage_key, thumbStorageKey: row.thumb_storage_key }),
+  );
 }

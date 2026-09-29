@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useStore } from '../../../application/store';
+import BackButton from '../../shared/components/BackButton';
 
 /**
  * Настройки продавца. Обзор витрины (баннер, название, валюта, язык, поддержка)
@@ -16,7 +17,8 @@ export default function SellerSettingsView() {
 
   return (
     <div className="screen">
-      <div className="screen__header">
+      <div className="screen__header screen__header--row">
+        <BackButton fallback="/seller/dashboard" />
         <h1 className="screen__title">Настройки</h1>
       </div>
 
@@ -33,7 +35,7 @@ export default function SellerSettingsView() {
           <div className="card__title">Магазин</div>
 
           {currentStore.bannerUrl ? (
-            <img src={currentStore.bannerUrl} alt="Баннер" style={styles.banner} />
+            <img src={currentStore.bannerUrl} alt="Баннер" style={styles.banner} decoding="async" />
           ) : (
             <div style={styles.bannerPlaceholder}>📷</div>
           )}

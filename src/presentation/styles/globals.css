@@ -77,8 +77,11 @@
 html,
 body {
   max-width: 480px;
+  height: 100%;
   margin: 0;
   padding: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
   font-family: var(--font-system);
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
@@ -117,6 +120,7 @@ main {
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
+  overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -129,8 +133,38 @@ main {
   padding: var(--spacing-2) var(--spacing-4) calc(var(--spacing-6) + var(--safe-bottom));
 }
 
-/* Скроем скроллбар для html/body, оставим для контента при необходимости */
-html {
-  scrollbar-width: none;
-  -ms-scrollbar-width: none;
+/* ============================================================
+   Native Telegram Mini App mode
+   Приложение открывается в Telegram WebView — ведём себя как
+   нативное: скролл по экрану без браузерных полос прокрутки,
+   без отскоков (pull-to-refresh) и подсветки тапов.
+   ============================================================ */
+
+/* Скрываем скроллбар во всех контейнерах, прокрутка остаётся рабочей */
+* {
+  scrollbar-width: none;    /* Firefox */
+  -ms-overflow-style: none; /* IE / старый Edge */
+}
+
+*::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;            /* WebKit / Chromium (Telegram, Safari) */
+}
+
+/* Запрещаем выделение текста как в нативном приложении,
+   но оставляем возможность выделять/редактировать ввод */
+body {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+input,
+textarea,
+[contenteditable='true'] {
+  -webkit-user-select: text;
+  user-select: text;
+  /* Каретка (маркер ввода) — всегда чёрная: на светлом фоне белая не видна */
+  caret-color: #000;
 }

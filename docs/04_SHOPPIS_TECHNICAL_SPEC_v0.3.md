@@ -1,4 +1,4 @@
-# VUTRINA — TECHNICAL SPECIFICATION
+# SHOPPIS — TECHNICAL SPECIFICATION
 
 **Version:** 0.3  
 **Stack:** React + Vite + Tailwind + TypeScript + InsForge + Telegram Mini App
@@ -70,6 +70,12 @@ MVP:
 - reject malformed files.
 
 10 MB is a safety ceiling, not a target upload size. Client should compress/resize first.
+
+**Implemented (v1, client-side):** square crop → WebP via `createImageBitmap` + canvas
+(`src/utils/image.ts`). Product: `full` 1000px q0.75 + `thumb` 320px q0.75 (`uploadCatalogImage`,
+stored in `product_images.storage_key` / `thumb_storage_key`). Category cover: `thumb` 320px only.
+Store banner: 1024px q0.78. Lists load `thumb`, hero/gallery load `full`. Detached files are removed
+from storage on update/delete (best-effort). Server-side derivatives/validation remain future work.
 
 ## 7. Storage
 Use controlled storage keys. Never expose arbitrary internal storage paths. Seller may mutate only owned product images.

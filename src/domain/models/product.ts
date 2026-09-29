@@ -22,7 +22,10 @@ export interface Product {
 export interface ProductImage {
   id: string;
   productId: string;
+  /** Полноразмерное изображение (hero/галерея). */
   storageKey: string;
+  /** Лёгкая миниатюра для списков (может отсутствовать у старых фото). */
+  thumbStorageKey: string | null;
   sortOrder: number;
 }
 

@@ -1,6 +1,6 @@
 -- 0001_identity_and_shop.sql
 -- Foundation: User, TelegramIdentity, Shop ownership/status/public_id.
--- Source of truth: docs/03_VUTRINA_DOMAIN_DATABASE_SPEC_v0.2.md §2-3.
+-- Source of truth: docs/03_SHOPPIS_DOMAIN_DATABASE_SPEC_v0.3.md §2-3.
 -- Physical shop table is public.stores (Store ≡ Shop synonym in this codebase).
 
 create table if not exists public.users (

@@ -1,5 +1,5 @@
 import type { StateCreator } from 'zustand';
-import { validateProduct } from '../../../domain/rules/product-rules';
+import { validateProduct, type ProductStatusResult } from '../../../domain/rules/product-rules';
 import type {
   Inventory,
   Product,
@@ -10,14 +10,28 @@ import type {
 } from '../../../domain/models/product';
 import {
   addProduct as addProductRepo,
+  addVariantToProduct as addVariantToProductRepo,
   deleteProduct as deleteProductRepo,
   fetchCatalog as fetchCatalogRepo,
   setProductStatus as setProductStatusRepo,
   updateProduct as updateProductRepo,
+  updateVariantStock as updateVariantStockRepo,
+  ProductStatusError,
+  type AddVariantInput,
   type NewProductInput,
   type UpdateProductPatch,
+  type VariantStockPatch,
 } from '../../../infrastructure/repositories/product-repository';
+import { removeFilesByUrl } from '../../../infrastructure/storage/file-storage';
 import type { RootStore } from '../index';
+
+function toStatusResult(error: unknown): ProductStatusResult {
+  if (error instanceof ProductStatusError) {
+    return { ok: false, code: error.code, message: error.message };
+  }
+  const message = error instanceof Error ? error.message : 'Не удалось изменить статус';
+  return { ok: false, code: 'UNKNOWN', message };
+}
 
 export interface ProductSlice {
   products: Product[];
@@ -28,12 +42,17 @@ export interface ProductSlice {
   linkAttributes: ProductLinkAttribute[];
   catalogLoading: boolean;
   catalogError: string | null;
+  catalogStoreId: string | null;
   fetchCatalog: (storeId: string) => Promise<void>;
+  ensureCatalog: (storeId: string) => Promise<void>;
   resetCatalog: () => void;
   saveProduct: (input: NewProductInput | ({ id: string } & UpdateProductPatch)) => Promise<void>;
-  archiveProduct: (id: string) => Promise<void>;
-  restoreProduct: (id: string) => Promise<void>;
+  archiveProduct: (id: string) => Promise<ProductStatusResult>;
+  restoreProduct: (id: string) => Promise<ProductStatusResult>;
   deleteProduct: (id: string) => Promise<void>;
+  updateVariantStock: (variantId: string, patch: VariantStockPatch) => Promise<void>;
+  addVariant: (productId: string, variant: AddVariantInput) => Promise<void>;
+  moveHeldToAvailable: (variantId: string, quantity?: number) => Promise<void>;
 }
 
 export const createProductSlice: StateCreator<RootStore, [], [], ProductSlice> = (set, get) => ({
@@ -45,16 +64,23 @@ export const createProductSlice: StateCreator<RootStore, [], [], ProductSlice> =
   linkAttributes: [],
   catalogLoading: false,
   catalogError: null,
+  catalogStoreId: null,
 
   fetchCatalog: async (storeId: string) => {
     set({ catalogLoading: true, catalogError: null });
     try {
       const catalog = await fetchCatalogRepo(storeId);
-      set({ ...catalog, catalogLoading: false });
+      set({ ...catalog, catalogLoading: false, catalogStoreId: storeId });
     } catch (e) {
       set({ catalogLoading: false, catalogError: (e as Error).message });
       throw e;
     }
+  },
+
+  ensureCatalog: async (storeId: string) => {
+    const { catalogStoreId, catalogLoading } = get();
+    if (catalogLoading || catalogStoreId === storeId) return;
+    await get().fetchCatalog(storeId);
   },
 
   resetCatalog: () =>
@@ -66,6 +92,7 @@ export const createProductSlice: StateCreator<RootStore, [], [], ProductSlice> =
       attributes: [],
       linkAttributes: [],
       catalogError: null,
+      catalogStoreId: null,
     }),
 
   saveProduct: async (input) => {
@@ -83,7 +110,23 @@ export const createProductSlice: StateCreator<RootStore, [], [], ProductSlice> =
           imageCount: patch.images?.length ?? get().images.filter((i) => i.productId === id).length,
         });
         if (errors.length) throw new Error(errors.join('; '));
+
+        const previousImages = get().images.filter((i) => i.productId === id);
         await updateProductRepo(id, patch);
+
+        // Удаляем из Storage откреплённые при правке фото (full + thumb), best-effort.
+        if (patch.images !== undefined) {
+          const keepFull = new Set(patch.images.map((i) => i.storageKey));
+          const keepThumbs = new Set(
+            patch.images.map((i) => i.thumbStorageKey).filter((k): k is string => Boolean(k)),
+          );
+          void removeFilesByUrl(
+            previousImages.flatMap((img) => [
+              keepFull.has(img.storageKey) ? null : img.storageKey,
+              img.thumbStorageKey && !keepThumbs.has(img.thumbStorageKey) ? img.thumbStorageKey : null,
+            ]),
+          );
+        }
       } else {
         const errors = validateProduct({
           title: input.title,
@@ -103,27 +146,29 @@ export const createProductSlice: StateCreator<RootStore, [], [], ProductSlice> =
 
   archiveProduct: async (id: string) => {
     const { storeId } = get();
-    if (!storeId) throw new Error('No store selected');
+    if (!storeId) return { ok: false, code: 'UNKNOWN', message: 'Магазин не выбран' };
     set({ catalogLoading: true, catalogError: null });
     try {
       await setProductStatusRepo(id, 'ARCHIVED');
       await get().fetchCatalog(storeId);
+      return { ok: true };
     } catch (e) {
       set({ catalogLoading: false, catalogError: (e as Error).message });
-      throw e;
+      return toStatusResult(e);
     }
   },
 
   restoreProduct: async (id: string) => {
     const { storeId } = get();
-    if (!storeId) throw new Error('No store selected');
+    if (!storeId) return { ok: false, code: 'UNKNOWN', message: 'Магазин не выбран' };
     set({ catalogLoading: true, catalogError: null });
     try {
       await setProductStatusRepo(id, 'ACTIVE');
       await get().fetchCatalog(storeId);
+      return { ok: true };
     } catch (e) {
       set({ catalogLoading: false, catalogError: (e as Error).message });
-      throw e;
+      return toStatusResult(e);
     }
   },
 
@@ -132,11 +177,64 @@ export const createProductSlice: StateCreator<RootStore, [], [], ProductSlice> =
     if (!storeId) throw new Error('No store selected');
     set({ catalogLoading: true, catalogError: null });
     try {
-      await deleteProductRepo(id);
+      const removed = await deleteProductRepo(id);
+      // Чистим файлы удалённого товара (full + thumb), best-effort.
+      void removeFilesByUrl(removed.flatMap((img) => [img.storageKey, img.thumbStorageKey]));
       await get().fetchCatalog(storeId);
     } catch (e) {
       set({ catalogLoading: false, catalogError: (e as Error).message });
       throw e;
     }
+  },
+
+  updateVariantStock: async (variantId: string, patch: VariantStockPatch) => {
+    try {
+      await updateVariantStockRepo(variantId, patch);
+      set((s) => ({
+        inventories: s.inventories.map((row) =>
+          row.variantId === variantId
+            ? {
+                ...row,
+                availableQuantity:
+                  patch.availableQuantity !== undefined
+                    ? Math.max(0, Math.round(patch.availableQuantity))
+                    : row.availableQuantity,
+                heldQuantity:
+                  patch.heldQuantity !== undefined
+                    ? Math.max(0, Math.round(patch.heldQuantity))
+                    : row.heldQuantity,
+              }
+            : row,
+        ),
+      }));
+    } catch (e) {
+      set({ catalogError: (e as Error).message });
+      throw e;
+    }
+  },
+
+  addVariant: async (productId: string, variant: AddVariantInput) => {
+    const { storeId } = get();
+    if (!storeId) throw new Error('No store selected');
+    set({ catalogLoading: true, catalogError: null });
+    try {
+      await addVariantToProductRepo(productId, variant);
+      await get().fetchCatalog(storeId);
+    } catch (e) {
+      set({ catalogLoading: false, catalogError: (e as Error).message });
+      throw e;
+    }
+  },
+
+  moveHeldToAvailable: async (variantId: string, quantity?: number) => {
+    const row = get().inventories.find((i) => i.variantId === variantId);
+    if (!row) return;
+    const requested = quantity === undefined ? row.heldQuantity : Math.max(0, Math.round(quantity));
+    const moved = Math.min(requested, row.heldQuantity);
+    if (moved <= 0) return;
+    await get().updateVariantStock(variantId, {
+      availableQuantity: row.availableQuantity + moved,
+      heldQuantity: row.heldQuantity - moved,
+    });
   },
 });

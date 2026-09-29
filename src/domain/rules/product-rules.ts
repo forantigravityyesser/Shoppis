@@ -1,5 +1,32 @@
 import { MAX_IMAGES } from '../constants/limits';
-import type { Product, Variant } from '../models/product';
+import type { Product, ProductStatus, Variant } from '../models/product';
+
+const PRODUCT_STATUS_ORDER: Record<ProductStatus, number> = { ACTIVE: 0, ARCHIVED: 1 };
+
+/** Коды ошибок смены статуса товара (архив/витрина). */
+export type ProductStatusErrorCode =
+  | 'NO_ACTIVE_VARIANT'
+  | 'NOT_FOUND'
+  | 'FORBIDDEN'
+  | 'NETWORK'
+  | 'UNKNOWN';
+
+/** Результат смены статуса: явный ok/error-стейт для UI. */
+export type ProductStatusResult =
+  | { ok: true }
+  | { ok: false; code: ProductStatusErrorCode; message: string };
+
+/**
+ * Порядок отображения товаров в инвентаре: активные → архивные,
+ * внутри группы — по `sortOrder`, затем по `createdAt` (детерминированно).
+ */
+export function compareProductsForDisplay(a: Product, b: Product): number {
+  const byStatus = PRODUCT_STATUS_ORDER[a.status] - PRODUCT_STATUS_ORDER[b.status];
+  if (byStatus !== 0) return byStatus;
+  const bySort = (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
+  if (bySort !== 0) return bySort;
+  return a.createdAt.localeCompare(b.createdAt);
+}
 
 /**
  * Текущая цена в minor units: round(original * (100 - discount) / 100). 03 §10

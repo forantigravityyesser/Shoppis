@@ -94,7 +94,7 @@ export default function SellerOnboardingView() {
         <div style={styles.bannerUploadCont}>
           {bannerPreview ? (
             <div style={styles.bannerPreviewCont}>
-              <img src={bannerPreview} style={styles.bannerSmallImg} alt="Preview" />
+              <img src={bannerPreview} style={styles.bannerSmallImg} alt="Preview" decoding="async" />
               <button type="button" onClick={clearBanner} style={styles.clearBannerBtn} aria-label="Убрать баннер">✕</button>
             </div>
           ) : (

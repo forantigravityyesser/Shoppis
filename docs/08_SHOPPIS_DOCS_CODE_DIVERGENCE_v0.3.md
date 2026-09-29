@@ -1,4 +1,4 @@
-# VUTRINA — ОСТАТОК РАБОТ (незакрытые расхождения)
+# SHOPPIS — ОСТАТОК РАБОТ (незакрытые расхождения)
 
 **Version:** 0.3
 **Статус:** рабочий список незавершённого. Закрытые пункты удалены.
@@ -48,8 +48,10 @@ Severity: **S1** критично · **S2** высоко · **S3** средне.
 
 ### [ ] 2.4 Image pipeline
 - **Док:** `04 §6`, `03 §7`.
-- **Сейчас:** только клиентский resize в WebP 1200 px (`src/utils/image.ts`); лимит `MAX_IMAGES = 4` уже соблюдён.
-- **Задача:** JPEG/PNG/WebP, max original 10 МБ, max 4096 px; серверная MIME/контент-валидация; derivative ~1600 px и thumbnail ~600 px; strip metadata; reject malformed.
+- **Сейчас:** клиентский resize/crop в WebP (`src/utils/image.ts`, `createImageBitmap` + canvas, fallback JPEG);
+  товар `full` 1000px q0.75 + `thumb` 320px q0.75 (`product_images.storage_key`/`thumb_storage_key`),
+  обложка категории 320px, баннер 1024px; лимит `MAX_IMAGES = 4` соблюдён; откреплённые файлы удаляются из Storage.
+- **Задача:** JPEG/PNG/WebP, max original 10 МБ, max 4096 px; серверная MIME/контент-валидация; серверные derivatives; strip metadata; reject malformed.
 
 ### [ ] 2.6 Search
 - **Док:** `02 §15`, `04 §8`.

@@ -76,6 +76,7 @@ export const createAuthSlice: StateCreator<RootStore, [], [], AuthSlice> = (set,
   setStoreId: (storeId) => {
     if (get().storeId === storeId) return;
     get().resetCatalog();
+    get().resetCategories();
     get().resetOrders();
     set({ storeId, currentStore: null });
   },
@@ -119,6 +120,7 @@ export const createAuthSlice: StateCreator<RootStore, [], [], AuthSlice> = (set,
       }
 
       get().resetCatalog();
+      get().resetCategories();
       get().resetOrders();
       set({ storeId: store.id, currentStore: store, authLoading: false, context: 'seller' });
 
@@ -144,6 +146,7 @@ export const createAuthSlice: StateCreator<RootStore, [], [], AuthSlice> = (set,
       const first = stores[0] ?? null;
       if (first) {
         get().resetCatalog();
+        get().resetCategories();
         get().resetOrders();
         set({ storeId: first.id, currentStore: first });
         return first.id;
@@ -169,5 +172,5 @@ export const createAuthSlice: StateCreator<RootStore, [], [], AuthSlice> = (set,
     }
   },
 
-  uploadStoreBanner: async (file: File) => uploadFile(await compressImage(file, 1200, 0.8)),
+  uploadStoreBanner: async (file: File) => uploadFile(await compressImage(file)),
 });
