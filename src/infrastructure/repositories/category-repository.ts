@@ -1,5 +1,6 @@
 import { insforge } from '../insforge/client';
 import type { Category, CategoryStatus } from '../../domain/models/category';
+import type { AddCategoryInput, UpdateCategoryPatch } from '../../application/contracts/category';
 
 interface CategoryRow {
   id: string;
@@ -28,18 +29,6 @@ function mapCategory(row: CategoryRow): Category {
 
 function normalize(name: string): string {
   return name.trim().toLowerCase();
-}
-
-export interface AddCategoryInput {
-  name: string;
-  imageStorageKey?: string | null;
-  lowStockThreshold?: number | null;
-}
-
-export interface UpdateCategoryPatch {
-  name?: string;
-  imageStorageKey?: string | null;
-  lowStockThreshold?: number | null;
 }
 
 export async function fetchCategories(storeId: string): Promise<Category[]> {

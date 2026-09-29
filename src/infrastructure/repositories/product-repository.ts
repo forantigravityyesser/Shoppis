@@ -10,18 +10,15 @@ import type {
   VariantPriceMode,
   VariantStatus,
 } from '../../domain/models/product';
-import type { ProductStatusErrorCode } from '../../domain/rules/product-rules';
-
-/** Ошибка смены статуса товара, несущая машинный код для UI. */
-export class ProductStatusError extends Error {
-  constructor(
-    public readonly code: ProductStatusErrorCode,
-    message: string,
-  ) {
-    super(message);
-    this.name = 'ProductStatusError';
-  }
-}
+import { ProductStatusError } from '../../application/contracts/product-status';
+import type {
+  AddVariantInput,
+  NewProductInput,
+  NewVariantInput,
+  ProductCatalog,
+  UpdateProductPatch,
+  VariantStockPatch,
+} from '../../application/contracts/product';
 
 interface ProductImageRow {
   id: string;
@@ -29,12 +26,6 @@ interface ProductImageRow {
   storage_key: string;
   thumb_storage_key: string | null;
   sort_order: number;
-}
-
-/** Входное изображение товара: полный файл + опциональная миниатюра. */
-export interface ProductImageInput {
-  storageKey: string;
-  thumbStorageKey?: string | null;
 }
 
 interface ProductAttributeRow {
@@ -89,15 +80,6 @@ interface ProductRow {
   product_attributes?: ProductAttributeRow[];
   product_link_attributes?: ProductLinkAttributeRow[];
   variants?: VariantRow[];
-}
-
-export interface ProductCatalog {
-  products: Product[];
-  variants: Variant[];
-  inventories: Inventory[];
-  images: ProductImage[];
-  attributes: ProductAttribute[];
-  linkAttributes: ProductLinkAttribute[];
 }
 
 function mapInventory(row: InventoryRow): Inventory {
@@ -165,10 +147,22 @@ function splitCatalog(rows: ProductRow[]): ProductCatalog {
       });
     }
     for (const a of row.product_attributes ?? []) {
-      attributes.push({ id: a.id, productId: a.product_id, name: a.name, value: a.value, sortOrder: a.sort_order });
+      attributes.push({
+        id: a.id,
+        productId: a.product_id,
+        name: a.name,
+        value: a.value,
+        sortOrder: a.sort_order,
+      });
     }
     for (const l of row.product_link_attributes ?? []) {
-      linkAttributes.push({ id: l.id, productId: l.product_id, name: l.name, value: l.value, sortOrder: l.sort_order });
+      linkAttributes.push({
+        id: l.id,
+        productId: l.product_id,
+        name: l.name,
+        value: l.value,
+        sortOrder: l.sort_order,
+      });
     }
     for (const v of row.variants ?? []) {
       variants.push(mapVariant(v));
@@ -184,35 +178,14 @@ function splitCatalog(rows: ProductRow[]): ProductCatalog {
 export async function fetchCatalog(storeId: string): Promise<ProductCatalog> {
   const { data, error } = await insforge.database
     .from('products')
-    .select('*, product_images(*), product_attributes(*), product_link_attributes(*), variants(*, inventory(*))')
+    .select(
+      '*, product_images(*), product_attributes(*), product_link_attributes(*), variants(*, inventory(*))',
+    )
     .eq('store_id', storeId)
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });
   if (error) throw error;
   return splitCatalog((data ?? []) as ProductRow[]);
-}
-
-export interface NewVariantInput {
-  name: string;
-  value: string;
-  availableQuantity: number;
-  priceMode?: VariantPriceMode;
-  customOriginalAmountMinor?: number | null;
-  customDiscountPercent?: number | null;
-}
-
-export interface NewProductInput {
-  storeId: string;
-  title: string;
-  description: string;
-  originalAmountMinor: number;
-  discountPercent: number;
-  categoryId: string | null;
-  status?: ProductStatus;
-  images: ProductImageInput[];
-  variants: NewVariantInput[];
-  attributes: Array<{ name: string; value: string }>;
-  linkAttributes: Array<{ name: string; value: string }>;
 }
 
 function normalize(value: string): string {
@@ -306,33 +279,24 @@ export async function addProduct(input: NewProductInput): Promise<Product> {
   return mapProduct(row);
 }
 
-export interface UpdateProductPatch {
-  title?: string;
-  description?: string;
-  status?: ProductStatus;
-  originalAmountMinor?: number;
-  discountPercent?: number;
-  categoryId?: string | null;
-  images?: ProductImageInput[];
-  variants?: NewVariantInput[];
-  attributes?: Array<{ name: string; value: string }>;
-  linkAttributes?: Array<{ name: string; value: string }>;
-}
-
 export async function updateProduct(id: string, patch: UpdateProductPatch): Promise<void> {
   const values: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (patch.title !== undefined) values.title = patch.title;
   if (patch.description !== undefined) values.description = patch.description;
   if (patch.status !== undefined) values.status = patch.status;
   if (patch.categoryId !== undefined) values.category_id = patch.categoryId;
-  if (patch.originalAmountMinor !== undefined) values.original_amount_minor = patch.originalAmountMinor;
+  if (patch.originalAmountMinor !== undefined)
+    values.original_amount_minor = patch.originalAmountMinor;
   if (patch.discountPercent !== undefined) values.discount_percent = patch.discountPercent;
 
   const { error } = await insforge.database.from('products').update(values).eq('id', id);
   if (error) throw error;
 
   if (patch.images !== undefined) {
-    const { error: delError } = await insforge.database.from('product_images').delete().eq('product_id', id);
+    const { error: delError } = await insforge.database
+      .from('product_images')
+      .delete()
+      .eq('product_id', id);
     if (delError) throw delError;
     if (patch.images.length) {
       const { error: insError } = await insforge.database.from('product_images').insert(
@@ -347,11 +311,19 @@ export async function updateProduct(id: string, patch: UpdateProductPatch): Prom
     }
   }
   if (patch.attributes !== undefined) {
-    const { error: delError } = await insforge.database.from('product_attributes').delete().eq('product_id', id);
+    const { error: delError } = await insforge.database
+      .from('product_attributes')
+      .delete()
+      .eq('product_id', id);
     if (delError) throw delError;
     if (patch.attributes.length) {
       const { error: insError } = await insforge.database.from('product_attributes').insert(
-        patch.attributes.map((a, index) => ({ product_id: id, name: a.name, value: a.value, sort_order: index })),
+        patch.attributes.map((a, index) => ({
+          product_id: id,
+          name: a.name,
+          value: a.value,
+          sort_order: index,
+        })),
       );
       if (insError) throw insError;
     }
@@ -364,21 +336,24 @@ export async function updateProduct(id: string, patch: UpdateProductPatch): Prom
     if (delError) throw delError;
     if (patch.linkAttributes.length) {
       const { error: insError } = await insforge.database.from('product_link_attributes').insert(
-        patch.linkAttributes.map((l, index) => ({ product_id: id, name: l.name, value: l.value, sort_order: index })),
+        patch.linkAttributes.map((l, index) => ({
+          product_id: id,
+          name: l.name,
+          value: l.value,
+          sort_order: index,
+        })),
       );
       if (insError) throw insError;
     }
   }
   if (patch.variants !== undefined) {
-    const { error: delError } = await insforge.database.from('variants').delete().eq('product_id', id);
+    const { error: delError } = await insforge.database
+      .from('variants')
+      .delete()
+      .eq('product_id', id);
     if (delError) throw delError;
     await insertVariants(id, patch.variants);
   }
-}
-
-export interface VariantStockPatch {
-  availableQuantity?: number;
-  heldQuantity?: number;
 }
 
 /** Прямое редактирование остатков варианта (контроль остатков). 02 §4 */
@@ -398,12 +373,6 @@ export async function updateVariantStock(
     .update(updateData)
     .eq('variant_id', variantId);
   if (error) throw error;
-}
-
-export interface AddVariantInput extends NewVariantInput {
-  /** Базовая цена товара. Применяется только если это первый вариант товара. */
-  baseOriginalAmountMinor?: number;
-  baseDiscountPercent?: number;
 }
 
 /** Быстрое добавление одного варианта из «Контроля остатков»: variants + inventory. */
@@ -506,7 +475,11 @@ export async function setProductStatus(id: string, status: ProductStatus): Promi
 export async function deleteProduct(
   id: string,
 ): Promise<Array<{ storageKey: string; thumbStorageKey: string | null }>> {
-  const { data, error } = await insforge.database.from('products').select('status').eq('id', id).maybeSingle();
+  const { data, error } = await insforge.database
+    .from('products')
+    .select('status')
+    .eq('id', id)
+    .maybeSingle();
   if (error) throw error;
   if ((data as { status?: ProductStatus } | null)?.status !== 'ARCHIVED') {
     throw new Error('Товар можно удалить только из архива');

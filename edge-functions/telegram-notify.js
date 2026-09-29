@@ -20,24 +20,8 @@
 // Telegram вернёт "bot was blocked" / "chat not found": это НЕ ошибка кода,
 // функция вернёт success:false с текстом причины, заказ при этом уже создан.
 
-const JSON_HEADERS = {
-  'Content-Type': 'application/json',
-  'Access-Control-Allow-Origin': '*',
-};
-
-function env(name, fallback = '') {
-  try {
-    const v = typeof Deno !== 'undefined' ? Deno.env.get(name) : undefined;
-    return v || fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function pickToken(bot) {
-  if (bot === 'seller') return env('SELLER_BOT_TOKEN') || env('BOT_TOKEN');
-  return env('BUYER_BOT_TOKEN') || env('BOT_TOKEN');
-}
+import { json, methodNotAllowed, preflight, readJson } from './_shared/http.js';
+import { pickToken, storeReplyMarkup } from './_shared/telegram.js';
 
 // Готовые тексты, чтобы process-checkout / фронт не дублировали вёрстку.
 export const templates = {
@@ -51,44 +35,22 @@ export const templates = {
 
 export default {
   async fetch(request) {
-    if (request.method === 'OPTIONS') return new Response(null, { headers: JSON_HEADERS });
-    if (request.method !== 'POST') {
-      return new Response(JSON.stringify({ success: false, error: 'Use POST' }), { status: 405, headers: JSON_HEADERS });
-    }
-    let body;
-    try {
-      body = await request.json();
-    } catch {
-      return new Response(JSON.stringify({ success: false, error: 'Invalid JSON payload' }), { status: 400, headers: JSON_HEADERS });
-    }
+    if (request.method === 'OPTIONS') return preflight();
+    if (request.method !== 'POST') return methodNotAllowed();
+
+    const body = await readJson(request);
+    if (!body) return json({ success: false, error: 'Invalid JSON payload' }, 400);
 
     const bot = body.bot === 'seller' ? 'seller' : 'buyer';
     const chatId = body.chatId || body.chat_id;
-    if (!chatId) {
-      return new Response(JSON.stringify({ success: false, error: 'chatId is required' }), { status: 400, headers: JSON_HEADERS });
-    }
-    if (!body.text) {
-      return new Response(JSON.stringify({ success: false, error: 'text is required' }), { status: 400, headers: JSON_HEADERS });
-    }
+    if (!chatId) return json({ success: false, error: 'chatId is required' }, 400);
+    if (!body.text) return json({ success: false, error: 'text is required' }, 400);
 
     const token = pickToken(bot);
-    if (!token) {
-      return new Response(JSON.stringify({ success: false, error: `Missing token for bot=${bot}` }), { status: 500, headers: JSON_HEADERS });
-    }
+    if (!token) return json({ success: false, error: `Missing token for bot=${bot}` }, 500);
 
-    let replyMarkup = body.replyMarkup || body.reply_markup;
-    if (!replyMarkup && body.storeId) {
-      const appUrl = (env('APP_URL') || '').replace(/\/$/, '');
-      if (appUrl) {
-        // Покупателю — прямой вход в его витрину (Mini App линк через startapp).
-        // Продавцу — вход в панель продавца (?startapp=seller), а не в чужую витрину.
-        const webAppUrl =
-          bot === 'seller' ? `${appUrl}?startapp=seller` : `${appUrl}?startapp=store_${body.storeId}`;
-        replyMarkup = {
-          inline_keyboard: [[{ text: bot === 'seller' ? '🏪 Открыть панель' : '🛍️ Открыть витрину', web_app: { url: webAppUrl } }]],
-        };
-      }
-    }
+    const replyMarkup =
+      body.replyMarkup || body.reply_markup || storeReplyMarkup(bot, body.storeId);
 
     try {
       const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
@@ -106,12 +68,12 @@ export default {
       if (!data.ok) {
         // Типично: пользователь не стартовал бота / заблокировал — заказ уже создан, просто фиксируем.
         console.error(`[notify:${bot}] send failed:`, JSON.stringify(data));
-        return new Response(JSON.stringify({ success: false, error: data.description || 'Telegram send failed', bot }), { headers: JSON_HEADERS });
+        return json({ success: false, error: data.description || 'Telegram send failed', bot });
       }
-      return new Response(JSON.stringify({ success: true, bot, messageId: data.result?.message_id }), { headers: JSON_HEADERS });
+      return json({ success: true, bot, messageId: data.result?.message_id });
     } catch (e) {
       console.error(`[notify:${bot}] error:`, e);
-      return new Response(JSON.stringify({ success: false, error: String(e?.message || e) }), { status: 500, headers: JSON_HEADERS });
+      return json({ success: false, error: String(e?.message || e) }, 500);
     }
   },
 };

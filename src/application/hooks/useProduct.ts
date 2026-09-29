@@ -1,8 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import type {
-  InventoryProductDetail,
-  InventoryVariantItem,
-} from '../../domain/models/inventory-view';
+import type { InventoryProductDetail, InventoryVariantItem } from '../read-models/inventory-view';
 import { useStore } from '../store';
 import { buildProductDetail, type InventoryCatalogSource } from '../mappers/inventory-mappers';
 

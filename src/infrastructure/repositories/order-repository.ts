@@ -172,9 +172,14 @@ export async function updateOrderStatus(
     patch.delivery_outcome = outcome.deliveryOutcome;
     if (outcome.deliveryOutcome === 'RECEIVED') patch.completed_at = now;
   }
-  if (outcome?.refusalReasonCode !== undefined) patch.refusal_reason_code = outcome.refusalReasonCode;
+  if (outcome?.refusalReasonCode !== undefined)
+    patch.refusal_reason_code = outcome.refusalReasonCode;
 
-  const { data, error } = await insforge.database.from('orders').update(patch).eq('id', orderId).select();
+  const { data, error } = await insforge.database
+    .from('orders')
+    .update(patch)
+    .eq('id', orderId)
+    .select();
   if (error) throw error;
   const row = (data ?? [])[0] as OrderRow | undefined;
   if (!row) throw new Error('Order update returned no data');

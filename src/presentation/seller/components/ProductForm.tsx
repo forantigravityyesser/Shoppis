@@ -6,7 +6,7 @@ import { uploadCatalogImages } from '../../../application/services/image-service
 import type {
   InventoryImageItem,
   ProductFormPayload,
-} from '../../../domain/models/inventory-view';
+} from '../../../application/read-models/inventory-view';
 import { UNCATEGORIZED_ID } from '../../../domain/constants/categories';
 import { MAX_IMAGES, MAX_VARIANTS } from '../../../domain/constants/limits';
 import type { ProductStatus } from '../../../domain/models/product';
@@ -127,7 +127,9 @@ export default function ProductForm({ categories, initial, onSubmit }: ProductFo
   const [description, setDescription] = useState(initial?.description ?? '');
   const [categoryId, setCategoryId] = useState(initial?.categoryId ?? UNCATEGORIZED_ID);
 
-  const [characteristics, setCharacteristics] = useState<Characteristic[]>(initial?.attributes ?? []);
+  const [characteristics, setCharacteristics] = useState<Characteristic[]>(
+    initial?.attributes ?? [],
+  );
   const [variants, setVariants] = useState<VariantForm[]>(initial?.variants ?? [emptyVariant()]);
   const [expandedVariant, setExpandedVariant] = useState(0);
 
@@ -158,8 +160,7 @@ export default function ProductForm({ categories, initial, onSubmit }: ProductFo
     setPhotos((prev) => prev.filter((p) => p !== target));
   };
 
-  const addCharacteristic = () =>
-    setCharacteristics((prev) => [...prev, { name: '', value: '' }]);
+  const addCharacteristic = () => setCharacteristics((prev) => [...prev, { name: '', value: '' }]);
 
   const updateCharacteristic = (index: number, patch: Partial<Characteristic>) =>
     setCharacteristics((prev) => prev.map((c, i) => (i === index ? { ...c, ...patch } : c)));
@@ -183,7 +184,9 @@ export default function ProductForm({ categories, initial, onSubmit }: ProductFo
   };
 
   const updateVariant = (index: number, patch: Partial<VariantForm>) =>
-    setVariants((prev) => syncInherited(prev.map((v, i) => (i === index ? { ...v, ...patch } : v))));
+    setVariants((prev) =>
+      syncInherited(prev.map((v, i) => (i === index ? { ...v, ...patch } : v))),
+    );
 
   const removeVariant = (index: number) => {
     setVariants((prev) =>
@@ -247,7 +250,11 @@ export default function ProductForm({ categories, initial, onSubmit }: ProductFo
               onClick={() => fileInputRef.current?.click()}
               aria-label="Добавить фото"
             >
-              {processing ? <span className="photo-slot__loading" aria-hidden /> : <Plus size={22} />}
+              {processing ? (
+                <span className="photo-slot__loading" aria-hidden />
+              ) : (
+                <Plus size={22} />
+              )}
             </button>
           ) : null}
         </div>
@@ -343,7 +350,10 @@ export default function ProductForm({ categories, initial, onSubmit }: ProductFo
         {variants.map((v, index) => {
           const expanded = index === expandedVariant;
           return (
-            <div className={`variant-block${expanded ? '' : ' variant-block--collapsed'}`} key={index}>
+            <div
+              className={`variant-block${expanded ? '' : ' variant-block--collapsed'}`}
+              key={index}
+            >
               <div className="variant-block__head">
                 <button
                   type="button"
@@ -461,15 +471,26 @@ export default function ProductForm({ categories, initial, onSubmit }: ProductFo
           </button>
         ) : null}
         <div className="card__muted">
-          До {MAX_VARIANTS} вариантов. Без варианта товар нельзя выставить на витрину — только в архив.
+          До {MAX_VARIANTS} вариантов. Без варианта товар нельзя выставить на витрину — только в
+          архив.
         </div>
       </section>
 
       <div className="form-actions">
-        <button type="button" className="btn-ghost" disabled={!canArchive} onClick={() => submit('ARCHIVED')}>
+        <button
+          type="button"
+          className="btn-ghost"
+          disabled={!canArchive}
+          onClick={() => submit('ARCHIVED')}
+        >
           В архив
         </button>
-        <button type="button" className="btn-primary" disabled={!canPublish} onClick={() => submit('ACTIVE')}>
+        <button
+          type="button"
+          className="btn-primary"
+          disabled={!canPublish}
+          onClick={() => submit('ACTIVE')}
+        >
           На витрину
         </button>
       </div>

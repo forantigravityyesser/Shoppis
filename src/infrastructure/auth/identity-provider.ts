@@ -1,6 +1,6 @@
 import { DEV_AUTH_MODE } from '../insforge/config';
 import { getRawInitData } from '../telegram/telegram-app';
-import type { ServerUser } from '../functions/auth-api';
+import type { ServerUser } from '../../application/contracts/auth';
 
 /**
  * Провайдер идентичности. Единственное место, которое знает, откуда берётся

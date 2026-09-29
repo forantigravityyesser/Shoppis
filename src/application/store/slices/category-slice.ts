@@ -1,16 +1,8 @@
 import type { StateCreator } from 'zustand';
 import type { Category } from '../../../domain/models/category';
 import { isSystemCategory } from '../../../domain/rules/category-rules';
-import {
-  addCategory as addCategoryRepo,
-  deleteCategory as deleteCategoryRepo,
-  fetchCategories as fetchCategoriesRepo,
-  setCategoryStatus as setCategoryStatusRepo,
-  updateCategory as updateCategoryRepo,
-  type AddCategoryInput,
-  type UpdateCategoryPatch,
-} from '../../../infrastructure/repositories/category-repository';
-import { removeFilesByUrl } from '../../../infrastructure/storage/file-storage';
+import type { AddCategoryInput, UpdateCategoryPatch } from '../../contracts/category';
+import { deps } from '../../composition/container';
 import type { RootStore } from '../index';
 
 export interface CategorySlice {
@@ -37,7 +29,7 @@ export const createCategorySlice: StateCreator<RootStore, [], [], CategorySlice>
     set({ categoriesLoading: true, categoriesError: null });
     try {
       set({
-        categories: await fetchCategoriesRepo(storeId),
+        categories: await deps().categoryRepository.fetchCategories(storeId),
         categoriesLoading: false,
         categoriesStoreId: storeId,
       });
@@ -53,20 +45,19 @@ export const createCategorySlice: StateCreator<RootStore, [], [], CategorySlice>
     await get().fetchCategories(storeId);
   },
 
-  resetCategories: () =>
-    set({ categories: [], categoriesError: null, categoriesStoreId: null }),
+  resetCategories: () => set({ categories: [], categoriesError: null, categoriesStoreId: null }),
 
   addCategory: async (input: AddCategoryInput) => {
     const { storeId } = get();
     if (!storeId) throw new Error('No store selected');
-    const category = await addCategoryRepo(storeId, input);
+    const category = await deps().categoryRepository.addCategory(storeId, input);
     set((s) => ({ categories: [...s.categories, category] }));
     return category;
   },
 
   updateCategory: async (id: string, patch: UpdateCategoryPatch) => {
     const previous = get().categories.find((c) => c.id === id) ?? null;
-    await updateCategoryRepo(id, patch);
+    await deps().categoryRepository.updateCategory(id, patch);
     set((s) => ({
       categories: s.categories.map((c) =>
         c.id === id
@@ -76,7 +67,9 @@ export const createCategorySlice: StateCreator<RootStore, [], [], CategorySlice>
               imageStorageKey:
                 patch.imageStorageKey !== undefined ? patch.imageStorageKey : c.imageStorageKey,
               lowStockThreshold:
-                patch.lowStockThreshold !== undefined ? patch.lowStockThreshold : c.lowStockThreshold,
+                patch.lowStockThreshold !== undefined
+                  ? patch.lowStockThreshold
+                  : c.lowStockThreshold,
             }
           : c,
       ),
@@ -88,17 +81,17 @@ export const createCategorySlice: StateCreator<RootStore, [], [], CategorySlice>
       previous?.imageStorageKey &&
       previous.imageStorageKey !== patch.imageStorageKey
     ) {
-      void removeFilesByUrl([previous.imageStorageKey]);
+      void deps().storage.removeFilesByUrl([previous.imageStorageKey]);
     }
   },
 
   deleteCategory: async (id: string) => {
     if (isSystemCategory(id)) return;
 
-    const imageKey = await deleteCategoryRepo(id);
+    const imageKey = await deps().categoryRepository.deleteCategory(id);
 
     // Обложка удаляется из Storage best-effort: категория уже удалена в БД.
-    if (imageKey) void removeFilesByUrl([imageKey]);
+    if (imageKey) void deps().storage.removeFilesByUrl([imageKey]);
 
     set((s) => ({ categories: s.categories.filter((c) => c.id !== id) }));
 
@@ -114,7 +107,7 @@ export const createCategorySlice: StateCreator<RootStore, [], [], CategorySlice>
   },
 
   archiveCategory: async (id: string) => {
-    await setCategoryStatusRepo(id, 'ARCHIVED');
+    await deps().categoryRepository.setCategoryStatus(id, 'ARCHIVED');
     set((s) => ({ categories: s.categories.filter((c) => c.id !== id) }));
   },
 });

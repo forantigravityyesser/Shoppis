@@ -1,4 +1,7 @@
-import type { InventoryCategoryItem, InventoryProductItem } from '../../../../application/hooks/useInventory';
+import type {
+  InventoryCategoryItem,
+  InventoryProductItem,
+} from '../../../../application/hooks/useInventory';
 import type { CategoryRow } from '../layout';
 import CategoryCard from './CategoryCard';
 

@@ -20,7 +20,12 @@ export default function InventoryHeader({
   if (searchOpen) {
     return (
       <div className="inv-header inv-header--search">
-        <button type="button" className="inv-icon-btn" onClick={onCloseSearch} aria-label="Закрыть поиск">
+        <button
+          type="button"
+          className="inv-icon-btn"
+          onClick={onCloseSearch}
+          aria-label="Закрыть поиск"
+        >
           <ArrowLeft size={20} />
         </button>
         <div className="inv-search">

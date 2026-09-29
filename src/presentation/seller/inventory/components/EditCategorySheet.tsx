@@ -148,7 +148,12 @@ export default function EditCategorySheet({
       </label>
 
       <div className="form-actions">
-        <button type="button" className="btn-primary btn-primary--wide" disabled={!canSave} onClick={save}>
+        <button
+          type="button"
+          className="btn-primary btn-primary--wide"
+          disabled={!canSave}
+          onClick={save}
+        >
           Сохранить
         </button>
       </div>

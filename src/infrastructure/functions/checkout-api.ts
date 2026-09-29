@@ -1,21 +1,5 @@
 import { invokeFunction } from '../insforge/functions-gateway';
-import type { CartItem } from '../../domain/models/cart';
-import type { RecipientInfo } from '../../domain/models/customer';
-
-export interface CheckoutPayload {
-  items: CartItem[];
-  recipientInfo: RecipientInfo;
-  storeId: string;
-  sessionToken: string;
-  idempotencyKey?: string;
-}
-
-export interface CheckoutResult {
-  orderId: string;
-  orderNumber: string;
-  totalMinor: number;
-  currencyCode: string;
-}
+import type { CheckoutPayload, CheckoutResult } from '../../application/contracts/checkout';
 
 interface CheckoutResponse {
   success?: boolean;

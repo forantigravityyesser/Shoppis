@@ -135,8 +135,8 @@ export function getRawInitData(): string {
     // ignore, fallback ниже
   }
   try {
-    const raw = (window as unknown as { Telegram?: { WebApp?: { initData?: string } } }).Telegram?.WebApp
-      ?.initData;
+    const raw = (window as unknown as { Telegram?: { WebApp?: { initData?: string } } }).Telegram
+      ?.WebApp?.initData;
     if (raw) return raw;
   } catch {
     // ignore, fallback ниже
@@ -157,7 +157,6 @@ export function logTelegramDiagnostics(): void {
       Telegram?: { WebApp?: { initData?: string; initDataUnsafe?: Record<string, unknown> } };
     };
     const webApp = w.Telegram?.WebApp;
-    // eslint-disable-next-line no-console
     console.log('[shoppis] build=onboarding-fix-3', {
       hasTelegram: !!w.Telegram,
       hasWebApp: !!webApp,
@@ -169,10 +168,8 @@ export function logTelegramDiagnostics(): void {
     try {
       const user = initData.user();
       const startParam = initData.startParam();
-      // eslint-disable-next-line no-console
       console.log('[shoppis] sdk signals ok:', { hasUser: !!user, startParam });
     } catch (e) {
-      // eslint-disable-next-line no-console
       console.log('[shoppis] sdk signals fail:', String((e as Error)?.message ?? e).slice(0, 200));
     }
   } catch {

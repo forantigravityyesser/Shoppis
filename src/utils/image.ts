@@ -135,11 +135,7 @@ export async function compressImage(
  * MVP-нормализация фото: центрированный квадратный crop (WebP/JPEG).
  * Один «square»-вариант используется для карточки/детали/миниатюры.
  */
-export async function prepareSquareImage(
-  file: File,
-  size = 1000,
-  quality = 0.75,
-): Promise<File> {
+export async function prepareSquareImage(file: File, size = 1000, quality = 0.75): Promise<File> {
   if (!file.type.startsWith('image/')) return file;
 
   const decoded = await decodeImage(file);

@@ -19,7 +19,13 @@ export default function ProductMiniCard({ product, onClick }: ProductMiniCardPro
     >
       <span className="mini-card__thumb" aria-hidden>
         {product.imageUrl ? (
-          <img className="mini-card__img" src={product.imageUrl} alt="" loading="lazy" decoding="async" />
+          <img
+            className="mini-card__img"
+            src={product.imageUrl}
+            alt=""
+            loading="lazy"
+            decoding="async"
+          />
         ) : (
           <span className="mini-card__emoji">{product.emoji || '📦'}</span>
         )}

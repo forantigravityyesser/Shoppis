@@ -43,7 +43,12 @@ export default function CreateCategoryView() {
   return (
     <div className="screen inv-form">
       <div className="form-header form-header--center">
-        <button type="button" className="inv-icon-btn" onClick={() => navigate(-1)} aria-label="Назад">
+        <button
+          type="button"
+          className="inv-icon-btn"
+          onClick={() => navigate(-1)}
+          aria-label="Назад"
+        >
           <ArrowLeft size={20} />
         </button>
         <h1 className="form-header__title">Новая категория</h1>
@@ -73,7 +78,11 @@ export default function CreateCategoryView() {
               onClick={() => fileInputRef.current?.click()}
               aria-label="Добавить фото"
             >
-              {processing ? <span className="photo-slot__loading" aria-hidden /> : <Plus size={22} />}
+              {processing ? (
+                <span className="photo-slot__loading" aria-hidden />
+              ) : (
+                <Plus size={22} />
+              )}
             </button>
           )}
         </div>

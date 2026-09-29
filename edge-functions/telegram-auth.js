@@ -13,87 +13,13 @@
 // короткий, а не 30 дней.
 
 import { createClient } from 'npm:@insforge/sdk';
-
-const JSON_HEADERS = {
-  'Content-Type': 'application/json',
-  'Access-Control-Allow-Origin': '*',
-};
-
-function env(name, fallback = '') {
-  try {
-    const v = typeof Deno !== 'undefined' ? Deno.env.get(name) : undefined;
-    return v || fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function json(payload, status = 200) {
-  return new Response(JSON.stringify(payload), { status, headers: JSON_HEADERS });
-}
-
-const enc = (s) => new TextEncoder().encode(s);
-
-function b64url(bytes) {
-  let bin = '';
-  for (const b of bytes) bin += String.fromCharCode(b);
-  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-
-function hex(bytes) {
-  return [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('');
-}
-
-async function hmac(secret, message) {
-  const key = await crypto.subtle.importKey(
-    'raw',
-    typeof secret === 'string' ? enc(secret) : secret,
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign'],
-  );
-  const sig = await crypto.subtle.sign('HMAC', key, enc(message));
-  return new Uint8Array(sig);
-}
-
-function botTokens() {
-  return [env('BUYER_BOT_TOKEN'), env('SELLER_BOT_TOKEN'), env('BOT_TOKEN')].filter(Boolean);
-}
-
-async function isValidInitData(initData, tokens) {
-  const params = new URLSearchParams(initData);
-  const hash = params.get('hash');
-  if (!hash) return false;
-  params.delete('hash');
-  const dataCheckString = [...params.entries()]
-    .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))
-    .map(([k, v]) => `${k}=${v}`)
-    .join('\n');
-  for (const token of tokens) {
-    const secretKey = await hmac('WebAppData', token);
-    const computed = hex(await hmac(secretKey, dataCheckString));
-    if (computed === hash) return true;
-  }
-  return false;
-}
-
-async function signSession(payload, secret) {
-  const body = b64url(enc(JSON.stringify(payload)));
-  const sig = b64url(await hmac(secret, body));
-  return `${body}.${sig}`;
-}
+import { env } from './_shared/env.js';
+import { json, methodNotAllowed, preflight, readJson } from './_shared/http.js';
+import { botTokens, isValidTelegramInitData, signSession } from './_shared/auth.js';
 
 export default async function (request) {
-  if (request.method === 'OPTIONS') {
-    return new Response(null, {
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-      },
-    });
-  }
-  if (request.method !== 'POST') return json({ success: false, error: 'Use POST' }, 405);
+  if (request.method === 'OPTIONS') return preflight();
+  if (request.method !== 'POST') return methodNotAllowed();
 
   const baseUrl = env('INSFORGE_BASE_URL');
   const anonKey = env('ANON_KEY');
@@ -102,12 +28,8 @@ export default async function (request) {
     return json({ success: false, error: 'Auth backend is not configured' }, 500);
   }
 
-  let body;
-  try {
-    body = await request.json();
-  } catch {
-    return json({ success: false, error: 'Invalid JSON payload' }, 400);
-  }
+  const body = await readJson(request);
+  if (!body) return json({ success: false, error: 'Invalid JSON payload' }, 400);
 
   const initData = String(body?.initData || '');
   if (!initData) return json({ success: false, error: 'initData is required' }, 400);
@@ -115,7 +37,7 @@ export default async function (request) {
   const tokens = botTokens();
   if (!tokens.length) return json({ success: false, error: 'Bot token is not configured' }, 500);
 
-  if (!(await isValidInitData(initData, tokens))) {
+  if (!(await isValidTelegramInitData(initData, tokens))) {
     return json({ success: false, error: 'Invalid Telegram initData' }, 401);
   }
 

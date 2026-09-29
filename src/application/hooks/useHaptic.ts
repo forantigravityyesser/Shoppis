@@ -1,10 +1,11 @@
-import { impactLight, impactMedium, notifySuccess, selectTick } from '../../infrastructure/telegram/telegram-haptic';
+import { deps } from '../composition/container';
+import type { HapticsPort } from '../ports/telegram';
 
 /**
  * Тактильная отдача для UI. Единственная точка входа для presentation:
- * компоненты не знают, что под капотом Telegram Haptics, и не зависят от infrastructure напрямую.
- * Вне Telegram вызовы безопасно деградируют в no-op (см. telegram-haptic).
+ * компоненты не знают, что под капотом Telegram Haptics, и не зависят от
+ * infrastructure напрямую. Вне Telegram вызовы безопасно деградируют в no-op.
  */
-export function useHaptic() {
-  return { impactLight, impactMedium, notifySuccess, selectTick };
+export function useHaptic(): HapticsPort {
+  return deps().haptics;
 }

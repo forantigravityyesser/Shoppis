@@ -8,7 +8,9 @@ import type { Inventory, Variant } from '../models/product';
 export type StockState = 'in_stock' | 'low_stock' | 'out_of_stock' | 'hidden';
 
 /** Порог low_stock: категория → глобальный дефолт. ADR-06.6 */
-export function lowStockThresholdFor(category?: Pick<Category, 'lowStockThreshold'> | null): number {
+export function lowStockThresholdFor(
+  category?: Pick<Category, 'lowStockThreshold'> | null,
+): number {
   return category?.lowStockThreshold ?? DEFAULT_LOW_STOCK_THRESHOLD;
 }
 

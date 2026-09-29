@@ -9,7 +9,10 @@ interface OrderActionResponse {
   error?: string;
 }
 
-async function callOrderAction(sessionToken: string, body: Record<string, unknown>): Promise<unknown> {
+async function callOrderAction(
+  sessionToken: string,
+  body: Record<string, unknown>,
+): Promise<unknown> {
   const { data, error } = await invokeFunction<OrderActionResponse>('order-actions', {
     body,
     token: sessionToken,

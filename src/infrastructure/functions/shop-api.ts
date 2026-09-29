@@ -1,12 +1,6 @@
 import { invokeFunction } from '../insforge/functions-gateway';
 import type { Store } from '../../domain/models/store';
-
-export interface CreateShopPayload {
-  name: string;
-  currency: string;
-  language: string;
-  bannerUrl?: string;
-}
+import type { CreateShopPayload } from '../../application/contracts/store';
 
 interface CreateShopResponse {
   success?: boolean;

@@ -51,7 +51,9 @@
   color: var(--color-text-primary);
   cursor: pointer;
   box-shadow: var(--shadow-card);
-  transition: background 0.15s, transform 0.12s;
+  transition:
+    background 0.15s,
+    transform 0.12s;
 }
 
 .inv-icon-btn:active {
@@ -105,7 +107,9 @@
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
   box-shadow: 0 6px 16px rgba(108, 92, 231, 0.25);
-  transition: background 0.15s, transform 0.12s;
+  transition:
+    background 0.15s,
+    transform 0.12s;
 }
 
 .inv-add-btn--header {
@@ -157,7 +161,9 @@
   padding: 14px;
   box-shadow: var(--shadow-card);
   cursor: pointer;
-  transition: transform 0.15s, box-shadow 0.15s;
+  transition:
+    transform 0.15s,
+    box-shadow 0.15s;
 }
 
 .inv-cat:active {
@@ -559,7 +565,9 @@
   background: var(--color-input-bg);
   font-family: inherit;
   cursor: pointer;
-  transition: transform 0.12s, background 0.15s;
+  transition:
+    transform 0.12s,
+    background 0.15s;
 }
 
 .sheet-option:active {
@@ -684,7 +692,10 @@
   font-size: var(--font-size-md);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
-  transition: background 0.15s, transform 0.12s, opacity 0.15s;
+  transition:
+    background 0.15s,
+    transform 0.12s,
+    opacity 0.15s;
 }
 
 .btn-primary {
@@ -1255,7 +1266,9 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-secondary);
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
 }
 
 .prod-tab--active {
@@ -1495,7 +1508,9 @@
   font-size: var(--font-size-md);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
-  transition: opacity 0.15s, transform 0.12s;
+  transition:
+    opacity 0.15s,
+    transform 0.12s;
 }
 
 .sheet-danger__btn:disabled {

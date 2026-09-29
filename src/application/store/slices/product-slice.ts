@@ -1,5 +1,12 @@
 import type { StateCreator } from 'zustand';
-import { validateProduct, type ProductStatusResult } from '../../../domain/rules/product-rules';
+import { validateProduct } from '../../../domain/rules/product-rules';
+import { ProductStatusError, type ProductStatusResult } from '../../contracts/product-status';
+import type {
+  AddVariantInput,
+  NewProductInput,
+  UpdateProductPatch,
+  VariantStockPatch,
+} from '../../contracts/product';
 import type {
   Inventory,
   Product,
@@ -8,21 +15,7 @@ import type {
   ProductLinkAttribute,
   Variant,
 } from '../../../domain/models/product';
-import {
-  addProduct as addProductRepo,
-  addVariantToProduct as addVariantToProductRepo,
-  deleteProduct as deleteProductRepo,
-  fetchCatalog as fetchCatalogRepo,
-  setProductStatus as setProductStatusRepo,
-  updateProduct as updateProductRepo,
-  updateVariantStock as updateVariantStockRepo,
-  ProductStatusError,
-  type AddVariantInput,
-  type NewProductInput,
-  type UpdateProductPatch,
-  type VariantStockPatch,
-} from '../../../infrastructure/repositories/product-repository';
-import { removeFilesByUrl } from '../../../infrastructure/storage/file-storage';
+import { deps } from '../../composition/container';
 import type { RootStore } from '../index';
 
 function toStatusResult(error: unknown): ProductStatusResult {
@@ -69,7 +62,7 @@ export const createProductSlice: StateCreator<RootStore, [], [], ProductSlice> =
   fetchCatalog: async (storeId: string) => {
     set({ catalogLoading: true, catalogError: null });
     try {
-      const catalog = await fetchCatalogRepo(storeId);
+      const catalog = await deps().productRepository.fetchCatalog(storeId);
       set({ ...catalog, catalogLoading: false, catalogStoreId: storeId });
     } catch (e) {
       set({ catalogLoading: false, catalogError: (e as Error).message });
@@ -112,7 +105,7 @@ export const createProductSlice: StateCreator<RootStore, [], [], ProductSlice> =
         if (errors.length) throw new Error(errors.join('; '));
 
         const previousImages = get().images.filter((i) => i.productId === id);
-        await updateProductRepo(id, patch);
+        await deps().productRepository.updateProduct(id, patch);
 
         // Удаляем из Storage откреплённые при правке фото (full + thumb), best-effort.
         if (patch.images !== undefined) {
@@ -120,10 +113,12 @@ export const createProductSlice: StateCreator<RootStore, [], [], ProductSlice> =
           const keepThumbs = new Set(
             patch.images.map((i) => i.thumbStorageKey).filter((k): k is string => Boolean(k)),
           );
-          void removeFilesByUrl(
+          void deps().storage.removeFilesByUrl(
             previousImages.flatMap((img) => [
               keepFull.has(img.storageKey) ? null : img.storageKey,
-              img.thumbStorageKey && !keepThumbs.has(img.thumbStorageKey) ? img.thumbStorageKey : null,
+              img.thumbStorageKey && !keepThumbs.has(img.thumbStorageKey)
+                ? img.thumbStorageKey
+                : null,
             ]),
           );
         }
@@ -135,7 +130,7 @@ export const createProductSlice: StateCreator<RootStore, [], [], ProductSlice> =
           imageCount: input.images.length,
         });
         if (errors.length) throw new Error(errors.join('; '));
-        await addProductRepo(input);
+        await deps().productRepository.addProduct(input);
       }
       await get().fetchCatalog(storeId);
     } catch (e) {
@@ -149,7 +144,7 @@ export const createProductSlice: StateCreator<RootStore, [], [], ProductSlice> =
     if (!storeId) return { ok: false, code: 'UNKNOWN', message: 'Магазин не выбран' };
     set({ catalogLoading: true, catalogError: null });
     try {
-      await setProductStatusRepo(id, 'ARCHIVED');
+      await deps().productRepository.setProductStatus(id, 'ARCHIVED');
       await get().fetchCatalog(storeId);
       return { ok: true };
     } catch (e) {
@@ -163,7 +158,7 @@ export const createProductSlice: StateCreator<RootStore, [], [], ProductSlice> =
     if (!storeId) return { ok: false, code: 'UNKNOWN', message: 'Магазин не выбран' };
     set({ catalogLoading: true, catalogError: null });
     try {
-      await setProductStatusRepo(id, 'ACTIVE');
+      await deps().productRepository.setProductStatus(id, 'ACTIVE');
       await get().fetchCatalog(storeId);
       return { ok: true };
     } catch (e) {
@@ -177,9 +172,11 @@ export const createProductSlice: StateCreator<RootStore, [], [], ProductSlice> =
     if (!storeId) throw new Error('No store selected');
     set({ catalogLoading: true, catalogError: null });
     try {
-      const removed = await deleteProductRepo(id);
+      const removed = await deps().productRepository.deleteProduct(id);
       // Чистим файлы удалённого товара (full + thumb), best-effort.
-      void removeFilesByUrl(removed.flatMap((img) => [img.storageKey, img.thumbStorageKey]));
+      void deps().storage.removeFilesByUrl(
+        removed.flatMap((img) => [img.storageKey, img.thumbStorageKey]),
+      );
       await get().fetchCatalog(storeId);
     } catch (e) {
       set({ catalogLoading: false, catalogError: (e as Error).message });
@@ -189,7 +186,7 @@ export const createProductSlice: StateCreator<RootStore, [], [], ProductSlice> =
 
   updateVariantStock: async (variantId: string, patch: VariantStockPatch) => {
     try {
-      await updateVariantStockRepo(variantId, patch);
+      await deps().productRepository.updateVariantStock(variantId, patch);
       set((s) => ({
         inventories: s.inventories.map((row) =>
           row.variantId === variantId
@@ -218,7 +215,7 @@ export const createProductSlice: StateCreator<RootStore, [], [], ProductSlice> =
     if (!storeId) throw new Error('No store selected');
     set({ catalogLoading: true, catalogError: null });
     try {
-      await addVariantToProductRepo(productId, variant);
+      await deps().productRepository.addVariantToProduct(productId, variant);
       await get().fetchCatalog(storeId);
     } catch (e) {
       set({ catalogLoading: false, catalogError: (e as Error).message });

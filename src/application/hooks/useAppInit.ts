@@ -1,8 +1,17 @@
 import { useEffect } from 'react';
 import { useStore } from '../store';
-import { getStartParam } from '../../infrastructure/telegram/telegram-app';
+import { deps } from '../composition/container';
 import { authenticate } from '../services/auth-service';
 import type { AppContext } from '../../domain/constants/app-context';
+
+/** Минимальная поверхность Telegram WebApp, используемая при инициализации. */
+interface TelegramWebApp {
+  safeAreaInset?: { bottom?: number };
+  expand?: () => void;
+  ready?: () => void;
+  enableClosingConfirmation?: () => void;
+  disableVerticalSwipes?: () => void;
+}
 
 /**
  * Инициализация входа. Порядок — источник истины задаёт серверная сессия:
@@ -19,7 +28,8 @@ export function useAppInit(): void {
       try {
         // --- 1. Telegram WebApp допавечки ---
         try {
-          const tg = (window as unknown as { Telegram?: { WebApp?: any } }).Telegram?.WebApp;
+          const tg = (window as unknown as { Telegram?: { WebApp?: TelegramWebApp } }).Telegram
+            ?.WebApp;
           if (tg) {
             const bottomInset = tg.safeAreaInset?.bottom || 0;
             document.documentElement.style.setProperty('--tg-safe-area-bottom', `${bottomInset}px`);
@@ -48,7 +58,7 @@ export function useAppInit(): void {
         let finalStoreId: string | null = null;
 
         if (authenticated) {
-          const startParam = getStartParam();
+          const startParam = deps().telegram.getStartParam();
 
           if (startParam === 'seller') {
             // --- БОТ ПРОДАВЦА: любой пользователь может создать магазин ---

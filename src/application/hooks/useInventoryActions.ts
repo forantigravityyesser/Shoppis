@@ -2,17 +2,13 @@ import { useCallback } from 'react';
 import { useNavigate } from 'react-router';
 import { UNCATEGORIZED_ID } from '../../domain/constants/categories';
 import type { ProductStatus } from '../../domain/models/product';
-import type { ProductStatusResult } from '../../domain/rules/product-rules';
+import type { ProductStatusResult } from '../contracts/product-status';
 import type {
   NewInventoryVariant,
   ProductFormPayload,
   UpdateVariantStockPatch,
-} from '../../domain/models/inventory-view';
-import type {
-  AddVariantInput,
-  NewProductInput,
-  UpdateProductPatch,
-} from '../../infrastructure/repositories/product-repository';
+} from '../read-models/inventory-view';
+import type { AddVariantInput, NewProductInput, UpdateProductPatch } from '../contracts/product';
 import { useStore } from '../store';
 
 export type {
@@ -21,7 +17,7 @@ export type {
   ProductFormPayload,
   UpdateInventoryProductPatch,
   UpdateVariantStockPatch,
-} from '../../domain/models/inventory-view';
+} from '../read-models/inventory-view';
 
 export interface CreateCategoryInput {
   name: string;

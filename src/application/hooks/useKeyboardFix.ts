@@ -47,7 +47,8 @@ export function useKeyboardFix(): void {
   useEffect(() => {
     const onFocusIn = (e: FocusEvent) => {
       const target = e.target;
-      if (hasCoarsePointer() && isTextEntry(target)) document.body.classList.add('keyboard-is-open');
+      if (hasCoarsePointer() && isTextEntry(target))
+        document.body.classList.add('keyboard-is-open');
       if (isCaretEditable(target)) {
         // Ставим каретку в конец после того, как браузер применит позицию по тапу.
         const el = target;
@@ -57,7 +58,8 @@ export function useKeyboardFix(): void {
       }
     };
     const onFocusOut = (e: FocusEvent) => {
-      if (hasCoarsePointer() && isTextEntry(e.target)) document.body.classList.remove('keyboard-is-open');
+      if (hasCoarsePointer() && isTextEntry(e.target))
+        document.body.classList.remove('keyboard-is-open');
     };
     const viewport = window.visualViewport;
     const onResize = () => {

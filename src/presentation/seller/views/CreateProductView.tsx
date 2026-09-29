@@ -20,7 +20,12 @@ export default function CreateProductView() {
   return (
     <div className="screen inv-form">
       <div className="form-header form-header--center">
-        <button type="button" className="inv-icon-btn" onClick={() => navigate(-1)} aria-label="Назад">
+        <button
+          type="button"
+          className="inv-icon-btn"
+          onClick={() => navigate(-1)}
+          aria-label="Назад"
+        >
           <ArrowLeft size={20} />
         </button>
         <h1 className="form-header__title">Новый товар</h1>

@@ -61,10 +61,16 @@ export async function invokeFunction<T>(
 
     if (!response.ok) {
       const message = (data as { error?: string })?.error || data || 'Edge function error';
-      return { data: null, error: { message: String(message), status: response.status, context: data } };
+      return {
+        data: null,
+        error: { message: String(message), status: response.status, context: data },
+      };
     }
     return { data: data as T, error: null };
   } catch (err) {
-    return { data: null, error: { message: (err as Error)?.message ?? 'Network error', context: err } };
+    return {
+      data: null,
+      error: { message: (err as Error)?.message ?? 'Network error', context: err },
+    };
   }
 }

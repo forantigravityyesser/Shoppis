@@ -3,12 +3,16 @@ import { MAX_CART_QTY } from '../../../domain/constants/limits';
 import type { CartItem } from '../../../domain/models/cart';
 import type { RootStore } from '../index';
 
-function sameKey(a: Pick<CartItem, 'productId' | 'productVariantId'>, b: Pick<CartItem, 'productId' | 'productVariantId'>): boolean {
-  return a.productId === b.productId && (a.productVariantId ?? null) === (b.productVariantId ?? null);
+function sameKey(
+  a: Pick<CartItem, 'productId' | 'productVariantId'>,
+  b: Pick<CartItem, 'productId' | 'productVariantId'>,
+): boolean {
+  return (
+    a.productId === b.productId && (a.productVariantId ?? null) === (b.productVariantId ?? null)
+  );
 }
 
-const clampQty = (qty: number): number =>
-  Math.min(Math.max(Math.floor(qty) || 1, 1), MAX_CART_QTY);
+const clampQty = (qty: number): number => Math.min(Math.max(Math.floor(qty) || 1, 1), MAX_CART_QTY);
 
 export interface CartSlice {
   /** Изоляция корзин: своя корзина в каждой витрине */

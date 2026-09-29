@@ -41,9 +41,14 @@ export default function SellerSettingsView() {
           )}
 
           <div style={styles.name}>{currentStore.name}</div>
-          {currentStore.description ? <div style={styles.desc}>{currentStore.description}</div> : null}
+          {currentStore.description ? (
+            <div style={styles.desc}>{currentStore.description}</div>
+          ) : null}
 
-          <Row label="Валюта" value={`${currentStore.currencyCode} (${currentStore.currencySymbol})`} />
+          <Row
+            label="Валюта"
+            value={`${currentStore.currencyCode} (${currentStore.currencySymbol})`}
+          />
           <Row label="Язык" value={currentStore.language === 'ru' ? 'Русский' : 'English'} />
           <Row label="Поддержка" value={currentStore.supportHandle || '—'} />
 
@@ -51,7 +56,9 @@ export default function SellerSettingsView() {
         </section>
       )}
 
-      <div className="card card__muted">Полные настройки (товары, заказы, ссылка-приглашение) — следующие этапы</div>
+      <div className="card card__muted">
+        Полные настройки (товары, заказы, ссылка-приглашение) — следующие этапы
+      </div>
     </div>
   );
 }

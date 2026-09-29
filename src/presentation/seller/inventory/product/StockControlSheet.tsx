@@ -40,7 +40,12 @@ function toInt(value: string): number {
  * Контроль остатков: строки «размерность / значение / в наличии / в ожидании».
  * Продавец правит числа напрямую; «Всё в наличии» переносит held → available (02 §4).
  */
-export default function StockControlSheet({ open, productId, variants, onClose }: StockControlSheetProps) {
+export default function StockControlSheet({
+  open,
+  productId,
+  variants,
+  onClose,
+}: StockControlSheetProps) {
   const updateVariantStock = useStore((s) => s.updateVariantStock);
   const [rows, setRows] = useState<StockRow[]>(() => toRows(variants));
   const [addOpen, setAddOpen] = useState(false);
@@ -105,11 +110,7 @@ export default function StockControlSheet({ open, productId, variants, onClose }
                   {row.name}: {row.value}
                 </span>
                 {toInt(row.held) > 0 ? (
-                  <button
-                    type="button"
-                    className="stock-row__move"
-                    onClick={() => moveAll(index)}
-                  >
+                  <button type="button" className="stock-row__move" onClick={() => moveAll(index)}>
                     Всё в наличии
                   </button>
                 ) : null}

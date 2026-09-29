@@ -27,8 +27,7 @@ function uid(): string {
 
 export const createUiSlice: StateCreator<RootStore, [], [], UiSlice> = (set) => ({
   animations: [],
-  pushAnimation: (dot) =>
-    set((s) => ({ animations: [...s.animations, { ...dot, id: uid() }] })),
+  pushAnimation: (dot) => set((s) => ({ animations: [...s.animations, { ...dot, id: uid() }] })),
   dropAnimation: (id) => set((s) => ({ animations: s.animations.filter((a) => a.id !== id) })),
   activeModal: null,
   openModal: (name) => set({ activeModal: name }),

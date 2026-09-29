@@ -1,17 +1,5 @@
 import { invokeFunction } from '../insforge/functions-gateway';
-
-export interface ServerUser {
-  id: string;
-  telegramUserId: string;
-  username: string;
-  firstName: string;
-  languageCode: string;
-}
-
-export interface AuthSession {
-  token: string;
-  user: ServerUser;
-}
+import type { AuthSession, ServerUser } from '../../application/contracts/auth';
 
 interface AuthResponse {
   success?: boolean;

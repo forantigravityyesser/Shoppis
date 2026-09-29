@@ -1,10 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import { UNCATEGORIZED_ID } from '../../domain/constants/categories';
 import type { Product } from '../../domain/models/product';
-import type {
-  InventoryCategoryItem,
-  InventoryProductItem,
-} from '../../domain/models/inventory-view';
+import type { InventoryCategoryItem, InventoryProductItem } from '../read-models/inventory-view';
 import { resolveProductCategoryId } from '../../domain/rules/category-rules';
 import { compareProductsForDisplay } from '../../domain/rules/product-rules';
 import { useStore } from '../store';

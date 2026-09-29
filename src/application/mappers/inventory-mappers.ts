@@ -12,7 +12,7 @@ import type {
   InventoryProductDetail,
   InventoryProductItem,
   InventoryVariantItem,
-} from '../../domain/models/inventory-view';
+} from '../read-models/inventory-view';
 import {
   lowStockThresholdFor,
   productStock,

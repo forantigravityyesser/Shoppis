@@ -22,7 +22,13 @@ export default function ProductThumbnail({ product, onClick }: ProductThumbnailP
       title={label}
     >
       {product.imageUrl ? (
-        <img className="inv-thumb__img" src={product.imageUrl} alt="" loading="lazy" decoding="async" />
+        <img
+          className="inv-thumb__img"
+          src={product.imageUrl}
+          alt=""
+          loading="lazy"
+          decoding="async"
+        />
       ) : (
         <span className="inv-thumb__fallback" aria-hidden>
           {product.emoji || '📦'}

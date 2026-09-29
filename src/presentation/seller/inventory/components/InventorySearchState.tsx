@@ -1,4 +1,7 @@
-import type { InventoryCategoryItem, InventoryProductItem } from '../../../../application/hooks/useInventory';
+import type {
+  InventoryCategoryItem,
+  InventoryProductItem,
+} from '../../../../application/hooks/useInventory';
 import { pluralRu } from '../layout';
 
 interface InventorySearchStateProps {
@@ -54,7 +57,8 @@ export default function InventorySearchState({
               <span className="inv-result__body">
                 <span className="inv-result__title">{category.name}</span>
                 <span className="inv-result__meta">
-                  {category.productCount} {pluralRu(category.productCount, ['товар', 'товара', 'товаров'])}
+                  {category.productCount}{' '}
+                  {pluralRu(category.productCount, ['товар', 'товара', 'товаров'])}
                 </span>
               </span>
             </button>
@@ -95,6 +99,8 @@ function productMeta(
   if (product.stockState === 'hidden') return 'Скрыт';
   const category = product.categoryId ? categoryNameById[product.categoryId] : null;
   const stock =
-    product.stockState === 'low_stock' ? `${product.stockAvailable} шт. · заканчивается` : `${product.stockAvailable} шт.`;
+    product.stockState === 'low_stock'
+      ? `${product.stockAvailable} шт. · заканчивается`
+      : `${product.stockAvailable} шт.`;
   return category ? `${category} · ${stock}` : stock;
 }

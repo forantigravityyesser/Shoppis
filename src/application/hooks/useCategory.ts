@@ -1,9 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { DEFAULT_LOW_STOCK_THRESHOLD } from '../../domain/constants/limits';
-import type {
-  InventoryCategoryItem,
-  InventoryProductItem,
-} from '../../domain/models/inventory-view';
+import type { InventoryCategoryItem, InventoryProductItem } from '../read-models/inventory-view';
 import { isSystemCategory } from '../../domain/rules/category-rules';
 import { compareProductsForDisplay } from '../../domain/rules/product-rules';
 import { useStore } from '../store';

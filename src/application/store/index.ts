@@ -9,7 +9,8 @@ import type { SettingsSlice } from './slices/settings-slice';
 import type { UiSlice } from './slices/ui-slice';
 
 export interface RootStore
-  extends AuthSlice,
+  extends
+    AuthSlice,
     ProductSlice,
     CategorySlice,
     CartSlice,

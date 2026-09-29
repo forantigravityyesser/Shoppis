@@ -3,7 +3,11 @@ import { motion } from 'framer-motion';
 
 export interface NavTab {
   id: string;
-  icon: ComponentType<{ className?: string; size?: number | string; strokeWidth?: number | string }>;
+  icon: ComponentType<{
+    className?: string;
+    size?: number | string;
+    strokeWidth?: number | string;
+  }>;
   label: string;
 }
 
@@ -23,7 +27,12 @@ const PILL_SPRING = { type: 'spring', stiffness: 420, damping: 34, mass: 0.9 } a
  * Router-agnostic: активная вкладка и обработчик переключения передаются извне.
  * Неактивная вкладка — белый круг, активная — акцентный pill с иконкой и label.
  */
-export default function BottomNavBar({ tabs, activeTab, onTabChange, accentColor }: BottomNavBarProps) {
+export default function BottomNavBar({
+  tabs,
+  activeTab,
+  onTabChange,
+  accentColor,
+}: BottomNavBarProps) {
   return (
     <nav className="bottom-nav" role="tablist" aria-label="Основная навигация">
       <div className="bottom-nav__bar">

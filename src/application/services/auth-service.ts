@@ -1,5 +1,5 @@
-import { authenticateTelegram, type ServerUser } from '../../infrastructure/functions/auth-api';
-import { getRawInitData, getDevServerUser } from '../../infrastructure/auth/identity-provider';
+import type { ServerUser } from '../contracts/auth';
+import { deps } from '../composition/container';
 
 /**
  * Runtime-сессия. Живёт только в памяти (Zustand): при каждом запуске Mini App
@@ -20,21 +20,22 @@ export interface RuntimeSession {
  * Вне Telegram при DEV_AUTH_MODE отдаёт явный dev identity, иначе бросает ошибку.
  */
 export async function authenticate(): Promise<RuntimeSession> {
-  const rawInitData = getRawInitData();
+  const { authApi, identity } = deps();
+  const rawInitData = identity.getRawInitData();
 
   if (rawInitData) {
     try {
-      const { token, user } = await authenticateTelegram(rawInitData);
+      const { token, user } = await authApi.authenticateTelegram(rawInitData);
       return { token, user, serverVerified: true };
     } catch (e) {
-      const dev = getDevServerUser();
+      const dev = identity.getDevServerUser();
       if (!dev) throw e;
       console.warn('[auth] server auth failed, falling back to dev identity:', e);
       return { token: null, user: dev, serverVerified: false };
     }
   }
 
-  const dev = getDevServerUser();
+  const dev = identity.getDevServerUser();
   if (dev) return { token: null, user: dev, serverVerified: false };
 
   throw new Error('Telegram initData is unavailable');

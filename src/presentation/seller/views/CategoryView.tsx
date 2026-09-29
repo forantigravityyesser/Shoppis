@@ -44,7 +44,13 @@ export default function CategoryView() {
         <BackButton fallback="/seller/inventory" />
         <div className="cat-head__avatar" aria-hidden>
           {category.imageUrl ? (
-            <img className="cat-head__avatar-img" src={category.imageUrl} alt="" loading="lazy" decoding="async" />
+            <img
+              className="cat-head__avatar-img"
+              src={category.imageUrl}
+              alt=""
+              loading="lazy"
+              decoding="async"
+            />
           ) : (
             category.emoji
           )}
@@ -52,7 +58,8 @@ export default function CategoryView() {
         <div className="cat-head__text">
           <h1 className="cat-head__title">{category.name}</h1>
           <p className="cat-head__meta">
-            {category.productCount} {pluralRu(category.productCount, ['товар', 'товара', 'товаров'])}
+            {category.productCount}{' '}
+            {pluralRu(category.productCount, ['товар', 'товара', 'товаров'])}
             {category.archivedCount > 0 ? ` · ${category.archivedCount} в архиве` : ''}
           </p>
         </div>

@@ -7,7 +7,10 @@ export interface FavoritesSlice {
   toggleFavorite: (productId: string) => void;
 }
 
-export const createFavoritesSlice: StateCreator<RootStore, [], [], FavoritesSlice> = (set, get) => ({
+export const createFavoritesSlice: StateCreator<RootStore, [], [], FavoritesSlice> = (
+  set,
+  get,
+) => ({
   favoritesByStore: {},
 
   toggleFavorite: (productId) => {

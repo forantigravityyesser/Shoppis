@@ -1,21 +1,15 @@
 import type { StateCreator } from 'zustand';
 import { canCheckout } from '../../../domain/rules/cart-rules';
 import { canTransition, type OrderActor } from '../../../domain/rules/order-rules';
-import type { DeliveryOutcome, Order, OrderItem, OrderStatus, RefusalReasonCode } from '../../../domain/models/order';
+import type {
+  DeliveryOutcome,
+  Order,
+  OrderItem,
+  OrderStatus,
+  RefusalReasonCode,
+} from '../../../domain/models/order';
 import type { RecipientInfo } from '../../../domain/models/customer';
-import { invokeCheckout } from '../../../infrastructure/functions/checkout-api';
-import {
-  cancelOrder as cancelOrderApi,
-  recordDeliveryOutcome as recordDeliveryOutcomeApi,
-  reconcileInventory as reconcileInventoryApi,
-  transitionOrder as transitionOrderApi,
-} from '../../../infrastructure/functions/order-api';
-import {
-  fetchBuyerOrders as fetchBuyerOrdersRepo,
-  fetchOrderItems as fetchOrderItemsRepo,
-  fetchStoreOrders as fetchStoreOrdersRepo,
-} from '../../../infrastructure/repositories/order-repository';
-import { requestMessagesAccess } from '../../../infrastructure/telegram/telegram-share';
+import { deps } from '../../composition/container';
 import type { RootStore } from '../index';
 
 export interface OrderSlice {
@@ -60,8 +54,11 @@ export const createOrderSlice: StateCreator<RootStore, [], [], OrderSlice> = (se
       if (!storeId || !serverUser) return;
       set({ ordersLoading: true, ordersError: null });
       try {
-        const orders = await fetchBuyerOrdersRepo(storeId, serverUser.id);
-        set((s) => ({ ordersByStore: { ...s.ordersByStore, [storeId]: orders }, ordersLoading: false }));
+        const orders = await deps().orderRepository.fetchBuyerOrders(storeId, serverUser.id);
+        set((s) => ({
+          ordersByStore: { ...s.ordersByStore, [storeId]: orders },
+          ordersLoading: false,
+        }));
       } catch (e) {
         set({ ordersLoading: false, ordersError: (e as Error).message });
         throw e;
@@ -73,8 +70,11 @@ export const createOrderSlice: StateCreator<RootStore, [], [], OrderSlice> = (se
       if (!storeId) return;
       set({ ordersLoading: true, ordersError: null });
       try {
-        const orders = await fetchStoreOrdersRepo(storeId);
-        set((s) => ({ ordersByStore: { ...s.ordersByStore, [storeId]: orders }, ordersLoading: false }));
+        const orders = await deps().orderRepository.fetchStoreOrders(storeId);
+        set((s) => ({
+          ordersByStore: { ...s.ordersByStore, [storeId]: orders },
+          ordersLoading: false,
+        }));
       } catch (e) {
         set({ ordersLoading: false, ordersError: (e as Error).message });
         throw e;
@@ -84,7 +84,7 @@ export const createOrderSlice: StateCreator<RootStore, [], [], OrderSlice> = (se
     fetchItems: async (orderId: string) => {
       const cached = get().orderItemsByOrder[orderId];
       if (cached) return cached;
-      const items = await fetchOrderItemsRepo(orderId);
+      const items = await deps().orderRepository.fetchOrderItems(orderId);
       set((s) => ({ orderItemsByOrder: { ...s.orderItemsByOrder, [orderId]: items } }));
       return items;
     },
@@ -100,7 +100,7 @@ export const createOrderSlice: StateCreator<RootStore, [], [], OrderSlice> = (se
       }
       set({ ordersLoading: true, ordersError: null });
       try {
-        await transitionOrderApi(sessionToken, orderId, status);
+        await deps().orderApi.transitionOrder(sessionToken, orderId, status);
         await refresh();
         set({ ordersLoading: false });
       } catch (e) {
@@ -114,7 +114,7 @@ export const createOrderSlice: StateCreator<RootStore, [], [], OrderSlice> = (se
       if (!sessionToken) throw new Error('Not authenticated');
       set({ ordersLoading: true, ordersError: null });
       try {
-        await cancelOrderApi(sessionToken, orderId, actor, reason);
+        await deps().orderApi.cancelOrder(sessionToken, orderId, actor, reason);
         await refresh();
         set({ ordersLoading: false });
       } catch (e) {
@@ -132,7 +132,7 @@ export const createOrderSlice: StateCreator<RootStore, [], [], OrderSlice> = (se
       if (!sessionToken) throw new Error('Not authenticated');
       set({ ordersLoading: true, ordersError: null });
       try {
-        await recordDeliveryOutcomeApi(sessionToken, orderId, outcome, reason);
+        await deps().orderApi.recordDeliveryOutcome(sessionToken, orderId, outcome, reason);
         await refresh();
         set({ ordersLoading: false });
       } catch (e) {
@@ -144,7 +144,7 @@ export const createOrderSlice: StateCreator<RootStore, [], [], OrderSlice> = (se
     reconcileInventory: async (variantId: string, quantity: number, reason?: string) => {
       const { sessionToken, storeId } = get();
       if (!sessionToken) throw new Error('Not authenticated');
-      await reconcileInventoryApi(sessionToken, variantId, quantity, reason);
+      await deps().orderApi.reconcileInventory(sessionToken, variantId, quantity, reason);
       if (storeId) await get().fetchCatalog(storeId);
     },
 
@@ -158,8 +158,8 @@ export const createOrderSlice: StateCreator<RootStore, [], [], OrderSlice> = (se
       set({ ordersLoading: true, ordersError: null });
       try {
         // Официальный промпт Telegram — до checkout, иначе «Заказ принят» не дойдёт
-        await requestMessagesAccess();
-        const { orderId } = await invokeCheckout({
+        await deps().telegram.requestMessagesAccess();
+        const { orderId } = await deps().checkoutApi.invokeCheckout({
           items,
           recipientInfo: recipient,
           storeId,

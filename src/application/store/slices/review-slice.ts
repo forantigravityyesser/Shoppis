@@ -23,12 +23,18 @@ export const createReviewSlice: StateCreator<RootStore, [], [], ReviewSlice> = (
 
   addReview: (input) =>
     set((s) => ({
-      reviews: [...s.reviews, { ...input, id: uid(), answer: null, createdAt: new Date().toISOString() }],
+      reviews: [
+        ...s.reviews,
+        { ...input, id: uid(), answer: null, createdAt: new Date().toISOString() },
+      ],
     })),
 
   addQuestion: (input) =>
     set((s) => ({
-      questions: [...s.questions, { ...input, id: uid(), answer: null, createdAt: new Date().toISOString() }],
+      questions: [
+        ...s.questions,
+        { ...input, id: uid(), answer: null, createdAt: new Date().toISOString() },
+      ],
     })),
 
   answerReview: (id, answer) =>

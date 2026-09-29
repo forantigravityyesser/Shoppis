@@ -4,35 +4,36 @@
 
 :root {
   /* --- Цвета --- */
-  --color-bg-app: #F0EDFF;
-  --color-bg-card: #FFFFFF;
+  --color-bg-app: #f0edff;
+  --color-bg-card: #ffffff;
   --color-bg-nav: rgba(255, 255, 255, 0.9);
-  --color-bg-modal: #FFFFFF;
+  --color-bg-modal: #ffffff;
 
-  --color-text-primary: #1A1A2E;
-  --color-text-secondary: #8E8E93;
-  --color-text-on-accent: #FFFFFF;
+  --color-text-primary: #1a1a2e;
+  --color-text-secondary: #8e8e93;
+  --color-text-on-accent: #ffffff;
 
-  --color-accent: #6C5CE7;
-  --color-accent-hover: #5A4BD1;
+  --color-accent: #6c5ce7;
+  --color-accent-hover: #5a4bd1;
   /* Акцент активной вкладки нижней навигации — чуть светлее брендового */
-  --tab-active-bg: #7C6EF0;
-  --color-danger: #FF3B30;
-  --color-success: #34C759;
-  --color-warning: #FF9F0A;
+  --tab-active-bg: #7c6ef0;
+  --color-danger: #ff3b30;
+  --color-success: #34c759;
+  --color-warning: #ff9f0a;
 
-  --color-badge-discount: #FF3B5C;
-  --color-stats-new: #FF9F0A;
-  --color-stats-in-transit: #007AFF;
-  --color-stats-delivered: #34C759;
-  --color-stats-refused: #FF9500;
-  --color-stats-cancelled: #FF3B30;
+  --color-badge-discount: #ff3b5c;
+  --color-stats-new: #ff9f0a;
+  --color-stats-in-transit: #007aff;
+  --color-stats-delivered: #34c759;
+  --color-stats-refused: #ff9500;
+  --color-stats-cancelled: #ff3b30;
 
-  --color-input-bg: #F2F2F7;
-  --color-input-border: #E5E5EA;
+  --color-input-bg: #f2f2f7;
+  --color-input-border: #e5e5ea;
 
   /* --- Типографика (system stack) --- */
-  --font-system: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-system:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --font-size-xxs: 11px;
   --font-size-xs: 12px;
   --font-size-sm: 13px;
@@ -142,14 +143,14 @@ main {
 
 /* Скрываем скроллбар во всех контейнерах, прокрутка остаётся рабочей */
 * {
-  scrollbar-width: none;    /* Firefox */
+  scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* IE / старый Edge */
 }
 
 *::-webkit-scrollbar {
   width: 0;
   height: 0;
-  display: none;            /* WebKit / Chromium (Telegram, Safari) */
+  display: none; /* WebKit / Chromium (Telegram, Safari) */
 }
 
 /* Запрещаем выделение текста как в нативном приложении,

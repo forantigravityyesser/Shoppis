@@ -1,11 +1,11 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import { getTelegramUser } from '../telegram/telegram-app';
+import type { AppLanguage } from '../../application/contracts/i18n';
 import en from './locales/en.json';
 import ru from './locales/ru.json';
 
-export const SUPPORTED_LANGUAGES = ['ru', 'en'] as const;
-export type AppLanguage = (typeof SUPPORTED_LANGUAGES)[number];
+export { SUPPORTED_LANGUAGES, type AppLanguage } from '../../application/contracts/i18n';
 
 const STORAGE_KEY = 'shoppis-language';
 

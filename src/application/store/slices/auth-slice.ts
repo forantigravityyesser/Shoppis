@@ -1,20 +1,9 @@
 import type { StateCreator } from 'zustand';
 import type { AppContext } from '../../../domain/constants/app-context';
 import type { Store } from '../../../domain/models/store';
-import {
-  checkOwnershipByUser as checkOwnershipByUserRepo,
-  createStore as createStoreRepo,
-  fetchStore as fetchStoreRepo,
-  fetchStoresByOwnerUser as fetchStoresByOwnerUserRepo,
-  type CreateStoreInput,
-} from '../../../infrastructure/repositories/store-repository';
-import {
-  checkOwnershipByTelegram as checkOwnershipByTelegramRepo,
-  fetchStoresByOwnerTelegram as fetchStoresByOwnerTelegramRepo,
-} from '../../../infrastructure/repositories/store-repository.dev';
-import { createShopViaApi } from '../../../infrastructure/functions/shop-api';
-import type { ServerUser } from '../../../infrastructure/functions/auth-api';
-import { uploadFile } from '../../../infrastructure/storage/file-storage';
+import type { CreateStoreInput } from '../../contracts/store';
+import type { ServerUser } from '../../contracts/auth';
+import { deps } from '../../composition/container';
 import { compressImage } from '../../../utils/image';
 import type { RootStore } from '../index';
 
@@ -86,8 +75,8 @@ export const createAuthSlice: StateCreator<RootStore, [], [], AuthSlice> = (set,
     if (!storeId || !serverUser) return false;
     try {
       return sessionToken
-        ? await checkOwnershipByUserRepo(storeId, serverUser.id)
-        : await checkOwnershipByTelegramRepo(storeId, serverUser.telegramUserId);
+        ? await deps().storeRepository.checkOwnershipByUser(storeId, serverUser.id)
+        : await deps().storeRepository.checkOwnershipByTelegram(storeId, serverUser.telegramUserId);
     } catch {
       return false;
     }
@@ -104,7 +93,7 @@ export const createAuthSlice: StateCreator<RootStore, [], [], AuthSlice> = (set,
 
       if (sessionToken) {
         // Сервер-валидированная identity: owner_user_id проставляет edge-функция.
-        store = await createShopViaApi(sessionToken, {
+        store = await deps().shopApi.createShopViaApi(sessionToken, {
           name: input.name.trim(),
           currency: input.currency,
           language: input.language,
@@ -112,7 +101,7 @@ export const createAuthSlice: StateCreator<RootStore, [], [], AuthSlice> = (set,
         });
       } else {
         // DEV-ONLY: локальное создание без серверной сессии (DEV_AUTH_MODE).
-        store = await createStoreRepo({
+        store = await deps().storeRepository.createStore({
           ...input,
           name: input.name.trim(),
           ownerTelegramId: serverUser.telegramUserId,
@@ -126,7 +115,11 @@ export const createAuthSlice: StateCreator<RootStore, [], [], AuthSlice> = (set,
 
       const setDefaultRecipient = get()['setDefaultRecipient'];
       if (setDefaultRecipient) {
-        setDefaultRecipient({ name: serverUser.firstName || 'Пользователь', phone: '', address: '' });
+        setDefaultRecipient({
+          name: serverUser.firstName || 'Пользователь',
+          phone: '',
+          address: '',
+        });
       }
 
       return store.id;
@@ -141,8 +134,8 @@ export const createAuthSlice: StateCreator<RootStore, [], [], AuthSlice> = (set,
     if (context !== 'seller' || !serverUser) return null;
     try {
       const stores = sessionToken
-        ? await fetchStoresByOwnerUserRepo(serverUser.id)
-        : await fetchStoresByOwnerTelegramRepo(serverUser.telegramUserId);
+        ? await deps().storeRepository.fetchStoresByOwnerUser(serverUser.id)
+        : await deps().storeRepository.fetchStoresByOwnerTelegram(serverUser.telegramUserId);
       const first = stores[0] ?? null;
       if (first) {
         get().resetCatalog();
@@ -165,12 +158,12 @@ export const createAuthSlice: StateCreator<RootStore, [], [], AuthSlice> = (set,
     }
     set({ authLoading: true, authError: null });
     try {
-      set({ currentStore: await fetchStoreRepo(storeId), authLoading: false });
+      set({ currentStore: await deps().storeRepository.fetchStore(storeId), authLoading: false });
     } catch (e) {
       set({ authLoading: false, authError: (e as Error).message });
       throw e;
     }
   },
 
-  uploadStoreBanner: async (file: File) => uploadFile(await compressImage(file)),
+  uploadStoreBanner: async (file: File) => deps().storage.uploadFile(await compressImage(file)),
 });

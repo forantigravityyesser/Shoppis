@@ -6,7 +6,7 @@ import { useProductDetail } from '../../../../application/hooks/useProduct';
 import { currencySymbol } from '../../../../domain/constants/currencies';
 import type { ProductStatus } from '../../../../domain/models/product';
 import { formatMoneyMinor } from '../../../../domain/rules/product-rules';
-import type { ProductStatusErrorCode } from '../../../../domain/rules/product-rules';
+import type { ProductStatusErrorCode } from '../../../../application/contracts/product-status';
 import StockControlSheet from './StockControlSheet';
 
 /** Вкладка «Карточка»: сводка остатков, варианты, атрибуты, показатели и действия. */
@@ -175,8 +175,8 @@ export default function ProductOverview() {
         ) : null}
         {!canPublish ? (
           <p className="prod-hint">
-            Добавьте хотя бы один вариант выбора при заказе (размер/объём), чтобы выставить товар
-            на витрину.
+            Добавьте хотя бы один вариант выбора при заказе (размер/объём), чтобы выставить товар на
+            витрину.
           </p>
         ) : null}
       </section>

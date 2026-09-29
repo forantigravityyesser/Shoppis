@@ -72,11 +72,8 @@ Severity: **S1** критично · **S2** высоко · **S3** средне.
   `InventoryTable`, `ProductForm`, `StatsCard` и пр.), `FloatingNavBar` покупателя, плюс delivery-feedback
   (RECEIVED/REFUSED, рейтинг 1–5, skip).
 
-### [ ] 2.8 Монки-патч `invoke`
-- **Файл:** `src/infrastructure/insforge/client.ts:29`.
-- **Сейчас:** `insforge.functions.invoke` переопределён своим `fetch` на `function2`-хост с anon-ключом.
-- **Задача:** заменить на штатный вызов SDK (после сквозной проверки вызовов функций).
-
 ---
 
 Примечание: файл будет удалён после закрытия всех пунктов.
+
+Закрыто: 2.8 (monkey-patch `invoke` убран — вызовы идут через `functions-gateway.ts`). Пустые файлы-заглушки и неиспользуемый `application/i18n.ts` удалены.

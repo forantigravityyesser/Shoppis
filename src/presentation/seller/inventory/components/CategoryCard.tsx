@@ -33,7 +33,13 @@ export default function CategoryCard({
       <div className="inv-cat__head">
         <span className="inv-cat__avatar" aria-hidden>
           {category.imageUrl ? (
-            <img className="inv-cat__avatar-img" src={category.imageUrl} alt="" loading="lazy" decoding="async" />
+            <img
+              className="inv-cat__avatar-img"
+              src={category.imageUrl}
+              alt=""
+              loading="lazy"
+              decoding="async"
+            />
           ) : (
             <Shapes size={16} strokeWidth={2} />
           )}

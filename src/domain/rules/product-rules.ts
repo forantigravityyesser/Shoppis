@@ -3,19 +3,6 @@ import type { Product, ProductStatus, Variant } from '../models/product';
 
 const PRODUCT_STATUS_ORDER: Record<ProductStatus, number> = { ACTIVE: 0, ARCHIVED: 1 };
 
-/** Коды ошибок смены статуса товара (архив/витрина). */
-export type ProductStatusErrorCode =
-  | 'NO_ACTIVE_VARIANT'
-  | 'NOT_FOUND'
-  | 'FORBIDDEN'
-  | 'NETWORK'
-  | 'UNKNOWN';
-
-/** Результат смены статуса: явный ok/error-стейт для UI. */
-export type ProductStatusResult =
-  | { ok: true }
-  | { ok: false; code: ProductStatusErrorCode; message: string };
-
 /**
  * Порядок отображения товаров в инвентаре: активные → архивные,
  * внутри группы — по `sortOrder`, затем по `createdAt` (детерминированно).
@@ -50,9 +37,14 @@ export function effectivePrice(
   variant: Pick<Variant, 'priceMode' | 'customOriginalAmountMinor' | 'customDiscountPercent'>,
   product: Pick<Product, 'originalAmountMinor' | 'discountPercent'>,
 ): EffectivePrice {
-  const useCustom = variant.priceMode === 'CUSTOM_PRICE' && variant.customOriginalAmountMinor != null;
-  const originalAmountMinor = useCustom ? (variant.customOriginalAmountMinor as number) : product.originalAmountMinor;
-  const discountPercent = useCustom ? (variant.customDiscountPercent ?? 0) : product.discountPercent;
+  const useCustom =
+    variant.priceMode === 'CUSTOM_PRICE' && variant.customOriginalAmountMinor != null;
+  const originalAmountMinor = useCustom
+    ? (variant.customOriginalAmountMinor as number)
+    : product.originalAmountMinor;
+  const discountPercent = useCustom
+    ? (variant.customDiscountPercent ?? 0)
+    : product.discountPercent;
   return {
     originalAmountMinor,
     discountPercent,

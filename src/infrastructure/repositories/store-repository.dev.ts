@@ -18,7 +18,10 @@ export async function fetchStoresByOwnerTelegram(ownerTelegramId: string): Promi
   return ((data ?? []) as StoreRow[]).map(mapStore);
 }
 
-export async function checkOwnershipByTelegram(storeId: string, ownerTelegramId: string): Promise<boolean> {
+export async function checkOwnershipByTelegram(
+  storeId: string,
+  ownerTelegramId: string,
+): Promise<boolean> {
   if (!storeId || !ownerTelegramId) return false;
   const { data, error } = await insforge.database
     .from('stores')
@@ -26,5 +29,8 @@ export async function checkOwnershipByTelegram(storeId: string, ownerTelegramId:
     .eq('id', storeId)
     .maybeSingle();
   if (error || !data) return false;
-  return (data as Pick<StoreRow, 'id'> & { owner_telegram_id: string | null }).owner_telegram_id === ownerTelegramId;
+  return (
+    (data as Pick<StoreRow, 'id'> & { owner_telegram_id: string | null }).owner_telegram_id ===
+    ownerTelegramId
+  );
 }

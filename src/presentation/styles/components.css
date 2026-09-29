@@ -227,7 +227,9 @@
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ---- CartItemCard ---- */
@@ -237,7 +239,7 @@
   background: var(--color-bg-card);
   border-radius: var(--radius-lg);
   padding: var(--spacing-3);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   gap: var(--spacing-3);
 }
 
@@ -278,11 +280,26 @@
   color: var(--color-text-on-accent);
 }
 
-.status-badge.NEW { background: var(--color-stats-new); color: var(--color-text-primary); }
-.status-badge.IN_TRANSIT { background: var(--color-stats-in-transit); color: var(--color-text-primary); }
-.status-badge.DELIVERED { background: var(--color-stats-delivered); color: var(--color-text-primary); }
-.status-badge.REFUSED { background: var(--color-stats-refused); color: var(--color-text-primary); }
-.status-badge.CANCELLED { background: var(--color-stats-cancelled); color: var(--color-text-primary); }
+.status-badge.NEW {
+  background: var(--color-stats-new);
+  color: var(--color-text-primary);
+}
+.status-badge.IN_TRANSIT {
+  background: var(--color-stats-in-transit);
+  color: var(--color-text-primary);
+}
+.status-badge.DELIVERED {
+  background: var(--color-stats-delivered);
+  color: var(--color-text-primary);
+}
+.status-badge.REFUSED {
+  background: var(--color-stats-refused);
+  color: var(--color-text-primary);
+}
+.status-badge.CANCELLED {
+  background: var(--color-stats-cancelled);
+  color: var(--color-text-primary);
+}
 
 /* ---- BottomSheet ---- */
 .bottom-sheet .handle {
@@ -354,7 +371,9 @@
   color: var(--color-text-primary);
   cursor: pointer;
   box-shadow: var(--shadow-card);
-  transition: background 0.15s, transform 0.12s;
+  transition:
+    background 0.15s,
+    transform 0.12s;
 }
 
 .back-btn:active {
@@ -436,7 +455,9 @@
   user-select: none;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
-  transition: color 300ms ease, transform 150ms ease;
+  transition:
+    color 300ms ease,
+    transform 150ms ease;
 }
 
 .bottom-nav__tab:active {
@@ -480,12 +501,21 @@
 
 /* ---- Skeleton (shimmer) ---- */
 .skeleton {
-  background: linear-gradient(90deg, var(--color-input-bg) 25%, var(--color-input-bg) 50%, var(--color-input-bg) 75%);
+  background: linear-gradient(
+    90deg,
+    var(--color-input-bg) 25%,
+    var(--color-input-bg) 50%,
+    var(--color-input-bg) 75%
+  );
   background-size: 400% 100%;
   animation: shimmer 1.5s ease-in-out infinite;
 }
 
 @keyframes shimmer {
-  0% { background-position: 100% 0; }
-  100% { background-position: 0 0; }
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: 0 0;
+  }
 }

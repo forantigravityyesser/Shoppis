@@ -1,5 +1,6 @@
 import { insforge } from '../insforge/client';
 import type { Store, StoreCurrency, StoreLanguage, StoreStatus } from '../../domain/models/store';
+import type { CreateStoreInput, StoreProfilePatch } from '../../application/contracts/store';
 
 const CURRENCY_SYMBOLS: Record<StoreCurrency, string> = {
   USD: '$',
@@ -64,15 +65,6 @@ export async function fetchStoresByOwnerUser(ownerUserId: string): Promise<Store
   return ((data ?? []) as StoreRow[]).map(mapStore);
 }
 
-export interface CreateStoreInput {
-  ownerTelegramId: string;
-  name: string;
-  currency: StoreCurrency;
-  language: StoreLanguage;
-  bannerUrl?: string;
-  description?: string;
-}
-
 /** Создание витрины из формы онбординга. Символ валюты выводится из кода. */
 export async function createStore(input: CreateStoreInput): Promise<Store> {
   const { data, error } = await insforge.database
@@ -96,17 +88,6 @@ export async function createStore(input: CreateStoreInput): Promise<Store> {
 export async function checkOwnershipByUser(storeId: string, userId: string): Promise<boolean> {
   const store = await fetchStore(storeId);
   return store?.ownerUserId === userId;
-}
-
-export interface StoreProfilePatch {
-  name?: string;
-  description?: string;
-  logoUrl?: string;
-  bannerUrl?: string;
-  supportHandle?: string;
-  currency?: StoreCurrency;
-  currencySymbol?: string;
-  language?: StoreLanguage;
 }
 
 export async function updateStoreProfile(id: string, patch: StoreProfilePatch): Promise<Store> {
