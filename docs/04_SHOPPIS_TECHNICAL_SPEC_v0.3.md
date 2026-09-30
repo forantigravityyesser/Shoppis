@@ -141,6 +141,12 @@ MVP:
 
 No write permission: order still succeeds, notifications simply do not send.
 
+Client-side, the write-access prompt (`requestWriteAccess`) is requested best-effort at the
+"Order" click, before checkout. The call is bounded by a short deadline (currently **1200 ms**)
+and never throws or hangs: a denial or timeout does not affect the order — it only means the
+notification is not delivered. See `src/infrastructure/telegram/telegram-share.ts`
+(`MESSAGES_ACCESS_TIMEOUT_MS`) and the `TelegramPort.requestMessagesAccess` contract.
+
 Notification retries/logging are independent of order transaction.
 
 ## 12. Security baseline

@@ -7,6 +7,7 @@ import type {
   ProductStatus,
   Variant,
   VariantPriceMode,
+  VariantStatus,
 } from '../../domain/models/product';
 
 /** Входное изображение товара: полный файл + опциональная миниатюра. */
@@ -15,14 +16,22 @@ export interface ProductImageInput {
   thumbStorageKey?: string | null;
 }
 
-/** Вариант при создании товара/добавлении. */
+/**
+ * Вариант при создании товара/добавлении.
+ *
+ * `id` присутствует только при редактировании существующего варианта — это
+ * включает неразрушающий diff/upsert (варианты без `id` в патче → новые,
+ * отсутствующие в патче существующие → архивируются).
+ */
 export interface NewVariantInput {
+  id?: string;
   name: string;
   value: string;
   availableQuantity: number;
   priceMode?: VariantPriceMode;
   customOriginalAmountMinor?: number | null;
   customDiscountPercent?: number | null;
+  status?: VariantStatus;
 }
 
 /** Вход создания товара. */

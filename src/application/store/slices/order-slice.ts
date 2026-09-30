@@ -157,8 +157,14 @@ export const createOrderSlice: StateCreator<RootStore, [], [], OrderSlice> = (se
 
       set({ ordersLoading: true, ordersError: null });
       try {
-        // Официальный промпт Telegram — до checkout, иначе «Заказ принят» не дойдёт
-        await deps().telegram.requestMessagesAccess();
+        // BEST-EFFORT: промпт Telegram — до checkout, чтобы у «Заказ принят» был
+        // шанс дойти. Метод ограничен по времени и никогда не бросает; отказ или
+        // таймаут не влияют на создание заказа.
+        try {
+          await deps().telegram.requestMessagesAccess();
+        } catch {
+          // no-op: уведомление не должно ломать заказ
+        }
         const { orderId } = await deps().checkoutApi.invokeCheckout({
           items,
           recipientInfo: recipient,

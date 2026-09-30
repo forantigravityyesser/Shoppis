@@ -10,7 +10,10 @@ import type {
   VariantPriceMode,
   VariantStatus,
 } from '../../domain/models/product';
-import { ProductStatusError } from '../../application/contracts/product-status';
+import {
+  ProductStatusError,
+  type ProductStatusErrorCode,
+} from '../../application/contracts/product-status';
 import type {
   AddVariantInput,
   NewProductInput,
@@ -19,6 +22,13 @@ import type {
   UpdateProductPatch,
   VariantStockPatch,
 } from '../../application/contracts/product';
+import {
+  createProduct as createProductViaApi,
+  updateProduct as updateProductViaApi,
+  createVariant as createVariantViaApi,
+  setStatus as setStatusViaApi,
+  deleteProduct as deleteProductViaApi,
+} from '../functions/catalog-api';
 
 interface ProductImageRow {
   id: string;
@@ -222,7 +232,11 @@ async function insertVariants(productId: string, variants: NewVariantInput[]): P
   }
 }
 
-export async function addProduct(input: NewProductInput): Promise<Product> {
+export async function addProduct(input: NewProductInput, token: string | null): Promise<void> {
+  if (token) {
+    await createProductViaApi(token, input);
+    return;
+  }
   const status = input.status ?? 'ACTIVE';
   const { data, error } = await insforge.database
     .from('products')
@@ -275,11 +289,17 @@ export async function addProduct(input: NewProductInput): Promise<Product> {
     if (linkError) throw linkError;
   }
   await insertVariants(row.id, input.variants);
-
-  return mapProduct(row);
 }
 
-export async function updateProduct(id: string, patch: UpdateProductPatch): Promise<void> {
+export async function updateProduct(
+  id: string,
+  patch: UpdateProductPatch,
+  token: string | null,
+): Promise<void> {
+  if (token) {
+    await updateProductViaApi(token, id, patch);
+    return;
+  }
   const values: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (patch.title !== undefined) values.title = patch.title;
   if (patch.description !== undefined) values.description = patch.description;
@@ -379,7 +399,12 @@ export async function updateVariantStock(
 export async function addVariantToProduct(
   productId: string,
   variant: AddVariantInput,
-): Promise<Variant> {
+  token: string | null,
+): Promise<void> {
+  if (token) {
+    await createVariantViaApi(token, productId, variant);
+    return;
+  }
   const { data: maxData, error: maxError } = await insforge.database
     .from('variants')
     .select('sort_order')
@@ -426,8 +451,14 @@ export async function addVariantToProduct(
       .eq('id', productId);
     if (productError) throw productError;
   }
+}
 
-  return mapVariant(row);
+/** Код ошибки смены статуса из ответа edge-диспетчера. */
+function mapStatusError(error: unknown): ProductStatusErrorCode {
+  const message = error instanceof Error ? error.message : '';
+  if (message.includes('NO_ACTIVE_VARIANT')) return 'NO_ACTIVE_VARIANT';
+  if (message.includes('PRODUCT_NOT_FOUND')) return 'NOT_FOUND';
+  return 'UNKNOWN';
 }
 
 /**
@@ -435,7 +466,19 @@ export async function addVariantToProduct(
  * ADR-06.8: вернуть на витрину (ACTIVE) можно только при ≥1 активном варианте.
  * Бросает `ProductStatusError` с машинным кодом.
  */
-export async function setProductStatus(id: string, status: ProductStatus): Promise<void> {
+export async function setProductStatus(
+  id: string,
+  status: ProductStatus,
+  token: string | null,
+): Promise<void> {
+  if (token) {
+    try {
+      await setStatusViaApi(token, id, status);
+    } catch (e) {
+      throw new ProductStatusError(mapStatusError(e), (e as Error).message);
+    }
+    return;
+  }
   const { data: found, error: findError } = await insforge.database
     .from('products')
     .select('id')
@@ -474,7 +517,11 @@ export async function setProductStatus(id: string, status: ProductStatus): Promi
  */
 export async function deleteProduct(
   id: string,
+  token: string | null,
 ): Promise<Array<{ storageKey: string; thumbStorageKey: string | null }>> {
+  if (token) {
+    return deleteProductViaApi(token, id);
+  }
   const { data, error } = await insforge.database
     .from('products')
     .select('status')

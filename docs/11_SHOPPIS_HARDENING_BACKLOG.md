@@ -15,7 +15,9 @@ Severity: **S1** критично · **S2** высоко · **S3** средне 
 - Этап 3 — domain: `inventory-view.ts` перенесён в `application/read-models/`; `ProductStatusErrorCode/Result` перенесены в `application/contracts/product-status.ts`, из domain убраны `FORBIDDEN`/`NETWORK`.
 - Этап 4 — edge DRY: `edge-functions/_shared/{env,http,auth,telegram,errors}.js`; `telegram-auth`, `shop-create`, `process-checkout`, `order-actions`, `telegram-notify` переведены на общий код; сборка `npm run build:edge` (esbuild → `edge-functions/.dist/`), 4 функции передеплоены, рантайм и логи проверены.
 - Этап 5 — порты/DIP: `application/ports/*` + `application/contracts/*`; `application/composition/container.ts` (ручной DI); `src/composition-root.ts` собирает реализации и вызывается первым в `main.tsx`. `application` больше не импортирует `infrastructure` (проверено grep + tsc).
-- Этап 7 — тесты: Vitest; 49 тестов на domain (`product/inventory/order/cart/category-rules`) и application (`inventory-mappers`). `npm test` зелёный.
+- Этап 7 — тесты: Vitest; 55 тестов на domain (`product/inventory/order/cart/category-rules`), application (`inventory-mappers`) и infrastructure (`telegram-share`). `npm test` зелёный.
+- Этап 8 — **атомарный каталог**: миграция `0011_catalog_atomic.sql` (7 `security definer` функций: `product_create_atomic`, `product_update_atomic` с неразрушающим diff вариантов, `variant_create_atomic`, `product_set_status_atomic`, `product_delete_atomic`, `category_delete_atomic`, `catalog_assert_store_owner`); edge-диспетчер `catalog-actions` (session → RPC, `actor_user_id` только из сессии); фронт-мутации каталога переведены на него через `src/infrastructure/functions/catalog-api.ts` (порты/репозитории/слайсы прокидывают `sessionToken`, dev-fallback на прямой SDK сохранён). Тесты `catalog-api` (+7, всего 62).
+- Notifications/checkout: `requestMessagesAccess` переведён в best-effort с дедлайном 1200 ms (никогда не бросает и не виснет). Отказ/таймаут Telegram-разрешения больше не блокируют оформление заказа — уведомление просто не отправляется. Контракт порта `TelegramPort.requestMessagesAccess` задокументирован как совещательный; `placeOrder` вызывает его в `try/catch` до checkout. Тесты: `src/infrastructure/telegram/telegram-share.test.ts`.
 
 ---
 
@@ -40,8 +42,9 @@ Severity: **S1** критично · **S2** высоко · **S3** средне 
 ## S1 — RLS и backend-границы (этап 6, отложен)
 
 - **Док:** `08 §1.9`, `04 §3`, `04 §12`, release gate `01 §9`.
-- **Сейчас:** `rlsEnabled: false`, политик нет на всех таблицах. Фронт читает/пишет каталог, заказы, магазины напрямую через PostgREST с anon-ключом.
+- **Сейчас:** `rlsEnabled: false`, политик нет на всех таблицах. Чтения каталога/заказов/магазинов идут напрямую через PostgREST с anon-ключом; часть записей заказов — через `process-checkout`/`order-actions`, а **записи каталога с этапа 8 — через `catalog-actions` (+ атомарные RPC), actor из сессии**. Прямой anon-доступ к таблицам всё ещё открыт, поэтому RLS — по-прежнему гейт перед продом.
 - **Блокер:** кастомная Telegram-сессия не распознаётся PostgREST, поэтому RLS не может опираться на identity.
+- **Прогресс (этап 8):** мутации каталога уже вынесены за edge + RPC (вариант A частично). Остаётся перевести чтения и включить RLS.
 - **Варианты:**
   - **A.** Все чтения/записи каталога/заказов/магазина перевести за edge-функции, затем включить RLS.
   - **B.** Смапить Telegram-identity → InsForge auth-user, включить RLS по `auth.uid()`.
@@ -63,7 +66,7 @@ Severity: **S1** критично · **S2** высоко · **S3** средне 
 
 ## S2 — Тесты (этап 7) — базовый слой закрыт
 
-- **Сделано:** Vitest настроен (`vitest.config.ts`, node-env). Покрыты domain-правила (`product`, `inventory`, `order`, `cart`, `category`) и application-mapper (`inventory-mappers`) — 49 тестов.
+- **Сделано:** Vitest настроен (`vitest.config.ts`, node-env). Покрыты domain-правила (`product`, `inventory`, `order`, `cart`, `category`), application-mapper (`inventory-mappers`) и infrastructure (`telegram-share`: allowed/cancelled/таймаут/reject/sync-throw) — 55 тестов.
 - **Остаток (критический флоу, требует SQL/интеграции):** идемпотентность checkout, гонка за последним стоком (stock=1, 2 запроса → ровно один успех), переходы заказов на уровне RPC, инварианты инвентаря. `04 §15`.
 - **Остаток (UI/слайсы):** `toCatalogFields`/`resolveCategoryId` не экспортированы — протестировать через извлечение чистой функции.
 

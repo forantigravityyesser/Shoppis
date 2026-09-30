@@ -62,6 +62,7 @@ function toCatalogFields(payload: ProductFormPayload): CatalogFields {
   const variants = filled.map((v) => {
     const useCustom = v.priceMinor !== basePrice || v.discountPercent !== baseDiscount;
     return {
+      id: v.id,
       name: v.name.trim() || 'Вариант',
       value: v.value.trim(),
       availableQuantity: Math.max(0, Math.round(Number.isFinite(v.quantity) ? v.quantity : 0)),

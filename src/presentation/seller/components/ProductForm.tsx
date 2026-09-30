@@ -17,6 +17,8 @@ export interface Characteristic {
 }
 
 export interface VariantForm {
+  /** id существующего варианта (при редактировании); новые варианты его не имеют. */
+  id?: string;
   name: string;
   value: string;
   quantity: string;
@@ -47,7 +49,7 @@ interface ProductFormProps {
 
 export function emptyVariant(): VariantForm {
   return {
-    name: 'Объём',
+    name: '',
     value: '',
     quantity: '0',
     price: '',
@@ -92,6 +94,7 @@ function parseDiscountPercent(value: string): number {
 export function detailToFormValues(detail: InventoryProductDetail): ProductFormValues {
   const baseName = detail.variants[0]?.name ?? '';
   const variants: VariantForm[] = detail.variants.map((v, index) => ({
+    id: v.id,
     name: v.name,
     value: v.value,
     quantity: String(v.availableQuantity),
@@ -210,6 +213,7 @@ export default function ProductForm({ categories, initial, onSubmit }: ProductFo
       variants: variants
         .filter((v) => v.value.trim())
         .map((v) => ({
+          id: v.id,
           name: v.name,
           value: v.value,
           quantity: Number(v.quantity) || 0,
@@ -396,7 +400,7 @@ export default function ProductForm({ categories, initial, onSubmit }: ProductFo
                             customName: index !== 0 && value.trim() !== '' && value !== base,
                           });
                         }}
-                        placeholder="Размер / Объём"
+                        placeholder="размер / объём / память"
                       />
                     </label>
                     <label className="field">
@@ -405,7 +409,7 @@ export default function ProductForm({ categories, initial, onSubmit }: ProductFo
                         className="field__input"
                         value={v.value}
                         onChange={(e) => updateVariant(index, { value: e.target.value })}
-                        placeholder="1 кг"
+                        placeholder="42 / XL / 500 мл / 128 GB"
                       />
                     </label>
                   </div>

@@ -73,7 +73,7 @@ After DELIVERED: seller chooses `Покупатель забрал` or `Поку
 One question → one answer; seller deletion.
 
 ### 14 — Notifications
-Seller new-order; buyer status; write-access handling; retries/logging.
+Seller new-order; buyer status; write-access handling (best-effort, bounded deadline — order is never blocked by the Telegram permission prompt); retries/logging.
 
 ### 15 — Security hardening
 RLS matrix, endpoint authorization, rate limits, upload validation, public/private response audit, secrets audit.

@@ -89,7 +89,7 @@ export const createProductSlice: StateCreator<RootStore, [], [], ProductSlice> =
     }),
 
   saveProduct: async (input) => {
-    const { storeId } = get();
+    const { storeId, sessionToken } = get();
     if (!storeId) throw new Error('No store selected');
     set({ catalogLoading: true, catalogError: null });
     try {
@@ -105,7 +105,7 @@ export const createProductSlice: StateCreator<RootStore, [], [], ProductSlice> =
         if (errors.length) throw new Error(errors.join('; '));
 
         const previousImages = get().images.filter((i) => i.productId === id);
-        await deps().productRepository.updateProduct(id, patch);
+        await deps().productRepository.updateProduct(id, patch, sessionToken);
 
         // Удаляем из Storage откреплённые при правке фото (full + thumb), best-effort.
         if (patch.images !== undefined) {
@@ -130,7 +130,7 @@ export const createProductSlice: StateCreator<RootStore, [], [], ProductSlice> =
           imageCount: input.images.length,
         });
         if (errors.length) throw new Error(errors.join('; '));
-        await deps().productRepository.addProduct(input);
+        await deps().productRepository.addProduct(input, sessionToken);
       }
       await get().fetchCatalog(storeId);
     } catch (e) {
@@ -140,11 +140,11 @@ export const createProductSlice: StateCreator<RootStore, [], [], ProductSlice> =
   },
 
   archiveProduct: async (id: string) => {
-    const { storeId } = get();
+    const { storeId, sessionToken } = get();
     if (!storeId) return { ok: false, code: 'UNKNOWN', message: 'Магазин не выбран' };
     set({ catalogLoading: true, catalogError: null });
     try {
-      await deps().productRepository.setProductStatus(id, 'ARCHIVED');
+      await deps().productRepository.setProductStatus(id, 'ARCHIVED', sessionToken);
       await get().fetchCatalog(storeId);
       return { ok: true };
     } catch (e) {
@@ -154,11 +154,11 @@ export const createProductSlice: StateCreator<RootStore, [], [], ProductSlice> =
   },
 
   restoreProduct: async (id: string) => {
-    const { storeId } = get();
+    const { storeId, sessionToken } = get();
     if (!storeId) return { ok: false, code: 'UNKNOWN', message: 'Магазин не выбран' };
     set({ catalogLoading: true, catalogError: null });
     try {
-      await deps().productRepository.setProductStatus(id, 'ACTIVE');
+      await deps().productRepository.setProductStatus(id, 'ACTIVE', sessionToken);
       await get().fetchCatalog(storeId);
       return { ok: true };
     } catch (e) {
@@ -168,11 +168,11 @@ export const createProductSlice: StateCreator<RootStore, [], [], ProductSlice> =
   },
 
   deleteProduct: async (id: string) => {
-    const { storeId } = get();
+    const { storeId, sessionToken } = get();
     if (!storeId) throw new Error('No store selected');
     set({ catalogLoading: true, catalogError: null });
     try {
-      const removed = await deps().productRepository.deleteProduct(id);
+      const removed = await deps().productRepository.deleteProduct(id, sessionToken);
       // Чистим файлы удалённого товара (full + thumb), best-effort.
       void deps().storage.removeFilesByUrl(
         removed.flatMap((img) => [img.storageKey, img.thumbStorageKey]),
@@ -211,11 +211,11 @@ export const createProductSlice: StateCreator<RootStore, [], [], ProductSlice> =
   },
 
   addVariant: async (productId: string, variant: AddVariantInput) => {
-    const { storeId } = get();
+    const { storeId, sessionToken } = get();
     if (!storeId) throw new Error('No store selected');
     set({ catalogLoading: true, catalogError: null });
     try {
-      await deps().productRepository.addVariantToProduct(productId, variant);
+      await deps().productRepository.addVariantToProduct(productId, variant, sessionToken);
       await get().fetchCatalog(storeId);
     } catch (e) {
       set({ catalogLoading: false, catalogError: (e as Error).message });

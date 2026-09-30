@@ -1,6 +1,7 @@
 import { insforge } from '../insforge/client';
 import type { Category, CategoryStatus } from '../../domain/models/category';
 import type { AddCategoryInput, UpdateCategoryPatch } from '../../application/contracts/category';
+import { deleteCategory as deleteCategoryViaApi } from '../functions/catalog-api';
 
 interface CategoryRow {
   id: string;
@@ -88,7 +89,10 @@ export async function updateCategory(id: string, patch: UpdateCategoryPatch): Pr
  * Удаление категории: товары не удаляются, а теряют привязку (`category_id = null`)
  * и попадают в «Без категории». 02 §. Обложку удаляет вызывающий слой (Storage).
  */
-export async function deleteCategory(id: string): Promise<string | null> {
+export async function deleteCategory(id: string, token: string | null): Promise<string | null> {
+  if (token) {
+    return deleteCategoryViaApi(token, id);
+  }
   const { data, error: findError } = await insforge.database
     .from('categories')
     .select('image_storage_key')

@@ -18,14 +18,39 @@ export function shareStoreLink(storeId: string): void {
 }
 
 /**
+ * Максимальное время ожидания ответа Telegram на запрос сообщений.
+ * Держим коротким: пока идёт оформление, виден переход заказа, и подвисание
+ * на системном попапе недопустимо.
+ */
+export const MESSAGES_ACCESS_TIMEOUT_MS = 1200;
+
+/**
  * Официальный запрос Telegram «Разрешить боту отправлять сообщения?».
- * Вызывать В МОМЕНТ клика «Заказать», до invokeCheckout — иначе первое
- * уведомление «Заказ принят» не дойдёт. Один раз на бота.
+ * Вызывать В МОМЕНТ клика «Заказать», до invokeCheckout — так у первого
+ * уведомления «Заказ принят» больше шансов дойти. Один раз на бота.
+ *
+ * BEST-EFFORT: результат совещательный, вызывающая сторона не должна зависеть
+ * от `true`. Метод никогда не бросает и не виснет — возвращает boolean не
+ * позднее MESSAGES_ACCESS_TIMEOUT_MS (SDK-шный promise может не резолвиться,
+ * если Telegram не прислал событие).
  */
 export async function requestMessagesAccess(): Promise<boolean> {
+  let access: Promise<boolean>;
   try {
-    return (await requestWriteAccess()) === 'allowed';
+    // Синхронный вызов сохраняет контекст пользовательского жеста.
+    access = requestWriteAccess().then((status) => status === 'allowed');
   } catch {
     return false;
+  }
+
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<boolean>((resolve) => {
+    timer = setTimeout(() => resolve(false), MESSAGES_ACCESS_TIMEOUT_MS);
+  });
+
+  try {
+    return await Promise.race([access.catch(() => false), deadline]);
+  } finally {
+    if (timer) clearTimeout(timer);
   }
 }

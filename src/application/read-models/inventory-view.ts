@@ -85,6 +85,8 @@ export interface ProductFormPayload {
   images: InventoryImageItem[];
   attributes: Array<{ name: string; value: string }>;
   variants: Array<{
+    /** id существующего варианта при редактировании (неразрушающий diff). */
+    id?: string;
     name: string;
     value: string;
     quantity: number;

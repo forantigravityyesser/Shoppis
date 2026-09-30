@@ -88,7 +88,8 @@ export const createCategorySlice: StateCreator<RootStore, [], [], CategorySlice>
   deleteCategory: async (id: string) => {
     if (isSystemCategory(id)) return;
 
-    const imageKey = await deps().categoryRepository.deleteCategory(id);
+    const { sessionToken } = get();
+    const imageKey = await deps().categoryRepository.deleteCategory(id, sessionToken);
 
     // Обложка удаляется из Storage best-effort: категория уже удалена в БД.
     if (imageKey) void deps().storage.removeFilesByUrl([imageKey]);
