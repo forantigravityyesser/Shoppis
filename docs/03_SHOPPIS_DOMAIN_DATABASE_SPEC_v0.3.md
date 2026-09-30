@@ -26,7 +26,7 @@ Bootstrap:
 Repeated launches resolve to the same User. Invalid identity fails closed. Client user IDs are never authorization evidence.
 
 ## 3. Shop
-Fields: id, owner_user_id, name, banner, currency_code, language_code, status ACTIVE/PAUSED, seller_contact nullable, public_id unique, optional future slug, timestamps.
+Fields: id, owner_user_id, name, banner, currency_code, language_code, status ACTIVE/PAUSED, support_handle nullable (generic contact: seller/manager/bot, not necessarily the seller's personal link), public_id unique, optional future slug, timestamps.
 
 MVP UI: one shop. DB: many shops per User.
 

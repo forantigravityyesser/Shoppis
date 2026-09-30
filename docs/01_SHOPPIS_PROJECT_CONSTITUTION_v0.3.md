@@ -46,7 +46,7 @@ Payments; delivery pricing/integrations; internal chat; AI; video; CSV/Excel; ma
 15. Shop can be PAUSED without deleting data.
 16. Notifications never determine order transaction success.
 17. No MVP feature is added only because it may be useful someday.
-18. Codex tasks remain small and independently verifiable.
+18. OpenCode tasks remain small and independently verifiable.
 
 ## 5. Roles
 There is no mutually-exclusive global buyer/seller role. One User may own shops and buy from other shops.

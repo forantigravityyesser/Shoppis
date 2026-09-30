@@ -215,10 +215,11 @@ PAUSED shop resolves but shows technical-pause state and rejects new orders.
 ARCHIVED product is excluded from normal catalog and cannot enter checkout.
 
 ## 19. Deep link
-Conceptually:
-`t.me/<configured-bot>?startapp=shop_<opaque_public_id>`
+Первым шагом покупателя всегда должно открываться **приложение (Mini App)**, а не чат бота. Поэтому ссылка — прямой deep link в Mini App с `startapp`:
 
-Exact production format follows the selected Telegram Mini App configuration. Never expose sequential database IDs.
+`t.me/<configured-bot>/<app-short-name>?startapp=shop_<opaque_public_id>`
+
+Сегмент `/<app-short-name>` (короткое имя Mini App из BotFather) обязателен: без него Telegram открывает чат бота. Внутренние последовательные DB IDs не раскрываются — только opaque `public_id`.
 
 ## 20. Architecture decision records
 For major changes record:

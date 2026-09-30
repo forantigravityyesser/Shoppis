@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useStore } from '../store';
 import { deps } from '../composition/container';
 import { authenticate } from '../services/auth-service';
+import { parseStorefrontStartParam } from '../../domain/rules/storefront-link';
 import type { AppContext } from '../../domain/constants/app-context';
 
 /** Минимальная поверхность Telegram WebApp, используемая при инициализации. */
@@ -55,7 +56,7 @@ export function useAppInit(): void {
 
         // --- 3. Контекст входа по start_param (два бота) ---
         let finalContext: AppContext = 'buyer';
-        let finalStoreId: string | null = null;
+        let buyerPublicId: string | null = null;
 
         if (authenticated) {
           const startParam = deps().telegram.getStartParam();
@@ -64,17 +65,16 @@ export function useAppInit(): void {
             // --- БОТ ПРОДАВЦА: любой пользователь может создать магазин ---
             finalContext = 'seller';
             // storeId оставим null → App покажет SellerOnboardingView
-          } else if (startParam && startParam.startsWith('store_')) {
-            // --- БОТ ПОКУПАТЕЛЯ по ссылке ---
-            finalContext = 'buyer';
-            finalStoreId = startParam.slice(6);
-            localStorage.setItem('last_visited_store_id', finalStoreId);
           } else {
-            // Вход без параметра: проверяем, был ли last visited store
-            const lastId = localStorage.getItem('last_visited_store_id');
-            if (lastId) {
+            // --- БОТ ПОКУПАТЕЛЯ: deep link на витрину `shop_<public_id>` ---
+            const fromLink = parseStorefrontStartParam(startParam);
+            if (fromLink) {
               finalContext = 'buyer';
-              finalStoreId = lastId;
+              buyerPublicId = fromLink;
+              localStorage.setItem('last_visited_store_public_id', fromLink);
+            } else {
+              // Вход без параметра: последняя посещённая витрина
+              buyerPublicId = localStorage.getItem('last_visited_store_public_id');
             }
           }
         } else {
@@ -82,12 +82,13 @@ export function useAppInit(): void {
           finalContext = 'seller';
         }
 
-        // --- 4. Применяем контекст и storeId ---
+        // --- 4. Применяем контекст и загружаем магазин ---
         useStore.getState().setContext(finalContext);
-        useStore.getState().setStoreId(finalStoreId);
 
-        // Если контекст продавца — пробуем загрузить его существующий магазин
-        if (finalContext === 'seller' && authenticated) {
+        if (finalContext === 'buyer') {
+          await useStore.getState().loadBuyerStore(buyerPublicId);
+        } else if (authenticated) {
+          // Контекст продавца — пробуем загрузить его существующий магазин
           await useStore.getState().loadSellerStore();
         }
       } catch (e) {

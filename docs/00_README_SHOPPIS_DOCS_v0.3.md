@@ -13,8 +13,11 @@ Spec §9.0.
 2. `02_SHOPPIS_PRODUCT_SPEC_v0.3.md` — точное поведение продукта и UX.
 3. `03_SHOPPIS_DOMAIN_DATABASE_SPEC_v0.3.md` — сущности, БД, состояния, инварианты, транзакции и RLS.
 4. `04_SHOPPIS_TECHNICAL_SPEC_v0.3.md` — React/Vite, InsForge, Telegram, auth, storage, security.
-5. `05_SHOPPIS_CODEX_IMPLEMENTATION_PLAN_v0.3.md` — маленькие независимые engineering tasks.
+5. `05_SHOPPIS_OPENCODE_IMPLEMENTATION_PLAN_v0.3.md` — маленькие независимые engineering tasks.
 6. `08_SHOPPIS_DOCS_CODE_DIVERGENCE_v0.3.md` — незакрытые расхождения кода и документации.
+7. `10_SHOPPIS_STORE_SETTINGS_PLAN.md` — настройки магазина: product/UX spec (ЧТО).
+8. `11_SHOPPIS_HARDENING_BACKLOG.md` — отложенный hardening (RLS, тесты, косметика).
+9. `12_SHOPPIS_STORE_SETTINGS_IMPLEMENTATION_PLAN.md` — настройки магазина: реализация (КАК), этапы S-00…S-10.
 
 ## Принцип двух сред проверки
 Telegram — не финальная интеграция, а целевая среда исполнения и проверки с первых этапов. Каждый глобальный этап имеет два состояния: `LOCAL VERIFIED` (браузер / локальный контур) и `TELEGRAM VERIFIED` (реальный Telegram Mini App на development-окружении). Этап не закрывается без обоих.
@@ -49,6 +52,6 @@ Supporting: `Category, ProductGroup, ProductImage, ProductAttribute, ProductLink
 - После `REFUSED` товар не возвращается автоматически в available.
 - Product/Category: `ACTIVE/ARCHIVED`; Product удаляется только из archive.
 - Shop: `ACTIVE/PAUSED`.
-- Seller contact задаётся вручную и не подменяется Telegram username автоматически.
+- Seller contact (`support_handle`) — общий контакт для связи (продавец/менеджер/бот), задаётся вручную и не подменяется Telegram username автоматически; возможна явная кнопка подстановки своего @username.
 - Public links используют opaque `public_id`, без последовательных DB IDs.
 - Деньги — integer minor units, без float.

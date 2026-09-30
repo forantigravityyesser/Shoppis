@@ -1,7 +1,7 @@
 import type { StateCreator } from 'zustand';
 import type { AppContext } from '../../../domain/constants/app-context';
-import type { Store } from '../../../domain/models/store';
-import type { CreateStoreInput } from '../../contracts/store';
+import type { Store, StoreStatus } from '../../../domain/models/store';
+import type { CreateStoreInput, StoreProfilePatch } from '../../contracts/store';
 import type { ServerUser } from '../../contracts/auth';
 import { deps } from '../../composition/container';
 import { compressImage } from '../../../utils/image';
@@ -18,6 +18,8 @@ export interface AuthSlice {
   storeId: string | null;
   /** Витрина продавца (для дашборда/онбординга) */
   currentStore: Store | null;
+  /** Публичная витрина, которую просматривает покупатель (по public_id). */
+  viewedStore: Store | null;
   authLoading: boolean;
   authError: string | null;
   /** Флаг первички как в старом useUIStore.isAppInitializing */
@@ -40,7 +42,20 @@ export interface AuthSlice {
   createStore: (input: Omit<CreateStoreInput, 'ownerTelegramId'>) => Promise<string>;
   /** Поиск витрин продавца при старте: есть — storeId + дашборд, нет — онбординг */
   loadSellerStore: () => Promise<string | null>;
+  /**
+   * Публичный вход покупателя по `public_id` (deep link витрины). Резолвит
+   * public_id → store, ставит storeId для каталога и viewedStore для отображения.
+   * null — нет витрины (показываем «магазин не найден»).
+   */
+  loadBuyerStore: (publicId: string | null) => Promise<string | null>;
   fetchCurrentStore: () => Promise<void>;
+  /**
+   * Частичное обновление профиля витрины (persisted). Draft-состояние блока
+   * живёт в UI; сюда приходит уже собранный patch конкретного блока. 12 §7.
+   */
+  updateStoreProfile: (patch: StoreProfilePatch) => Promise<void>;
+  /** Операционная смена статуса витрины (ACTIVE ↔ PAUSED). */
+  updateStoreStatus: (status: StoreStatus) => Promise<void>;
   /** Загрузка баннера в shoppis-media для формы онбординга */
   uploadStoreBanner: (file: File) => Promise<string>;
 }
@@ -51,6 +66,7 @@ export const createAuthSlice: StateCreator<RootStore, [], [], AuthSlice> = (set,
   sessionToken: null,
   storeId: null,
   currentStore: null,
+  viewedStore: null,
   authLoading: false,
   authError: null,
   isAppInitializing: true,
@@ -150,6 +166,32 @@ export const createAuthSlice: StateCreator<RootStore, [], [], AuthSlice> = (set,
     }
   },
 
+  loadBuyerStore: async (publicId) => {
+    if (!publicId) {
+      get().resetCatalog();
+      get().resetCategories();
+      get().resetOrders();
+      set({ viewedStore: null, storeId: null, authLoading: false });
+      return null;
+    }
+    set({ authLoading: true, authError: null });
+    try {
+      const store = await deps().storeRepository.fetchStoreByPublicId(publicId);
+      if (!store) {
+        set({ viewedStore: null, storeId: null, authLoading: false });
+        return null;
+      }
+      get().resetCatalog();
+      get().resetCategories();
+      get().resetOrders();
+      set({ viewedStore: store, storeId: store.id, authLoading: false });
+      return store.id;
+    } catch (e) {
+      set({ authLoading: false, authError: (e as Error).message });
+      throw e;
+    }
+  },
+
   fetchCurrentStore: async () => {
     const { storeId } = get();
     if (!storeId) {
@@ -163,6 +205,20 @@ export const createAuthSlice: StateCreator<RootStore, [], [], AuthSlice> = (set,
       set({ authLoading: false, authError: (e as Error).message });
       throw e;
     }
+  },
+
+  updateStoreProfile: async (patch) => {
+    const { storeId, sessionToken } = get();
+    if (!storeId) throw new Error('Store is not selected');
+    const store = await deps().storeSettingsApi.updateProfile(sessionToken, storeId, patch);
+    set({ currentStore: store });
+  },
+
+  updateStoreStatus: async (status) => {
+    const { storeId, sessionToken } = get();
+    if (!storeId) throw new Error('Store is not selected');
+    const store = await deps().storeSettingsApi.updateStatus(sessionToken, storeId, status);
+    set({ currentStore: store });
   },
 
   uploadStoreBanner: async (file: File) => deps().storage.uploadFile(await compressImage(file)),

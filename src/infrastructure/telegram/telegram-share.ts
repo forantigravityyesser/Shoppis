@@ -1,17 +1,22 @@
 import { requestWriteAccess, shareURL } from '@telegram-apps/sdk';
 import { BUYER_APP_SHORTNAME, BUYER_BOT_USERNAME } from '../insforge/config';
+import { buildStorefrontLink } from '../../domain/rules/storefront-link';
 
 /**
  * Прямая ссылка на витрину (сразу Mini App, не чат бота):
- * t.me/<buyer_bot>/<app>?startapp=store_<storeId>
+ * `t.me/<buyer_bot>/<app>?startapp=shop_<public_id>`. Формат — в domain-правиле.
  */
-export function buildBuyerLink(storeId: string): string {
-  return `https://t.me/${BUYER_BOT_USERNAME}/${BUYER_APP_SHORTNAME}?startapp=store_${storeId}`;
+export function buildBuyerLink(publicId: string): string {
+  return buildStorefrontLink({
+    botUsername: BUYER_BOT_USERNAME,
+    appShortname: BUYER_APP_SHORTNAME,
+    publicId,
+  });
 }
 
-export function shareStoreLink(storeId: string): void {
+export function shareStoreLink(publicId: string): void {
   try {
-    shareURL(buildBuyerLink(storeId));
+    shareURL(buildBuyerLink(publicId));
   } catch {
     // Вне Telegram — игнорируем, копирование обработает UI
   }

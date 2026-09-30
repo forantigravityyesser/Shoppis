@@ -1,6 +1,6 @@
 import { insforge } from '../insforge/client';
 import type { Store, StoreCurrency, StoreLanguage, StoreStatus } from '../../domain/models/store';
-import type { CreateStoreInput, StoreProfilePatch } from '../../application/contracts/store';
+import type { CreateStoreInput } from '../../application/contracts/store';
 
 const CURRENCY_SYMBOLS: Record<StoreCurrency, string> = {
   USD: '$',
@@ -55,6 +55,19 @@ export async function fetchStore(storeId: string): Promise<Store | null> {
   return row ? mapStore(row) : null;
 }
 
+/** Публичное чтение витрины по opaque public_id (без владения). */
+export async function fetchStoreByPublicId(publicId: string): Promise<Store | null> {
+  if (!publicId) return null;
+  const { data, error } = await insforge.database
+    .from('stores')
+    .select('*')
+    .eq('public_id', publicId)
+    .maybeSingle();
+  if (error) throw error;
+  const row = data as StoreRow | null;
+  return row ? mapStore(row) : null;
+}
+
 /** Витрины серверного User (authoritative identity), поиск по owner_user_id. */
 export async function fetchStoresByOwnerUser(ownerUserId: string): Promise<Store[]> {
   const { data, error } = await insforge.database
@@ -88,26 +101,4 @@ export async function createStore(input: CreateStoreInput): Promise<Store> {
 export async function checkOwnershipByUser(storeId: string, userId: string): Promise<boolean> {
   const store = await fetchStore(storeId);
   return store?.ownerUserId === userId;
-}
-
-export async function updateStoreProfile(id: string, patch: StoreProfilePatch): Promise<Store> {
-  const values: Record<string, unknown> = {};
-  if (patch.name !== undefined) values.name = patch.name;
-  if (patch.description !== undefined) values.description = patch.description;
-  if (patch.logoUrl !== undefined) values.logo_url = patch.logoUrl;
-  if (patch.supportHandle !== undefined) values.support_handle = patch.supportHandle;
-  if (patch.currency !== undefined) values.currency = patch.currency;
-  if (patch.currencySymbol !== undefined) values.currency_symbol = patch.currencySymbol;
-  if (patch.bannerUrl !== undefined) values.banner_url = patch.bannerUrl;
-  if (patch.language !== undefined) values.language = patch.language;
-
-  const { data, error } = await insforge.database
-    .from('stores')
-    .update(values)
-    .eq('id', id)
-    .select();
-  if (error) throw error;
-  const row = (data ?? [])[0] as StoreRow | undefined;
-  if (!row) throw new Error('Store update returned no data');
-  return mapStore(row);
 }

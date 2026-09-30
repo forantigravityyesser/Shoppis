@@ -1,4 +1,5 @@
 import { init, initData, miniApp, viewport } from '@telegram-apps/sdk';
+import { BUYER_APP_SHORTNAME, BUYER_BOT_USERNAME } from '../insforge/config';
 
 export interface TelegramUser {
   id: string;
@@ -106,6 +107,16 @@ export function getTelegramUser(): TelegramUser | null {
   }
 
   return null;
+}
+
+/** Username buyer-бота (без `@`) для публичных ссылок. Статический build-конфиг. */
+export function getBuyerBotUsername(): string {
+  return BUYER_BOT_USERNAME;
+}
+
+/** Короткое имя buyer Mini App для прямой ссылки. Статический build-конфиг. */
+export function getBuyerAppShortname(): string {
+  return BUYER_APP_SHORTNAME;
 }
 
 /** startapp-параметр: 'seller' | 'store_<uuid>' | ''. Вне TG — из ?startapp= в URL. */

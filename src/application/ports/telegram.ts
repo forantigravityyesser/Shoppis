@@ -1,6 +1,10 @@
 /** Платформенные возможности Telegram Mini App, используемые приложением. */
 export interface TelegramPort {
   getStartParam(): string | null;
+  /** Username buyer-бота (без `@`) для публичных ссылок на витрину. */
+  getBuyerBotUsername(): string;
+  /** Короткое имя buyer Mini App; при наличии даёт прямую ссылку на приложение. */
+  getBuyerAppShortname(): string;
   /**
    * Официальный запрос «Разрешить боту отправлять сообщения?».
    *

@@ -14,8 +14,8 @@ import {
   checkOwnershipByUser,
   createStore,
   fetchStore,
+  fetchStoreByPublicId,
   fetchStoresByOwnerUser,
-  updateStoreProfile,
 } from './infrastructure/repositories/store-repository';
 import {
   checkOwnershipByTelegram,
@@ -25,6 +25,7 @@ import * as storage from './infrastructure/storage/file-storage';
 import * as imageUpload from './infrastructure/storage/image-upload';
 import * as authApi from './infrastructure/functions/auth-api';
 import * as shopApi from './infrastructure/functions/shop-api';
+import * as storeSettingsApi from './infrastructure/functions/store-settings-api';
 import * as checkoutApi from './infrastructure/functions/checkout-api';
 import * as orderApi from './infrastructure/functions/order-api';
 import * as identity from './infrastructure/auth/identity-provider';
@@ -41,6 +42,7 @@ const container: AppContainer = {
   imageUpload,
   authApi,
   shopApi,
+  storeSettingsApi,
   checkoutApi,
   orderApi,
   identity,
@@ -48,15 +50,17 @@ const container: AppContainer = {
   i18n,
   storeRepository: {
     fetchStore,
+    fetchStoreByPublicId,
     fetchStoresByOwnerUser,
     createStore,
     checkOwnershipByUser,
-    updateStoreProfile,
     fetchStoresByOwnerTelegram,
     checkOwnershipByTelegram,
   },
   telegram: {
     getStartParam: telegramApp.getStartParam,
+    getBuyerBotUsername: telegramApp.getBuyerBotUsername,
+    getBuyerAppShortname: telegramApp.getBuyerAppShortname,
     requestMessagesAccess: telegramShare.requestMessagesAccess,
   },
 };

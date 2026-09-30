@@ -1,9 +1,9 @@
-# SHOPPIS — CODEX IMPLEMENTATION PLAN
+# SHOPPIS — OPENCODE IMPLEMENTATION PLAN
 
 **Version:** 0.3
 
 ## Rule
-Codex receives one bounded task at a time. Each task states objective, files/modules, constraints, acceptance criteria and tests.
+OpenCode receives one bounded task at a time. Each task states objective, files/modules, constraints, acceptance criteria and tests.
 
 ## Delivery stages (ход работ)
 

@@ -1,4 +1,4 @@
-import type { AuthApi, CheckoutApi, OrderApi, ShopApi } from '../ports/apis';
+import type { AuthApi, CheckoutApi, OrderApi, ShopApi, StoreSettingsApi } from '../ports/apis';
 import type { CategoryRepository } from '../ports/category-repository';
 import type { I18nPort } from '../ports/i18n';
 import type { IdentityProvider } from '../ports/identity';
@@ -23,6 +23,7 @@ export interface AppContainer {
   imageUpload: ImageUploadPort;
   authApi: AuthApi;
   shopApi: ShopApi;
+  storeSettingsApi: StoreSettingsApi;
   checkoutApi: CheckoutApi;
   orderApi: OrderApi;
   identity: IdentityProvider;
