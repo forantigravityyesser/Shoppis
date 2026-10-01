@@ -28,6 +28,11 @@ export interface CheckoutApi {
   invokeCheckout(payload: CheckoutPayload): Promise<CheckoutResult>;
 }
 
+/** notifications-actions: opt-in Telegram-уведомлений покупателя. */
+export interface NotificationApi {
+  enableTelegramNotifications(token: string): Promise<void>;
+}
+
 /** order-actions: жизненный цикл заказа и инвентаря. */
 export interface OrderApi {
   cancelOrder(

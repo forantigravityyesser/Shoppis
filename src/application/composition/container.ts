@@ -1,4 +1,11 @@
-import type { AuthApi, CheckoutApi, OrderApi, ShopApi, StoreSettingsApi } from '../ports/apis';
+import type {
+  AuthApi,
+  CheckoutApi,
+  NotificationApi,
+  OrderApi,
+  ShopApi,
+  StoreSettingsApi,
+} from '../ports/apis';
 import type { CategoryRepository } from '../ports/category-repository';
 import type { I18nPort } from '../ports/i18n';
 import type { IdentityProvider } from '../ports/identity';
@@ -26,6 +33,7 @@ export interface AppContainer {
   storeSettingsApi: StoreSettingsApi;
   checkoutApi: CheckoutApi;
   orderApi: OrderApi;
+  notificationApi: NotificationApi;
   identity: IdentityProvider;
   telegram: TelegramPort;
   haptics: HapticsPort;

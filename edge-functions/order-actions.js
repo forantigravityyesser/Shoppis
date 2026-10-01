@@ -99,10 +99,21 @@ async function notifyBuyerStatus(client, body, result) {
     storeId = orderRow?.store_id ?? null;
   }
 
+  // Кнопка «Открыть витрину» — по opaque public_id, не по внутреннему id.
+  let publicId = '';
+  if (storeId) {
+    const { data: storeRow } = await client.database
+      .from('stores')
+      .select('public_id')
+      .eq('id', storeId)
+      .maybeSingle();
+    publicId = storeRow?.public_id ?? '';
+  }
+
   await notify({
     bot: 'buyer',
     chatId,
-    storeId,
+    publicId,
     logPrefix: 'order-actions',
     text:
       `📦 <b>Статус заказа изменился</b>\n\n` +

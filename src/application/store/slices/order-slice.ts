@@ -30,6 +30,12 @@ export interface OrderSlice {
   ) => Promise<void>;
   reconcileInventory: (variantId: string, quantity: number, reason?: string) => Promise<void>;
   placeOrder: (recipient: RecipientInfo) => Promise<string>;
+  /**
+   * Opt-in Telegram-уведомлений — ОТДЕЛЬНО и ПОСЛЕ успешного заказа.
+   * Запрашивает write access и, при согласии, фиксирует его на сервере.
+   * Никогда не влияет на заказ: отказ просто означает отсутствие уведомлений.
+   */
+  requestNotifications: () => Promise<boolean>;
   resetOrders: () => void;
 }
 
@@ -157,14 +163,9 @@ export const createOrderSlice: StateCreator<RootStore, [], [], OrderSlice> = (se
 
       set({ ordersLoading: true, ordersError: null });
       try {
-        // BEST-EFFORT: промпт Telegram — до checkout, чтобы у «Заказ принят» был
-        // шанс дойти. Метод ограничен по времени и никогда не бросает; отказ или
-        // таймаут не влияют на создание заказа.
-        try {
-          await deps().telegram.requestMessagesAccess();
-        } catch {
-          // no-op: уведомление не должно ломать заказ
-        }
+        // Разрешение на уведомления НЕ запрашивается здесь: это отдельный
+        // opt-in после успешного заказа (requestNotifications), чтобы не
+        // блокировать checkout Telegram-промптом. 04 §11.
         const { orderId } = await deps().checkoutApi.invokeCheckout({
           items,
           recipientInfo: recipient,
@@ -180,6 +181,25 @@ export const createOrderSlice: StateCreator<RootStore, [], [], OrderSlice> = (se
         set({ ordersLoading: false, ordersError: (e as Error).message });
         throw e;
       }
+    },
+
+    requestNotifications: async () => {
+      const { sessionToken } = get();
+      let allowed: boolean;
+      try {
+        allowed = await deps().telegram.requestMessagesAccess();
+      } catch {
+        return false;
+      }
+      if (allowed && sessionToken) {
+        try {
+          await deps().notificationApi.enableTelegramNotifications(sessionToken);
+        } catch (e) {
+          // Согласие есть, но зафиксировать не удалось — не критично для UX.
+          console.warn('[notifications] persist failed:', e);
+        }
+      }
+      return allowed;
     },
 
     resetOrders: () =>

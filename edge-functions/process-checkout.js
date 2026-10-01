@@ -93,12 +93,26 @@ export default async function (request) {
     return errorToResponse(ERROR_STATUS, e?.message || e, 'Order placement failed');
   }
 
+  // Публичная кнопка «Открыть витрину» в уведомлении — по opaque public_id.
+  let storePublicId = '';
+  try {
+    const client = createClient({ baseUrl, anonKey });
+    const { data: storeRow } = await client.database
+      .from('stores')
+      .select('public_id')
+      .eq('id', storeId)
+      .maybeSingle();
+    storePublicId = storeRow?.public_id ?? '';
+  } catch (e) {
+    console.error('[checkout] public_id lookup failed:', e);
+  }
+
   const symbol = result.currencySymbol || '';
   const orderNumber = String(result.orderNumber || result.orderId).slice(0, 12);
   notify({
     bot: 'buyer',
     chatId: session.tg,
-    storeId,
+    publicId: storePublicId,
     logPrefix: 'checkout',
     text: `🧾 <b>Заказ принят!</b>\n\nНомер: <code>${orderNumber}</code>\nСумма: <b>${result.totalMinor} ${symbol}</b>\nСтатус: Новый`,
   }).catch((e) => console.error('[checkout] buyer notify error:', e));
@@ -107,7 +121,7 @@ export default async function (request) {
     notify({
       bot: 'seller',
       chatId: result.sellerTelegramId,
-      storeId,
+      publicId: storePublicId,
       logPrefix: 'checkout',
       text: `🔔 <b>Новый заказ!</b>\n\nНомер: <code>${orderNumber}</code>\nСумма: <b>${result.totalMinor} ${symbol}</b>`,
     }).catch((e) => console.error('[checkout] seller notify error:', e));

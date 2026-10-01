@@ -7,17 +7,40 @@ export function pickToken(bot) {
   return env('BUYER_BOT_TOKEN') || env('BOT_TOKEN');
 }
 
-/** Inline web_app кнопка: продавцу — панель, покупателю — его витрина. */
-export function storeReplyMarkup(bot, storeId) {
+/**
+ * Inline-кнопка на витрину/панель.
+ * Покупателю — Direct Mini App ссылка `t.me/<bot>/<app>?startapp=shop_<public_id>`
+ * (тап открывает витрину напрямую). Продавцу — web_app панели.
+ * Внутренний id наружу не отдаём: передаётся только `public_id`.
+ */
+export function storeReplyMarkup(bot, publicId) {
   const appUrl = (env('APP_URL') || '').replace(/\/$/, '');
-  if (!storeId || !appUrl) return undefined;
-  const url = bot === 'seller' ? `${appUrl}?startapp=seller` : `${appUrl}?startapp=store_${storeId}`;
+
+  if (bot === 'seller') {
+    if (!appUrl) return undefined;
+    return {
+      inline_keyboard: [
+        [{ text: '🏪 Открыть панель', web_app: { url: `${appUrl}?startapp=seller` } }],
+      ],
+    };
+  }
+
+  const botUsername = String(env('BUYER_BOT_USERNAME') || 'BuyShoppis_bot')
+    .trim()
+    .replace(/^@/, '');
+  const rawApp = String(env('BUYER_APP_SHORTNAME') || '')
+    .trim()
+    .replace(/^\/+/, '');
+  // Short name BotFather: [a-z0-9_]{3,30}; невалидный env игнорируем.
+  const appShortname = /^[a-z0-9_]{3,30}$/.test(rawApp) ? rawApp : 'shop';
+  if (!publicId || !botUsername) return undefined;
+  const base = `https://t.me/${botUsername}/${appShortname}`;
   return {
     inline_keyboard: [
       [
         {
-          text: bot === 'seller' ? '🏪 Открыть панель' : '🛍️ Открыть витрину',
-          web_app: { url },
+          text: '🛍️ Открыть витрину',
+          url: `${base}?startapp=shop_${publicId}`,
         },
       ],
     ],
@@ -48,9 +71,9 @@ async function sendViaBotApi({ bot, chatId, text, replyMarkup, logPrefix }) {
  * Отправить сообщение: сначала через сервис-хелпер TELEGRAM_NOTIFY_URL,
  * при недоступности/неуспехе — напрямую через Bot API. Никогда не бросает.
  */
-export async function notify({ bot = 'buyer', chatId, text, storeId, replyMarkup, logPrefix = 'notify' }) {
+export async function notify({ bot = 'buyer', chatId, text, publicId, replyMarkup, logPrefix = 'notify' }) {
   if (!chatId || !text) return;
-  const markup = replyMarkup ?? storeReplyMarkup(bot, storeId);
+  const markup = replyMarkup ?? storeReplyMarkup(bot, publicId);
 
   const notifyUrl = env('TELEGRAM_NOTIFY_URL');
   if (notifyUrl) {
@@ -62,7 +85,7 @@ export async function notify({ bot = 'buyer', chatId, text, storeId, replyMarkup
           bot,
           chatId: String(chatId),
           text,
-          storeId,
+          publicId,
           ...(markup ? { replyMarkup: markup } : {}),
         }),
       });

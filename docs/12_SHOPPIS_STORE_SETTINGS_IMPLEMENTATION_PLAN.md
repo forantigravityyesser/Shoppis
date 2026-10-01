@@ -340,7 +340,7 @@ clean ──edit──▶ dirty ──save──▶ saving ──ok──▶ cle
 ### S-07 — Share / Public link (read-only) `[x]`
 - **Цель:** ссылка на витрину по `public_id` + копирование.
 - **Файлы:** `domain/rules/storefront-link.ts(+test)` (единый билдер + парсер, префикс `shop_`), `application/hooks/useStorefrontLink.ts`, порт `TelegramPort` (+`getBuyerBotUsername`/`getBuyerAppShortname`), `SharePreviewBlock.tsx`, интеграция в `SellerSettingsView`; `telegram-share.buildBuyerLink` приведён к domain-правилу (было `store_<id>`, стало `shop_<public_id>`).
-- **Поведение:** read-only ссылка — прямой deep link в Mini App `https://t.me/<bot>/<app>?startapp=shop_<public_id>` (первый шаг покупателя — приложение, не чат бота; `/<app>` обязателен), кликабельна, копирование с индикацией «Скопировано»; Preview-кнопка неактивна до S-08; **нет** dirty/save.
+- **Поведение:** read-only ссылка — прямой deep link в Mini App: `https://t.me/<bot>/<app>?startapp=shop_<public_id>` при заданном `VITE_BUYER_APP_SHORTNAME`, иначе Main Mini App `https://t.me/<bot>?startapp=shop_<public_id>` (первый шаг покупателя — приложение, не чат бота); кликабельна, копирование с индикацией «Скопировано»; Preview-кнопка неактивна до S-08; **нет** dirty/save.
 - **Тесты:** L1 (билдер/парсер, +5), L3 (ссылка, копирование, disabled/enabled preview, отсутствие Save, +5). 129 тестов зелёный.
 - **Acceptance:** ссылка строится из `currentStore.publicId`; внутренний UUID/`store_` наружу не отдаётся. ✔
 - **Verification:** `npm test`, `typecheck`, `build`, `lint`. ✔
@@ -358,16 +358,51 @@ clean ──edit──▶ dirty ──save──▶ saving ──ok──▶ cle
 - **Осталось (L4):** ручная проверка ссылки LOCAL + TELEGRAM — за владельцем.
 - **Далее (вне S-08):** каталог витрины (категории/товары/поиск/корзина) — расширение buyer storefront.
 
-### S-09 — Preview enable `[ ]`
-- **Цель:** включить кнопку «Предпросмотр» из S-07 после появления S-08.
-- **Acceptance:** preview ведёт на реальную витрину (`public_id`).
-- **Verification:** LOCAL + TELEGRAM.
+### S-08.1 — Direct Mini App links + notification opt-in `[x]`
+- **Цель:** привести ВСЕ публичные ссылки к Direct Mini App `t.me/<bot>/<app>?startapp=shop_<public_id>` (первый шаг — приложение, не чат бота) и вынести разрешение на уведомления в отдельный opt-in ПОСЛЕ checkout.
+- **Ссылки:** `_shared/telegram.storeReplyMarkup` (кнопка «Открыть витрину» — `url` Direct Mini App по `public_id`), `process-checkout`/`order-actions` (резолвят `public_id` перед уведомлением), `telegram-notify` (`body.publicId`), `telegram-bot-seller` (invite `/mystores` → `shop_<public_id>`), `telegram-bot-buyer` (`storeAppUrl`/`findStore`/`extractStoreId` → `shop_<public_id>`).
+- **Legacy:** чтение старого `store_<id>` сохранено (`parseLegacyStoreStartParam` + резолв `fetchStore(id)` fallback); в новых ссылках не используется.
+- **Уведомления:** `placeOrder` больше НЕ запрашивает write access; новый `order-slice.requestNotifications()` вызывает `TelegramPort.requestMessagesAccess()` и при согласии пишет `notifications-actions` → `telegram_identities.notifications_enabled/at` (миграция `0013`). Отказ не влияет на заказ.
+- **Тесты:** `storefront-link` (формат, отсутствие `uuid/token/store_`, legacy-parse, +4), `notification-api` (+3). 141 тест зелёный.
+- **Deploy:** миграция `0013` применена; `notifications-actions` создана (401 без сессии); `process-checkout`, `order-actions` обновлены. Боты/`telegram-notify` в этом проекте не задеплоены — правки вступят при их деплое.
+- **Telegram-конфигурация (выбран вариант B, сделано в @BotFather):**
+  - бот `BuyShoppis_bot`; именованное Mini App `shop` (Direct Link) создано через `/newapp`, URL = production frontend (Vercel-деплой).
+  - `VITE_BUYER_APP_SHORTNAME=shop` → ссылка `https://t.me/BuyShoppis_bot/shop?startapp=shop_<public_id>`.
+  - Альтернатива (если понадобится): Main Mini App (`*Configure Mini App → Enable*`) + пустое `VITE_BUYER_APP_SHORTNAME` → `t.me/BuyShoppis_bot?startapp=...`.
+  - Диагностика: если `t.me/bot/app` открывает чат — приложение не создано/имя невалидно (не строчное); если `t.me/bot?startapp=` открывает чат — не включён Main Mini App. Это конфиг BotFather, не код.
 
-### S-10 — QR + Settings regression `[ ]`
-- **Цель:** QR-код ссылки (отложен) и сквозная регрессия настроек.
-- **Примечание:** QR не блокирует остальные срезы; у qr-библиотеки нет в стеке — решение отдельным ADR (внешний генератор или лёгкая зависимость).
-- **Acceptance:** регрессия всех блоков (partial saves не мешают друг другу); docs синхронизированы.
-- **Verification:** LOCAL + TELEGRAM.
+### S-09 — Preview enable `[x]`
+- **Цель:** включить кнопку «Предпросмотр» из S-07 после появления S-08.
+- **Файлы:** порт `TelegramPort` (+`openTelegramLink`), `infrastructure/telegram/telegram-app.ts` (SDK `openTelegramLink` + fallback `window.open`), `application/hooks/useOpenTelegramLink.ts`, `SellerSettingsView` (`previewEnabled` + `onPreview` → `openTelegramLink(storefrontUrl)`).
+- **Поведение:** «Предпросмотр» открывает боевую публичную ссылку витрины внутри Telegram (`t.me/.../shop?startapp=shop_<public_id>`), т.е. реальный buyer storefront; вне Telegram — новая вкладка.
+- **Тесты:** `SharePreviewBlock` (click при `previewEnabled`), `telegram-app.openTelegramLink` (SDK/fallback/no-throw, +3). 145 тестов зелёный.
+- **Acceptance:** preview ведёт на реальную витрину по `public_id`. ✔
+- **Verification:** `npm test`, `typecheck`, `build`, `lint`. ✔
+- **Осталось (L4):** ручная проверка LOCAL + TELEGRAM — за владельцем.
+
+### S-10 — QR + Settings regression `[x]` (QR отложен)
+- **Цель:** сквозная **функциональная** регрессия настроек (не визуальная) + QR.
+- **Сделано (регрессия):**
+  - `npm test` — 145 passed; `typecheck` / `build` / `lint` зелёные;
+  - DB partial-update: `update-profile` меняет **только** переданные поля (`support_handle`, `name`), остальные (name/currency/language/status/banner) сохраняются; `update-status` меняет только `status`;
+  - guard'ы: foreign owner → `FORBIDDEN`, `{}` → `EMPTY_PATCH`, `DISABLED` → `INVALID_STATUS`;
+  - блоки не затирают поля друг друга: каждый шлёт только свои поля, сервер возвращает полный store, `currentStore` не откатывается.
+- **QR — отложен** (решение владельца): делать после редизайна визуала; требует **локальной** qr-библиотеки (внешние генераторы не используем — приватность/сеть).
+- **Acceptance:** partial saves не мешают друг другу; backend-границы и guard'ы на месте; docs синхронизированы. ✔
+- **Осталось (ручное LOCAL + TELEGRAM):** чеклист ниже; полная визуально-поведенческая регрессия — **после редизайна**.
+
+#### Ручной регрессионный чеклист (LOCAL + TELEGRAM)
+```
+[ ] Имя/баннер → Save: имя сохраняется, валюта/язык/контакт/статус не меняются
+[ ] Валюта/язык → Save: прочие поля не меняются
+[ ] Контакт → Save: крестик/подстановка/копирование, ссылка t.me открывает чат
+[ ] Статус → PAUSED (подтверждение): витрина показывает «закрыто», новые заказы блокируются
+[ ] Статус → ACTIVE: витрина снова открывается
+[ ] Ссылка «Поделиться»: правильный public_id, открывает приложение (не чат бота)
+[ ] «Предпросмотр»: открывает реальную витрину
+[ ] Перезагрузка страницы: всё сохранённое на месте
+[ ] Ошибки/двойной клик: без дублей, draft не теряется
+```
 
 ---
 

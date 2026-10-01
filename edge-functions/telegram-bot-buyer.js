@@ -2,17 +2,15 @@
 //
 // Роль: единственный бот для ВСЕХ покупателей и ВСЕХ магазинов.
 // Отдельный бот под каждый магазин НЕ создаётся: магазин различается
-// параметром startapp=store_<storeId>, а «Мои магазины» выводятся из таблицы
-// customers (уникальность store_id + telegram_id, см. docs/DATABASE.md):
-// каждая строка = привязка покупателя к одной витрине.
+// параметром startapp=shop_<public_id>, а «Мои магазины» — привязки покупателя.
 //
 // ВАЖНО (витрина-first): покупатель СНАЧАЛА попадает в витрину НАПРЯМУЮ
-// по ссылке продавца:
-//   https://t.me/<BUYER_BOT_USERNAME>/<BUYER_APP_SHORTNAME>?startapp=store_<storeId>
+// по ссылке продавца (Direct Mini App, opaque public_id):
+//   https://t.me/<BUYER_BOT_USERNAME>/<BUYER_APP_SHORTNAME>?startapp=shop_<public_id>
 // Тап открывает сразу Mini App, чата с этим ботом у человека ещё нет.
-// В бот (чат) он попадает ПОСЛЕ заказа: фронт в момент клика «Заказать»
-// вызывает официальный requestWriteAccess() (best-effort, с коротким дедлайном),
-// покупатель разрешает сообщения, и process-checkout шлёт сюда «Заказ принят».
+// В бот (чат) он попадает ПОСЛЕ заказа: на экране «Заказ оформлен» фронт
+// официально предлагает разрешить сообщения (requestWriteAccess, best-effort),
+// покупатель разрешает, и process-checkout шлёт сюда «Заказ принят».
 // Разрешение НЕ является условием заказа: при отказе/таймауте заказ всё равно
 // создаётся, а уведомление просто не доставляется. Сюда же приходят смена
 // статуса и акции. Прямой /start без параметра показывает список уже
@@ -71,9 +69,9 @@ const editMessage = (token, chat_id, message_id, text, reply_markup) =>
 const answerCallback = (token, id) =>
   tg(token, 'answerCallbackQuery', { callback_query_id: id });
 
-// Mini App конкретной витрины: корзина/заказы/избранное изолированы по storeId на фронте.
-function storeAppUrl(appUrl, storeId) {
-  return `${appUrl}?startapp=store_${storeId}`;
+// Mini App конкретной витрины: Direct Mini App через opaque public_id.
+function storeAppUrl(appUrl, publicId) {
+  return `${appUrl}?startapp=shop_${publicId}`;
 }
 
 // --- InsForge (опционально). Все вызовы tolerant: бот работает и без БД. ---
@@ -81,10 +79,10 @@ function dbHeaders(anonKey) {
   return { apikey: anonKey, Authorization: `Bearer ${anonKey}`, 'Content-Type': 'application/json' };
 }
 
-async function findStore(baseUrl, anonKey, storeId) {
+async function findStore(baseUrl, anonKey, publicId) {
   try {
     const res = await fetch(
-      `${baseUrl.replace(/\/$/, '')}/api/database/stores?id=eq.${encodeURIComponent(storeId)}&select=id,name`,
+      `${baseUrl.replace(/\/$/, '')}/api/database/stores?public_id=eq.${encodeURIComponent(publicId)}&select=id,name,public_id`,
       { headers: dbHeaders(anonKey) }
     );
     if (!res.ok) return null;
@@ -130,7 +128,7 @@ async function getBuyerStores(baseUrl, anonKey, telegramId) {
     const ids = [...new Set(rows.map((r) => r.store_id).filter(Boolean))].slice(0, 20);
     if (!ids.length) return [];
     const r2 = await fetch(
-      `${baseUrl.replace(/\/$/, '')}/api/database/stores?id=in.(${ids.map(encodeURIComponent).join(',')})&select=id,name`,
+      `${baseUrl.replace(/\/$/, '')}/api/database/stores?id=in.(${ids.map(encodeURIComponent).join(',')})&select=id,name,public_id`,
       { headers: dbHeaders(anonKey) }
     );
     if (!r2.ok) return ids.map((id) => ({ id }));
@@ -142,19 +140,22 @@ async function getBuyerStores(baseUrl, anonKey, telegramId) {
   }
 }
 
-// /start store_<id> | /start store-<id> | /start <uuid> — все варианты deep-link'а.
+// /start shop_<public_id> | /start store_<id> (legacy) | /start <public_id>
 function parseStartParam(text) {
   const m = String(text || '').trim().match(/^\/start(@\S+)?\s*(.*)$/);
   if (!m) return '';
   return (m[2] || '').trim();
 }
 
+/** Возвращает public_id (канон) или legacy-значение; пустая строка — нет ссылки. */
 function extractStoreId(param) {
   if (!param) return '';
-  const p = param.replace(/^store[_-]/i, '').trim();
-  // UUID витрины либо уже голый id
-  const uuid = p.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
-  return (uuid ? uuid[0] : p.split(/\s+/)[0]).trim();
+  const p = param.trim();
+  if (p.toLowerCase().startsWith('shop_')) return p.slice(5).trim();
+  if (p.toLowerCase().startsWith('store_') || p.toLowerCase().startsWith('store-')) {
+    return p.slice(6).trim();
+  }
+  return p.split(/\s+/)[0];
 }
 
 export default {
@@ -201,8 +202,9 @@ export default {
         'В магазин можно попасть только по ссылке-приглашению от продавца.\n\n' +
         '/myshops — витрины, где вы уже были (корзина, заказы и избранное — отдельно в каждой)\n' +
         '/start — это же меню\n\n' +
-        'Уведомления о заказе и смене статуса приходят сюда автоматически. ' +
-        'Если их нет — откройте любую витрину и разрешите сообщения, когда Mini App спросит.');
+        'Уведомления о заказе и смене статуса приходят сюда, если вы разрешили сообщения. ' +
+        'После оформления заказа Mini App предложит включить уведомления — нажмите «Разрешить». ' +
+        'Это необязательно: заказ работает и без уведомлений.');
     }
     if (text.startsWith('/')) return this.onMain(c, chatId, tgUser);
     // Обычный текст без ссылки — подсказываем, где взять приглашение.
@@ -212,26 +214,26 @@ export default {
   },
 
   // Вход по ссылке продавца: привязываем и даём кнопку web_app именно в эту витрину.
-  async onStoreEntry(c, chatId, tgUser, storeId) {
+  async onStoreEntry(c, chatId, tgUser, publicId) {
     const hasDb = c.baseUrl && c.anonKey;
     let storeName = '';
     if (hasDb) {
-      const store = await findStore(c.baseUrl, c.anonKey, storeId);
+      const store = await findStore(c.baseUrl, c.anonKey, publicId);
       if (!store) {
         return sendMessage(c.token, chatId,
           '😕 <b>Витрина не найдена</b>\n\nВозможно, продавец удалил магазин или ссылка устарела. Попросите новую ссылку.');
       }
       storeName = store.name ? ` «${escapeHtml(store.name)}»` : '';
-      if (tgUser?.id) await bindBuyerToStore(c.baseUrl, c.anonKey, storeId, tgUser);
+      if (tgUser?.id && store.id) await bindBuyerToStore(c.baseUrl, c.anonKey, store.id, tgUser);
     }
     return sendMessage(c.token, chatId,
       `✅ <b>Добро пожаловать${storeName}!</b>\n\n` +
       'Вы зашли по ссылке продавца: витрина уже открыта в Mini App.\n' +
       'Корзина, заказы и избранное здесь — только этого магазина.\n' +
-      'Чат с этим ботом появится после заказа: в момент клика «Заказать» Mini App официально спросит разрешение на сообщения — нажмите «Разрешить», и сюда придёт «Заказ принят», а затем статусы и акции.',
+      'После оформления заказа Mini App предложит включить уведомления — нажмите «Разрешить», и сюда придёт «Заказ принят», а затем статусы и акции. Это необязательно: заказ работает и без разрешения.',
       {
         inline_keyboard: [
-          [{ text: '🛍️ Открыть витрину', web_app: { url: storeAppUrl(c.appUrl, storeId) } }],
+          [{ text: '🛍️ Открыть витрину', web_app: { url: storeAppUrl(c.appUrl, publicId) } }],
           [{ text: '📋 Мои магазины', callback_data: 'buyer_myshops' }],
         ],
       });
@@ -279,10 +281,10 @@ export default {
     return this.sendShopList(c, chatId, stores);
   },
 
-  // Каждой витрине — своя кнопка web_app с её storeId (изоляция контекста на фронте).
+  // Каждой витрине — своя кнопка web_app с её public_id (изоляция контекста на фронте).
   async sendShopList(c, chatId, stores) {
     const rows = stores.slice(0, 15).map((s) => ([
-      { text: `🛍️ ${s.name || 'Магазин'}`, web_app: { url: storeAppUrl(c.appUrl, s.id) } },
+      { text: `🛍️ ${s.name || 'Магазин'}`, web_app: { url: storeAppUrl(c.appUrl, s.public_id || s.id) } },
     ]));
     rows.push([{ text: 'ℹ️ Как это работает', callback_data: 'buyer_how' }]);
     return sendMessage(c.token, chatId,
@@ -308,9 +310,9 @@ export default {
       return editMessage(c.token, chatId, messageId,
         'ℹ️ <b>Как это работает</b>\n\n' +
         '1. Продавец создаёт витрину в <b>боте продавца</b> и присылает вам ссылку\n' +
-        '2. Вы переходите — попадаете в витрину (Mini App с <code>?startapp=store_...</code>)\n' +
+        '2. Вы переходите — попадаете в витрину (Direct Mini App с <code>?startapp=shop_...</code>)\n' +
         '3. Корзина, заказы и избранное — отдельные в каждом магазине\n' +
-        '4. При оформлении Mini App спросит разрешение на сообщения — разрешите, и статусы/акции будут приходить сюда\n\n' +
+        '4. После оформления заказа Mini App предложит включить уведомления — это необязательно\n\n' +
         'Без ссылки продавца попасть в чужую витрину нельзя.',
         { inline_keyboard: [[{ text: '📋 Мои магазины', callback_data: 'buyer_myshops' }], [{ text: '⬅️ Назад', callback_data: 'buyer_main' }]] });
     }

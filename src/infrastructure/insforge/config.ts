@@ -5,8 +5,23 @@ function optional(name: string, fallback = ''): string {
 
 export const INSFORGE_URL = optional('VITE_INSForge_URL', 'https://your-app.region.insforge.app');
 export const INSFORGE_ANON_KEY = optional('VITE_INSForge_ANON_KEY');
-export const BUYER_BOT_USERNAME = optional('VITE_BUYER_BOT_USERNAME', 'buyer_bot_name');
-export const BUYER_APP_SHORTNAME = optional('VITE_BUYER_APP_SHORTNAME', 'app');
+export const BUYER_BOT_USERNAME = optional('VITE_BUYER_BOT_USERNAME', 'BuyShoppis_bot');
+
+/**
+ * Short name именованного Mini App из BotFather: только `[a-z0-9_]{3,30}`.
+ * Невалидное значение (напр. с заглавными буквами) игнорируется — берём дефолт,
+ * чтобы устаревший env не ломал публичную ссылку.
+ */
+function normalizeAppShortname(value: string): string {
+  const v = String(value ?? '')
+    .trim()
+    .replace(/^\/+/, '');
+  return /^[a-z0-9_]{3,30}$/.test(v) ? v : '';
+}
+
+/** Именованное Mini App витрины (Direct Link): `t.me/<bot>/<app>?startapp=...`. */
+export const BUYER_APP_SHORTNAME =
+  normalizeAppShortname(optional('VITE_BUYER_APP_SHORTNAME', '')) || 'shop';
 
 /** Публичный бакет для изображений товаров и логотипов */
 export const MEDIA_BUCKET = 'shoppis-media';

@@ -141,11 +141,14 @@ MVP:
 
 No write permission: order still succeeds, notifications simply do not send.
 
-Client-side, the write-access prompt (`requestWriteAccess`) is requested best-effort at the
-"Order" click, before checkout. The call is bounded by a short deadline (currently **1200 ms**)
-and never throws or hangs: a denial or timeout does not affect the order — it only means the
-notification is not delivered. See `src/infrastructure/telegram/telegram-share.ts`
-(`MESSAGES_ACCESS_TIMEOUT_MS`) and the `TelegramPort.requestMessagesAccess` contract.
+Client-side, the write-access prompt is **not** part of checkout. It is offered *after* a
+successful order, on the «Заказ оформлен» screen (`order-slice.requestNotifications()`):
+the buyer taps «Получать уведомления в Telegram», Telegram asks for write access, and on
+consent the fact is persisted server-side (`notifications-actions` → `notifications_enabled`).
+The call is bounded by a short deadline (currently **1200 ms**) and never throws or hangs:
+a denial or timeout does not affect the order — it only means notifications are not delivered.
+See `src/infrastructure/telegram/telegram-share.ts` (`MESSAGES_ACCESS_TIMEOUT_MS`) and the
+`TelegramPort.requestMessagesAccess` contract.
 
 Notification retries/logging are independent of order transaction.
 
@@ -215,11 +218,19 @@ PAUSED shop resolves but shows technical-pause state and rejects new orders.
 ARCHIVED product is excluded from normal catalog and cannot enter checkout.
 
 ## 19. Deep link
-Первым шагом покупателя всегда должно открываться **приложение (Mini App)**, а не чат бота. Поэтому ссылка — прямой deep link в Mini App с `startapp`:
+Первым шагом покупателя всегда должно открываться **приложение (Mini App)**, а не чат бота. Telegram поддерживает два формата открытия приложения по ссылке (см. Bot API — *Direct Link Mini Apps* и *Main Mini App*):
 
-`t.me/<configured-bot>/<app-short-name>?startapp=shop_<opaque_public_id>`
+1. **Direct Link (именованное Mini App):** `t.me/<bot>/<app-short-name>?startapp=shop_<public_id>`
+   - требует, чтобы в @BotFather было создано **именованное** Mini App (`/newapp`) с этим коротким именем;
+   - short name допускает только **строчные** латинские буквы, цифры и `_`.
+2. **Main Mini App:** `t.me/<bot>?startapp=shop_<public_id>`
+   - требует, чтобы в @BotFather был настроен **Main Mini App** (*Bot Settings → Configure Mini App → Enable Mini App*), URL = production frontend.
 
-Сегмент `/<app-short-name>` (короткое имя Mini App из BotFather) обязателен: без него Telegram открывает чат бота. Внутренние последовательные DB IDs не раскрываются — только opaque `public_id`.
+В обоих случаях `startapp` попадает в Mini App как `initDataUnsafe.start_param` (и GET `tgWebAppStartParam`). Ссылка строится в `domain/rules/storefront-link.ts`: если `VITE_BUYER_APP_SHORTNAME` задан — формат (1), иначе (2). Внутренние последовательные DB IDs не раскрываются — только opaque `public_id`.
+
+**Выбрано для Shoppis (вариант B, Direct Link):** бот `BuyShoppis_bot`, именованное Mini App `shop` → `VITE_BUYER_APP_SHORTNAME=shop`, публичная ссылка `https://t.me/BuyShoppis_bot/shop?startapp=shop_<public_id>`.
+
+> Если `t.me/<bot>/<app>` открывает **чат бота**, значит именованное Mini App с таким short name в BotFather не создано (или имя невалидно — не строчное); если `t.me/<bot>?startapp=` открывает чат — не включён Main Mini App. Это конфигурация BotFather, а не формат ссылки.
 
 ## 20. Architecture decision records
 For major changes record:

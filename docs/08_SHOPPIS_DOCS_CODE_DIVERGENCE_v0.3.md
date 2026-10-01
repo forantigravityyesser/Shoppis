@@ -74,6 +74,17 @@ Severity: **S1** критично · **S2** высоко · **S3** средне.
 
 ---
 
+### [x] 2.12 Deep links витрины → Direct Mini App `shop_<public_id>`
+- **Док:** `04 §19`, `12 S-08/S-08.1`.
+- **Было:** боты и серверные уведомления генерировали `t.me/<bot>/<app>?startapp=store_<internalId>` (внутренний id).
+- **Стало:** везде Direct Mini App ссылка `t.me/<bot>/<app>?startapp=shop_<public_id>` (клиент — domain-правило `storefront-link`; сервер — `_shared/telegram`, `process-checkout`, `order-actions`, `telegram-notify`, боты). Старый `store_<id>` читается как legacy (резолв по внутреннему id) и будет удалён после миграции внешних ссылок.
+- **Остаток:** боты `telegram-bot-buyer/-seller` исторически опираются на удалённую таблицу `customers` (привязки покупателя) — graceful-деградация; «Мои магазины» нужно перевести на актуальную модель (отдельная задача).
+
+### [x] 2.13 Разрешение на уведомления — opt-in после checkout
+- **Док:** `04 §11`, `12 S-08.1`.
+- **Было:** `requestWriteAccess` вызывался до checkout (в момент «Заказать»).
+- **Стало:** `placeOrder` не трогает разрешения; `order-slice.requestNotifications()` — отдельный opt-in на экране «Заказ оформлен»; согласие сохраняется (`notifications-actions` → `telegram_identities.notifications_enabled`). Отказ не влияет на заказ.
+
 Примечание: файл будет удалён после закрытия всех пунктов.
 
 Закрыто: 2.8 (monkey-patch `invoke` убран — вызовы идут через `functions-gateway.ts`). Пустые файлы-заглушки и неиспользуемый `application/i18n.ts` удалены.

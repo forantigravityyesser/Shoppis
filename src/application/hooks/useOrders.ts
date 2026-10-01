@@ -11,6 +11,7 @@ export function useOrders() {
   const fetchItems = useStore((s) => s.fetchItems);
   const changeStatus = useStore((s) => s.changeStatus);
   const placeOrder = useStore((s) => s.placeOrder);
+  const requestNotifications = useStore((s) => s.requestNotifications);
   return {
     orders: (storeId && ordersByStore[storeId]) || [],
     ordersLoading,
@@ -21,5 +22,6 @@ export function useOrders() {
     fetchItems,
     changeStatus,
     placeOrder,
+    requestNotifications,
   };
 }

@@ -2,7 +2,10 @@ import { useEffect } from 'react';
 import { useStore } from '../store';
 import { deps } from '../composition/container';
 import { authenticate } from '../services/auth-service';
-import { parseStorefrontStartParam } from '../../domain/rules/storefront-link';
+import {
+  parseLegacyStoreStartParam,
+  parseStorefrontStartParam,
+} from '../../domain/rules/storefront-link';
 import type { AppContext } from '../../domain/constants/app-context';
 
 /** Минимальная поверхность Telegram WebApp, используемая при инициализации. */
@@ -67,7 +70,9 @@ export function useAppInit(): void {
             // storeId оставим null → App покажет SellerOnboardingView
           } else {
             // --- БОТ ПОКУПАТЕЛЯ: deep link на витрину `shop_<public_id>` ---
-            const fromLink = parseStorefrontStartParam(startParam);
+            // Legacy `store_<id>` поддержан только для чтения старых ссылок.
+            const fromLink =
+              parseStorefrontStartParam(startParam) ?? parseLegacyStoreStartParam(startParam);
             if (fromLink) {
               finalContext = 'buyer';
               buyerPublicId = fromLink;

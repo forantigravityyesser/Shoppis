@@ -357,6 +357,28 @@
   gap: var(--spacing-2);
 }
 
+/* Центрированный заголовок: кнопка «назад» прижата к левому краю,
+   заголовок — строго по центру (Settings Hub и дочерние экраны). */
+.screen__header--center {
+  position: relative;
+}
+
+.screen__header--center .back-btn {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.screen__header--center .back-btn:active {
+  transform: translateY(-50%) scale(0.94);
+}
+
+.screen__header--center .screen__title {
+  flex: 1;
+  text-align: center;
+}
+
 /* ---- Smart back button ---- */
 .back-btn {
   flex: 0 0 auto;
@@ -497,6 +519,182 @@
   position: relative;
   z-index: 1;
   overflow: hidden;
+}
+
+/* ---- Settings Hub (группы + строки) ----
+   Один container на группу, тонкие разделители между строками,
+   единая высота tap-target (min 56px), без горизонтального overflow. */
+.settings-group__label {
+  margin: var(--spacing-4) var(--spacing-1) var(--spacing-2);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+}
+
+.settings-group {
+  background: var(--color-bg-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+  margin-bottom: var(--spacing-3);
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-3);
+  width: 100%;
+  min-height: 56px;
+  padding: var(--spacing-3) var(--spacing-4);
+  border: none;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+button.settings-row {
+  cursor: pointer;
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button.settings-row:active {
+  background: var(--color-input-bg);
+}
+
+button.settings-row:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.settings-row + .settings-row {
+  border-top: 0.5px solid var(--color-input-border);
+}
+
+.settings-row__icon {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--color-input-bg);
+  color: var(--color-accent);
+}
+
+.settings-row__title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-medium);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-row__value {
+  flex: 0 1 auto;
+  min-width: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-row__chevron {
+  flex: 0 0 auto;
+  display: flex;
+  color: var(--color-text-secondary);
+}
+
+/* Строка-действие (немедленное действие, не навигация):
+   без chevron, заголовок акцентным цветом. */
+.settings-row--action .settings-row__title {
+  color: var(--color-accent);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* Inline-переключатель строки (boolean-настройка в Hub). */
+.settings-switch {
+  flex: 0 0 auto;
+  width: 52px;
+  height: 32px;
+  border-radius: 16px;
+  border: none;
+  background-color: #d1d1d6;
+  padding: 2px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: background-color 0.2s;
+}
+
+.settings-switch[data-on='true'] {
+  background-color: var(--color-success);
+  justify-content: flex-end;
+}
+
+.settings-switch:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.settings-switch__knob {
+  width: 28px;
+  height: 28px;
+  border-radius: 14px;
+  background-color: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+/* Компактное подтверждение паузы внутри Hub. */
+.settings-confirm {
+  padding: var(--spacing-3) var(--spacing-4);
+  border-top: 0.5px solid var(--color-input-border);
+  background-color: var(--color-input-bg);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.settings-confirm__text {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+
+.settings-confirm__actions {
+  display: flex;
+  gap: var(--spacing-2);
+}
+
+.settings-confirm__cancel,
+.settings-confirm__danger {
+  flex: 1;
+  padding: 12px;
+  border-radius: var(--radius-md);
+  border: none;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  cursor: pointer;
+}
+
+.settings-confirm__cancel {
+  background-color: #ffffff;
+  color: var(--color-text-primary);
+}
+
+.settings-confirm__danger {
+  background-color: var(--color-danger);
+  color: #ffffff;
+}
+
+.settings-error {
+  padding: 0 var(--spacing-4) var(--spacing-3);
+  color: var(--color-danger);
+  font-size: var(--font-size-sm);
 }
 
 /* ---- Skeleton (shimmer) ---- */

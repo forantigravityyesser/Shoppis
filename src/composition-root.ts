@@ -28,6 +28,7 @@ import * as shopApi from './infrastructure/functions/shop-api';
 import * as storeSettingsApi from './infrastructure/functions/store-settings-api';
 import * as checkoutApi from './infrastructure/functions/checkout-api';
 import * as orderApi from './infrastructure/functions/order-api';
+import * as notificationApi from './infrastructure/functions/notification-api';
 import * as identity from './infrastructure/auth/identity-provider';
 import * as telegramApp from './infrastructure/telegram/telegram-app';
 import * as telegramShare from './infrastructure/telegram/telegram-share';
@@ -45,6 +46,7 @@ const container: AppContainer = {
   storeSettingsApi,
   checkoutApi,
   orderApi,
+  notificationApi,
   identity,
   haptics,
   i18n,
@@ -61,6 +63,7 @@ const container: AppContainer = {
     getStartParam: telegramApp.getStartParam,
     getBuyerBotUsername: telegramApp.getBuyerBotUsername,
     getBuyerAppShortname: telegramApp.getBuyerAppShortname,
+    openTelegramLink: telegramApp.openTelegramLink,
     requestMessagesAccess: telegramShare.requestMessagesAccess,
   },
 };

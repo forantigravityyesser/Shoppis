@@ -7,13 +7,23 @@ interface Props {
   /** Предпросмотр становится доступен после появления публичной витрины (S-08). */
   previewEnabled?: boolean;
   onPreview?: () => void;
+  /**
+   * Показывать ли кнопку предпросмотра. На отдельном экране Share
+   * предпросмотр скрыт — у него есть своя строка в Settings Hub.
+   */
+  showPreview?: boolean;
 }
 
 /**
  * Read-only блок «Поделиться»: ссылка на витрину и её копирование.
  * Без dirty/save — значение формируется из `public_id` и статуса магазина. 12 §7.
  */
-export default function SharePreviewBlock({ url, previewEnabled = false, onPreview }: Props) {
+export default function SharePreviewBlock({
+  url,
+  previewEnabled = false,
+  onPreview,
+  showPreview = true,
+}: Props) {
   const [copied, setCopied] = useState(false);
   const copyTimer = useRef<number | null>(null);
 
@@ -61,23 +71,25 @@ export default function SharePreviewBlock({ url, previewEnabled = false, onPrevi
           {copied ? 'Скопировано' : 'Копировать'}
         </button>
 
-        <button
-          type="button"
-          onClick={onPreview}
-          disabled={!previewEnabled}
-          aria-label="Предпросмотр магазина"
-          style={{
-            ...styles.button,
-            ...styles.previewButton,
-            ...(previewEnabled ? null : styles.buttonDisabled),
-          }}
-        >
-          <Eye size={16} />
-          Предпросмотр
-        </button>
+        {showPreview ? (
+          <button
+            type="button"
+            onClick={onPreview}
+            disabled={!previewEnabled}
+            aria-label="Предпросмотр магазина"
+            style={{
+              ...styles.button,
+              ...styles.previewButton,
+              ...(previewEnabled ? null : styles.buttonDisabled),
+            }}
+          >
+            <Eye size={16} />
+            Предпросмотр
+          </button>
+        ) : null}
       </div>
 
-      {!previewEnabled ? (
+      {showPreview && !previewEnabled ? (
         <div style={styles.note}>Предпросмотр станет доступен после запуска витрины.</div>
       ) : null}
     </section>

@@ -9,7 +9,7 @@
 //     "bot": "buyer" | "seller",   // каким ботом отправить (default: buyer)
 //     "chatId": "123456",          // telegram_id получателя (buyer или owner)
 //     "text": "<b>...</b>",        // HTML-текст
-//     "storeId": "uuid?",          // опционально: приложить кнопку web_app в витрину
+//     "publicId": "hex?",          // опционально: кнопка «Открыть витрину» (Direct Mini App)
 //     "replyMarkup": {...}?        // опционально: своя клавиатура (приоритет выше кнопки витрины)
 //   }
 //
@@ -50,7 +50,7 @@ export default {
     if (!token) return json({ success: false, error: `Missing token for bot=${bot}` }, 500);
 
     const replyMarkup =
-      body.replyMarkup || body.reply_markup || storeReplyMarkup(bot, body.storeId);
+      body.replyMarkup || body.reply_markup || storeReplyMarkup(bot, body.publicId);
 
     try {
       const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {

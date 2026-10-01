@@ -176,7 +176,16 @@ export const createAuthSlice: StateCreator<RootStore, [], [], AuthSlice> = (set,
     }
     set({ authLoading: true, authError: null });
     try {
-      const store = await deps().storeRepository.fetchStoreByPublicId(publicId);
+      // Канон — opaque public_id. Legacy-ссылки (`store_<internalId>`) резолвим
+      // по внутреннему id как переходный путь.
+      let store = await deps().storeRepository.fetchStoreByPublicId(publicId);
+      if (!store) {
+        try {
+          store = await deps().storeRepository.fetchStore(publicId);
+        } catch {
+          store = null;
+        }
+      }
       if (!store) {
         set({ viewedStore: null, storeId: null, authLoading: false });
         return null;

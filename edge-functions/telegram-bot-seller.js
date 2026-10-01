@@ -5,8 +5,8 @@
 // в магазин. Покупательской логики тут нет.
 //
 // ВАЖНО (витрина-first): ссылка-приглашение ведёт НЕ в чат бота покупателя,
-// а СРАЗУ в Mini App (витрину):
-//   https://t.me/<BUYER_BOT_USERNAME>/<BUYER_APP_SHORTNAME>?startapp=store_<storeId>
+// а СРАЗУ в Mini App (витрину) — Direct Mini App ссылка по opaque public_id:
+//   https://t.me/<BUYER_BOT_USERNAME>/<BUYER_APP_SHORTNAME>?startapp=shop_<public_id>
 // Тап по ней открывает витрину напрямую. Чат с ботом покупателя у человека
 // появляется позже — после заказа + официального requestWriteAccess (best-effort,
 // не блокирует заказ), когда process-checkout шлёт первое уведомление «Заказ принят».
@@ -37,8 +37,8 @@ function cfg() {
     appUrl: (env('APP_URL') || 'https://your-app.region.insforge.app').replace(/\/$/, ''),
     baseUrl: env('INSFORGE_BASE_URL'),
     anonKey: env('ANON_KEY'),
-    buyerUsername: env('BUYER_BOT_USERNAME') || 'buyer_bot_name',
-    buyerApp: env('BUYER_APP_SHORTNAME') || 'app',
+    buyerUsername: env('BUYER_BOT_USERNAME') || 'BuyShoppis_bot',
+    buyerApp: env('BUYER_APP_SHORTNAME') || 'shop',
   };
 }
 
@@ -78,7 +78,7 @@ function dbHeaders(anonKey) {
 async function getStoresByOwner(baseUrl, anonKey, ownerTelegramId) {
   if (!baseUrl || !anonKey) return null; // БД не настроена — покажем меню без списка
   try {
-    const url = `${baseUrl.replace(/\/$/, '')}/api/database/stores?owner_telegram_id=eq.${encodeURIComponent(String(ownerTelegramId))}&select=id,name`;
+    const url = `${baseUrl.replace(/\/$/, '')}/api/database/stores?owner_telegram_id=eq.${encodeURIComponent(String(ownerTelegramId))}&select=id,name,public_id`;
     const res = await fetch(url, { headers: dbHeaders(anonKey) });
     if (!res.ok) {
       console.error('[seller-bot] stores lookup failed:', await res.text());
@@ -93,10 +93,21 @@ async function getStoresByOwner(baseUrl, anonKey, ownerTelegramId) {
 }
 
 // Ссылка-приглашение: открывает СРАЗУ Mini App (витрину), а не чат бота.
-// Технически это t.me-линк единого бота покупателя, но с shortname приложения
-// и startapp — Telegram открывает по нему витрину напрямую.
-function buyerDeepLink(buyerUsername, buyerApp, storeId) {
-  return `https://t.me/${buyerUsername}/${buyerApp}?startapp=store_${storeId}`;
+// Direct Mini App: t.me/<bot>/<app>?startapp=shop_<public_id>.
+function buyerDeepLink(buyerUsername, buyerApp, publicId) {
+  const bot = String(buyerUsername || 'BuyShoppis_bot')
+    .trim()
+    .replace(/^@/, '');
+  const raw = String(buyerApp || '')
+    .trim()
+    .replace(/^\/+/, '');
+  const app = /^[a-z0-9_]{3,30}$/.test(raw) ? raw : 'shop';
+  return `https://t.me/${bot}/${app}?startapp=shop_${publicId}`;
+}
+
+// public_id магазина (opaque). Fallback — id (только для древних строк).
+function storePublicRef(store) {
+  return store.public_id || store.id;
 }
 
 function sellerAppUrl(appUrl) {
@@ -181,7 +192,7 @@ export default {
       return sendMessage(c.token, chatId,
         '📊 <b>Мои магазины</b>\n\n' +
         'Откройте панель продавца, создайте витрину — затем вернитесь сюда за ссылкой-приглашением.\n\n' +
-        'Формат ссылки: <code>t.me/&lt;buyer_bot&gt;/&lt;app&gt;?startapp=store_&lt;store_id&gt;</code>',
+        'Формат ссылки: <code>t.me/&lt;buyer_bot&gt;/&lt;app&gt;?startapp=shop_&lt;public_id&gt;</code>',
         mainMenu(c.appUrl));
     }
     if (!stores.length) {
@@ -191,7 +202,7 @@ export default {
     }
     // По одной кнопке-ссылке на каждую витрину.
     const rows = stores.slice(0, 20).map((s) => ([
-      { text: `🔗 Ссылка: ${s.name || s.id.slice(0, 8)}`, callback_data: `seller_link_${s.id}` },
+      { text: `🔗 Ссылка: ${s.name || s.id.slice(0, 8)}`, callback_data: `seller_link_${storePublicRef(s)}` },
     ]));
     rows.push([{ text: '🏪 Панель продавца', web_app: { url: sellerAppUrl(c.appUrl) } }]);
     return sendMessage(c.token, chatId,
@@ -202,15 +213,15 @@ export default {
 
   async onLinkCommand(c, chatId, _fromId, text) {
     const parts = text.split(/\s+/);
-    const storeId = (parts[1] || '').trim();
-    if (!storeId) {
+    const publicId = (parts[1] || '').trim();
+    if (!publicId) {
       return sendMessage(c.token, chatId,
-        '🔗 <b>Ссылка-приглашение</b>\n\nИспользование: <code>/link &lt;store_id&gt;</code>\n' +
+        '🔗 <b>Ссылка-приглашение</b>\n\nИспользование: <code>/link &lt;public_id&gt;</code>\n' +
         'Удобнее: /mystores → выбрать витрину → получить готовую ссылку.');
     }
-    // Кнопка URL ведёт напрямую в Mini App покупателя (t.me/<buyer>/<app>?startapp=...),
+    // Кнопка URL ведёт напрямую в Mini App покупателя (t.me/<buyer>/<app>?startapp=shop_...),
     // а не просто в чат бота — тап сразу открывает витрину.
-    return sendMessage(c.token, chatId, inviteText(c, storeId), inviteKeyboard(c, storeId));
+    return sendMessage(c.token, chatId, inviteText(c, publicId), inviteKeyboard(c, publicId));
   },
 
   async onCallback(c, q) {
@@ -235,7 +246,7 @@ export default {
           { inline_keyboard: [[{ text: '🏪 Открыть панель продавца', web_app: { url: sellerAppUrl(c.appUrl) } }], [{ text: '⬅️ Назад', callback_data: 'seller_main' }]] });
       }
       const rows = stores.slice(0, 20).map((s) => ([
-        { text: `🔗 Ссылка: ${s.name || s.id.slice(0, 8)}`, callback_data: `seller_link_${s.id}` },
+        { text: `🔗 Ссылка: ${s.name || s.id.slice(0, 8)}`, callback_data: `seller_link_${storePublicRef(s)}` },
       ]));
       rows.push([{ text: '⬅️ Назад', callback_data: 'seller_main' }]);
       return editMessage(c.token, chatId, messageId,
@@ -243,15 +254,15 @@ export default {
         { inline_keyboard: rows });
     }
     if (data.startsWith('seller_link_')) {
-      const storeId = data.replace('seller_link_', '');
+      const publicId = data.replace('seller_link_', '');
       // Прямая ссылка-кнопка в Mini App покупателя + текст для копирования/пересылки.
-      return sendMessage(c.token, chatId, inviteText(c, storeId), inviteKeyboard(c, storeId));
+      return sendMessage(c.token, chatId, inviteText(c, publicId), inviteKeyboard(c, publicId));
     }
     if (data === 'seller_how_invite') {
       return editMessage(c.token, chatId, messageId,
         'ℹ️ <b>Как пригласить покупателя</b>\n\n' +
         '1. /mystores → выберите витрину\n' +
-        '2. Скопируйте ссылку вида <code>t.me/.../...?startapp=store_...</code>\n' +
+        '2. Скопируйте ссылку вида <code>t.me/.../...?startapp=shop_...</code>\n' +
         '3. Отправьте её покупателю\n\n' +
         'Тап по ссылке открывает СРАЗУ витрину (Mini App), а не чат бота. ' +
         'В бот покупателя человек попадёт после заказа: Mini App официально спросит ' +
@@ -262,8 +273,8 @@ export default {
   },
 };
 
-function inviteText(c, storeId) {
-  const link = buyerDeepLink(c.buyerUsername, c.buyerApp, storeId);
+function inviteText(c, publicId) {
+  const link = buyerDeepLink(c.buyerUsername, c.buyerApp, publicId);
   return (
     '🔗 <b>Ссылка-приглашение готова</b>\n\n' +
     `<code>${escapeHtml(link)}</code>\n\n` +
@@ -273,9 +284,9 @@ function inviteText(c, storeId) {
   );
 }
 
-function inviteKeyboard(c, storeId) {
+function inviteKeyboard(c, publicId) {
   return {
-    inline_keyboard: [[{ text: '🛍️ Открыть витрину (как покупатель)', url: buyerDeepLink(c.buyerUsername, c.buyerApp, storeId) }]],
+    inline_keyboard: [[{ text: '🛍️ Открыть витрину (как покупатель)', url: buyerDeepLink(c.buyerUsername, c.buyerApp, publicId) }]],
   };
 }
 

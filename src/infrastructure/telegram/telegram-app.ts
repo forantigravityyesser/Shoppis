@@ -1,4 +1,10 @@
-import { init, initData, miniApp, viewport } from '@telegram-apps/sdk';
+import {
+  init,
+  initData,
+  miniApp,
+  openTelegramLink as sdkOpenTelegramLink,
+  viewport,
+} from '@telegram-apps/sdk';
 import { BUYER_APP_SHORTNAME, BUYER_BOT_USERNAME } from '../insforge/config';
 
 export interface TelegramUser {
@@ -117,6 +123,26 @@ export function getBuyerBotUsername(): string {
 /** Короткое имя buyer Mini App для прямой ссылки. Статический build-конфиг. */
 export function getBuyerAppShortname(): string {
   return BUYER_APP_SHORTNAME;
+}
+
+/**
+ * Открыть t.me-ссылку внутри Telegram (например, предпросмотр витрины).
+ * Вне Telegram / при недоступности SDK — открываем в новой вкладке.
+ */
+export function openTelegramLink(url: string): void {
+  try {
+    if (sdkOpenTelegramLink.isAvailable()) {
+      sdkOpenTelegramLink(url);
+      return;
+    }
+  } catch {
+    // fallback ниже
+  }
+  try {
+    window.open(url, '_blank', 'noopener');
+  } catch {
+    // ignore
+  }
 }
 
 /** startapp-параметр: 'seller' | 'store_<uuid>' | ''. Вне TG — из ?startapp= в URL. */

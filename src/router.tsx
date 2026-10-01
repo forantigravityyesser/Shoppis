@@ -29,6 +29,12 @@ const SellerOrdersHistoryView = lazy(
   () => import('./presentation/seller/views/SellerOrdersHistoryView'),
 );
 const SellerSettingsView = lazy(() => import('./presentation/seller/views/SellerSettingsView'));
+const SettingsProfileView = lazy(() => import('./presentation/seller/views/SettingsProfileView'));
+const SettingsLocalizationView = lazy(
+  () => import('./presentation/seller/views/SettingsLocalizationView'),
+);
+const SettingsContactView = lazy(() => import('./presentation/seller/views/SettingsContactView'));
+const SettingsShareView = lazy(() => import('./presentation/seller/views/SettingsShareView'));
 const SellerOnboardingView = lazy(() => import('./presentation/seller/views/SellerOnboardingView'));
 
 /** Порт router.jsx: ветки buyer/seller с гардами по storeId */
@@ -90,6 +96,22 @@ export default function AppRouter() {
           <Route
             path="/seller/settings"
             element={storeId ? <SellerSettingsView /> : <Navigate to="/seller" replace />}
+          />
+          <Route
+            path="/seller/settings/profile"
+            element={storeId ? <SettingsProfileView /> : <Navigate to="/seller" replace />}
+          />
+          <Route
+            path="/seller/settings/localization"
+            element={storeId ? <SettingsLocalizationView /> : <Navigate to="/seller" replace />}
+          />
+          <Route
+            path="/seller/settings/contact"
+            element={storeId ? <SettingsContactView /> : <Navigate to="/seller" replace />}
+          />
+          <Route
+            path="/seller/settings/share"
+            element={storeId ? <SettingsShareView /> : <Navigate to="/seller" replace />}
           />
           <Route path="*" element={<Navigate to="/seller" replace />} />
         </Route>

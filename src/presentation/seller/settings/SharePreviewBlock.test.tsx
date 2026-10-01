@@ -46,4 +46,11 @@ describe('SharePreviewBlock', () => {
     render(<SharePreviewBlock url={URL} />);
     expect(screen.queryByRole('button', { name: 'Сохранить' })).toBeNull();
   });
+
+  it('скрывает предпросмотр, когда showPreview выключен', () => {
+    render(<SharePreviewBlock url={URL} previewEnabled showPreview={false} />);
+    expect(screen.queryByRole('button', { name: 'Предпросмотр магазина' })).toBeNull();
+    expect(screen.queryByText(/Предпросмотр станет доступен/)).toBeNull();
+    expect(screen.getByRole('button', { name: 'Копировать ссылку' })).toBeInTheDocument();
+  });
 });
