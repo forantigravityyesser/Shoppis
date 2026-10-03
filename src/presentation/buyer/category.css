@@ -1,0 +1,84 @@
+/* ============================================================
+   Buyer Category carousel — общий для Home и Catalog (docs/13 §7)
+   ============================================================ */
+
+.category-row {
+  display: flex;
+  gap: var(--spacing-3);
+  overflow-x: auto;
+  padding-bottom: var(--spacing-1);
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.category-row::-webkit-scrollbar {
+  display: none;
+}
+
+.category-item {
+  flex: 0 0 auto;
+  width: 76px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: inherit;
+  cursor: pointer;
+  scroll-snap-align: start;
+  transition: transform 0.12s;
+}
+
+.category-item:active {
+  transform: scale(0.95);
+}
+
+.category-item__img,
+.category-item__placeholder {
+  width: 68px;
+  height: 68px;
+  border-radius: 20px;
+  background: #ffffff;
+  box-shadow: 0 2px 12px rgba(108, 92, 231, 0.08);
+  display: block;
+  object-fit: cover;
+  outline: 2px solid transparent;
+  outline-offset: 1px;
+  transition:
+    box-shadow 0.2s,
+    outline-color 0.2s;
+}
+
+.category-item__placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--color-accent);
+  background: linear-gradient(135deg, #efeafb 0%, #e6e4f4 100%);
+}
+
+.category-item--active .category-item__img,
+.category-item--active .category-item__placeholder {
+  outline-color: var(--color-accent);
+}
+
+.category-item__name {
+  max-width: 76px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.category-item--active .category-item__name {
+  color: var(--color-accent);
+  font-weight: 700;
+}

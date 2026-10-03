@@ -5,6 +5,7 @@ import BuyerLayout from './presentation/layouts/BuyerLayout';
 import SellerLayout from './presentation/layouts/SellerLayout';
 
 const HomeView = lazy(() => import('./presentation/buyer/views/HomeView'));
+const CatalogView = lazy(() => import('./presentation/buyer/views/CatalogView'));
 const DetailsView = lazy(() => import('./presentation/buyer/views/DetailsView'));
 const CartView = lazy(() => import('./presentation/buyer/views/CartView'));
 const FavoritesView = lazy(() => import('./presentation/buyer/views/FavoritesView'));
@@ -123,6 +124,7 @@ export default function AppRouter() {
     <Routes>
       <Route element={<BuyerLayout />}>
         <Route path="/" element={<HomeView />} />
+        <Route path="/catalog" element={<CatalogView />} />
         <Route path="/cart" element={<CartView />} />
         <Route path="/favorites" element={<FavoritesView />} />
         <Route path="/orders" element={<OrdersView />} />

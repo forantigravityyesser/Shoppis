@@ -10,13 +10,30 @@ OpenCode receives one bounded task at a time. Each task states objective, files/
 - **Stage 0 — Foundation** — выполнено: React/Vite/TS, Tailwind 3.4, InsForge client, Telegram bridge, app shell.
 - **Stage 1 — Identity** — выполнено: серверная валидация `initData` (`telegram-auth`), Shoppis User + runtime-сессия,
   контекст входа buyer/seller, онбординг продавца. Vertical slice 1 закрыт.
-- **Stage 2 — Seller App Shell** — текущий этап:
+- **Stage 2 — Seller App Shell** — выполнено:
   - **2.1** `SellerLayout`: app shell, safe-area, внутренний скролл, отсутствие перекрытия контента навбаром;
   - **2.2** `SellerNavBar` на переиспользуемом `BottomNavBar` (pill, liquid-анимации);
   - **2.3** маршруты: `/seller/dashboard`, `/seller/inventory`, `/seller/orders`, `/seller/orders/history`, `/seller/settings`;
   - **2.4** пустые экраны-каркасы без API и расчётов;
   - разделение Dashboard (операционный) ↔ Settings → Магазин (профиль витрины).
-- **Далее** — vertical slices 2–16 (Shop, Categories, Product, …), каждая как отдельная маленькая задача.
+- **Между Stage 2 и Stage 3 (выполнено):** Inventory (`06`–`09`, реальный backend + image
+  optimization), Store Settings и storefront link (`10`, `12`: профиль/валюта/язык/контакт/шара,
+  pause, Deep Link `shop_<public_id>`).
+- **Stage 3 — Buyer storefront (Главная + Каталог)** — текущее направление. Полная спецификация и
+  этапы `H-01…H-11` — `13_SHOPPIS_BUYER_HOME_PLAN.md §28`. Кратко:
+  - **H-01** storefront contracts + SQL `storefront_home_read` (+ `telegram_identities.photo_url`); миграция `0014`;
+  - **H-02** seller avatar (`photo_url` → projection);
+  - **H-03** `StorefrontRepository` + `useStorefrontHome` (loading/error/retry/cache);
+  - **H-04** Home shell (Header, баннер, safe-area, skeleton);
+  - **H-05** Categories (`CategoryCarousel`, «Все →» → Catalog);
+  - **H-06** Product Grid (`ProductGrid`, `ProductCard`, `FavoriteButton`, heart cutout);
+  - **H-07** Home product section (6–8 + «Смотреть все»);
+  - **H-08** Catalog (search, all, categories, filters, grid; Home search → focus);
+  - **H-09** buyer Bottom Navigation (5 вкладок, крупное сердце по центру);
+  - **H-10** pause store state;
+  - **H-11** performance polish (skeleton/images/network/UI/Telegram QA).
+  Правило сохраняется: один этап за раз → тесты → ручная сверка владельцем → следующий этап.
+- **Далее** — остальные vertical slices (Product Detail, Cart, Orders, Reviews/Questions, …).
 
 Правило сохраняется: одна ограниченная задача за раз, с objective, файлами, ограничениями, acceptance и тестами.
 
@@ -56,6 +73,8 @@ Available/held buckets, InventoryMovement, atomic updates, manual held→availab
 
 ### 8 — Buyer storefront
 Shop, pause screen, categories, search title+description, product detail, variants, favorites, related products.
+Home и Catalog разделены: Home — витрина/завлечение, Catalog — поиск/фильтры/весь ассортимент.
+Storefront-read — `storefront_home_read(public_id)`. Детали и этапы `H-01…H-11` — `13`.
 
 ### 9 — Cart
 Shop-scoped cart, quantities, selected checkout items. No reservation.

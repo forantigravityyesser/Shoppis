@@ -71,10 +71,12 @@ MVP:
 
 10 MB is a safety ceiling, not a target upload size. Client should compress/resize first.
 
-**Implemented (v1, client-side):** square crop → WebP via `createImageBitmap` + canvas
-(`src/utils/image.ts`). Product: `full` 1000px q0.75 + `thumb` 320px q0.75 (`uploadCatalogImage`,
-stored in `product_images.storage_key` / `thumb_storage_key`). Category cover: `thumb` 320px only.
-Store banner: 1024px q0.78. Lists load `thumb`, hero/gallery load `full`. Detached files are removed
+**Implemented (v1, client-side):** aspect crop → WebP via `createImageBitmap` + canvas
+(`src/utils/image.ts`). Product photo — portrait **4:5** (`prepareCardImage`): `full` 1000×1250 q0.75 +
+`thumb` 512×640 q0.75 (`uploadCatalogImage`, stored in `product_images.storage_key` /
+`thumb_storage_key`). Category cover: square `thumb` 320px only (`prepareSquareImage`).
+Store banner: 1024px q0.78. Lists load `thumb`, hero/gallery load `full`. Buyer storefront: карточки
+Home/Каталога грузят `thumb` (512×640), карточка товара — `full` (1000×1250). Detached files are removed
 from storage on update/delete (best-effort). Server-side derivatives/validation remain future work.
 Загрузка из UI идёт через `application/services/image-service.ts` (§9.0), а не напрямую в `infrastructure/storage`.
 
@@ -83,6 +85,9 @@ Use controlled storage keys. Never expose arbitrary internal storage paths. Sell
 
 ## 8. Search
 MVP: title + description, shop-scoped, active products only.
+
+Поиск живёт в Каталоге. Нажатие `🔎` на Главной не открывает отдельный overlay, а ведёт в
+`/catalog` с автофокусом поля поиска и открытием клавиатуры (`Home → Catalog + focus`). `13 §8`.
 
 ## 9. Frontend boundaries
 
@@ -128,7 +133,11 @@ Security, money, inventory and state transitions are not React-only logic.
   применяется к обёртке `.bottom-nav`. `useAppInit` выставляет `--tg-safe-area-bottom` из `tg.safeAreaInset.bottom`.
 - При открытой клавиатуре `body.keyboard-is-open .bottom-nav { display: none }` (см. `useKeyboardFix`).
 - Нижняя навигация — router-agnostic `BottomNavBar` (`presentation/shared/components`): активная
-  вкладка и `onTabChange` передаются адаптерами (`SellerNavBar`; в будущем `FloatingNavBar` для покупателя).
+  вкладка и `onTabChange` передаются адаптерами (`SellerNavBar`; у покупателя — `FloatingNavBar`).
+  Buyer-вариант: 5 вкладок (`/`, `/catalog`, `/favorites`, `/orders`, `/cart`), центральный элемент
+  (сердце) крупнее остальных, бар имеет вырез под него; accent-эффект активной вкладки общий. `13 §3`.
+- Buyer Header — сквозной верхний блок (название магазина слева; поиск и профиль справа). Иконка
+  профиля справа вверху — единственный вход в `AccountView`; bell/in-app-уведомлений нет. `13 §4, §16`.
 
 ## 10. UI states
 Every critical screen has loading, empty, recoverable error and mutation-processing states. Critical mutations prevent double submission.
@@ -210,12 +219,24 @@ Priorities:
 - optimized/lazy images;
 - critical order flow prioritized over cosmetics.
 
-Exact SLOs are set after real traffic data.
+Buyer storefront (требование MVP): весь экран загружается **одним** read-запросом
+`storefront_home_read(public_id)`; никаких повторных запросов на каждый рендер; skeleton без белого
+flash и layout shift; карточки — `thumb`, lazy; Home показывает ограниченную подборку (6–8) и
+отдаёт остальное Каталогу. `13 §21–§24`. Exact SLOs are set after real traffic data.
 
 ## 18. Pause/archive behavior
-PAUSED shop resolves but shows technical-pause state and rejects new orders.
+PAUSED shop resolves but shows technical-pause state and rejects new orders. Существующие заказы не
+затрагиваются.
 
 ARCHIVED product is excluded from normal catalog and cannot enter checkout.
+
+Storefront-проекция (`storefront_home_read`):
+- `ARCHIVED` product не попадает ни в Home, ни в Catalog, ни в Category, ни в Search;
+- `ARCHIVED` category скрыта из списка категорий, а её активные товары показываются как
+  `categoryId = null` («Все товары»); `product.category_id` в БД при этом не меняется, поэтому
+  возврат категории в `ACTIVE` автоматически возвращает товар в неё;
+- sold out product (все активные варианты `stock = 0`) остаётся видимым, но `available = false`.
+`13 §11–§15, §20`.
 
 ## 19. Deep link
 Первым шагом покупателя всегда должно открываться **приложение (Mini App)**, а не чат бота. Telegram поддерживает два формата открытия приложения по ссылке (см. Bot API — *Direct Link Mini Apps* и *Main Mini App*):
@@ -229,6 +250,10 @@ ARCHIVED product is excluded from normal catalog and cannot enter checkout.
 В обоих случаях `startapp` попадает в Mini App как `initDataUnsafe.start_param` (и GET `tgWebAppStartParam`). Ссылка строится в `domain/rules/storefront-link.ts`: если `VITE_BUYER_APP_SHORTNAME` задан — формат (1), иначе (2). Внутренние последовательные DB IDs не раскрываются — только opaque `public_id`.
 
 **Выбрано для Shoppis (вариант B, Direct Link):** бот `BuyShoppis_bot`, именованное Mini App `shop` → `VITE_BUYER_APP_SHORTNAME=shop`, публичная ссылка `https://t.me/BuyShoppis_bot/shop?startapp=shop_<public_id>`.
+
+Точка входа после резолва `public_id` — Главная витрины (Home), откуда покупатель уходит в
+Каталог/карточку. Порядок инициализации: `authenticate → resolve public_id → loadBuyerStore →
+storefront_home_read → Home`. `13 §26`.
 
 > Если `t.me/<bot>/<app>` открывает **чат бота**, значит именованное Mini App с таким short name в BotFather не создано (или имя невалидно — не строчное); если `t.me/<bot>?startapp=` открывает чат — не включён Main Mini App. Это конфигурация BotFather, а не формат ссылки.
 

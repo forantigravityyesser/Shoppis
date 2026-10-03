@@ -53,7 +53,7 @@ export default function ProductView() {
           {activeImage ? (
             <img
               className="prod-hero__img"
-              src={activeImage.url}
+              src={activeImage.thumbUrl ?? activeImage.url}
               alt=""
               decoding="async"
               fetchPriority="high"

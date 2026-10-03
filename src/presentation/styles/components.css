@@ -3,91 +3,30 @@
    (ProductCard, NavBar, Carousel, BottomSheet, EmptyState и т.п.)
    ============================================================ */
 
-/* ---- ProductCard ---- */
-.product-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  background: var(--color-bg-card);
+/* ---- Skeleton (общий) — плавная загрузка без белого flash и layout jump. docs/13 §23 ---- */
+.skel {
+  background: linear-gradient(90deg, #e9e6f5 25%, #f4f2fb 37%, #e9e6f5 63%);
+  background-size: 400% 100%;
+  animation: skel-shimmer 1.4s ease infinite;
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-card);
-  padding: var(--spacing-3);
-  max-width: 152px;
-  margin: 0 auto;
 }
 
-.product-card .product-image {
-  width: 80px;
-  height: 80px;
-  border-radius: var(--radius-sm);
-  object-fit: cover;
-  background: var(--color-bg-app);
-  margin-bottom: var(--spacing-2);
-  position: relative;
+@keyframes skel-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: 0 0;
+  }
 }
 
-.product-card .product-image .favorite-heart {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 24px;
-  height: 24px;
-  opacity: 0.6;
-  transition: opacity 0.2s;
-}
-.product-card .product-image .favorite-heart.active {
-  opacity: 1;
-  color: var(--color-badge-discount);
+@media (prefers-reduced-motion: reduce) {
+  .skel {
+    animation: none;
+  }
 }
 
-.product-card .product-image .heart-bg {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.8);
-  position: absolute;
-  top: 0;
-  left: 0;
-}
-
-.product-card .discount-badge {
-  position: absolute;
-  top: 4px;
-  left: 4px;
-  background: var(--color-badge-discount);
-  color: var(--color-text-on-accent);
-  border-radius: var(--radius-sm);
-  padding: 2px 6px;
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-}
-
-.product-card .product-name {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-  color: var(--color-text-primary);
-  margin-top: var(--spacing-1);
-  line-height: 1.4;
-  -webkit-line-clamp: 2;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.product-card .product-price {
-  font-size: var(--font-size-md);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
-  margin-top: var(--spacing-1);
-}
-
-.product-card .product-old-price {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
-  text-decoration-line: line-through;
-  margin-left: var(--spacing-1);
-  margin-top: var(--spacing-1);
-}
+/* ---- ProductCard (buyer) — стили в presentation/buyer/home.css ---- */
 
 /* ---- FloatingNavBar (Buyer/Seller) ---- */
 .navbar {
@@ -125,15 +64,6 @@
   border-radius: var(--radius-full);
   padding: 2px 6px;
   font-size: xx-small;
-}
-
-.product-card .product-image .favorite-heart {
-  width: 24px;
-  height: 24px;
-}
-
-.product-card .product-image .favorite-heart.active {
-  color: var(--color-badge-discount);
 }
 
 /* ---- ProductImageCarousel ---- */

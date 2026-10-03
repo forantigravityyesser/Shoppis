@@ -27,10 +27,45 @@ Severity: **S1** критично · **S2** высоко · **S3** средне.
 - **Сейчас:** `cartByStore` / `favoritesByStore` живут только в zustand persist (`src/application/store/create-store.ts`), в БД не пишутся.
 - **Задача:** таблицы `carts(id, buyer_user_id, store_id)`, `cart_items(cart_id, variant_id, quantity)`, `favorites(buyer_user_id, store_id, product_id)`; изоляция по витрине; уникальность favorite `(buyer_user_id, store_id, product_id)`; корзина не резервирует сток.
 
-### [ ] 1.13 (остаток) Pause-экран витрины и `public_id` в ссылках
-- **Док:** `02 §13`, `03 §3`, `04 §18`.
-- **Сейчас:** `stores.status` (`ACTIVE/PAUSED`) и `public_id` есть; серверный guard `STORE_PAUSED` уже срабатывает в checkout (`create_order_atomic`).
-- **Задача:** pause-экран витрины (показывать техническую паузу, блокировать заказы в UI); перейти на opaque `public_id` в ссылках вместо внутреннего UUID.
+### [x] 1.13 Pause-экран витрины и `public_id` в ссылках
+- **Док:** `02 §13, §19`, `03 §3, §29`, `04 §18`, `13 §15`.
+- **Сейчас:** `stores.status` (`ACTIVE/PAUSED`) и `public_id` есть; резолв витрины по `shop_<public_id>` и
+  базовый pause-экран реализованы (`StorefrontView`, S-08); серверный guard `STORE_PAUSED` срабатывает в
+  checkout (`create_order_atomic`).
+- **Закрыто:** полноценный storefront-state — `StoreStatusView` (брендовая шапка, сообщение, контакт) с
+  гейтом на Home и Catalog (покупка/поиск недоступны), серверный guard `STORE_PAUSED` сохранён. `H-10`.
+
+### [ ] 1.14 Buyer storefront (Главная + Каталог) — новый слой
+- **Док:** `13` (весь документ), `02 §18-19`, `03 §29`, `04 §6, §8, §17, §18, §19`, `05 Stage 3`.
+- **Сейчас:** есть только резолв витрины + pause/шапка (`StorefrontView`); `HomeView` показывает
+  заглушку «Каталог товаров появится на следующем этапе». `DetailsView`/`FavoritesView`/`OrdersView` —
+  пустые; `FloatingNavBar` пуст; роута `/catalog` нет. Каталог-чтение (`fetchCatalog`) отдаёт все
+  товары и product-level цену, без storefront-проекции и availability.
+- **Задача:** реализовать этапы `H-01…H-11` из `13 §28`: `storefront_home_read`, `photo_url`,
+  `StorefrontRepository`, Home shell, Categories, Product Grid/Card, Home section, Catalog, buyer nav,
+  pause state, performance polish. Один этап за раз с тестами и ручной сверкой.
+- **Заменено:** старый `presentation/buyer/components/StorefrontView.tsx` (+тесты) удалён — его роль
+  разделена на `HomeView` (оркестрация) + `StoreStatusView` (notFound/PAUSED) + `HomeHeader`/`HomeBanner`.
+- **Прогресс:** `H-01` — [x] (миграция `0014` применена, функция проверена на реальных данных;
+  контракты + маппер + тесты). `H-02` — [x] (`telegram-auth` пишет `photo_url`, отдаёт `photoUrl`,
+  передеплоен; `ServerUser.photoUrl`; fallback `seller-avatar.ts`; проекция `sellerAvatarUrl`
+  проверена с временным значением). `H-03` — [x] (`StorefrontRepository` порт + infra RPC-репозиторий
+  + `useStorefrontHome`; +9 тестов). `H-04` — [x] (Home shell: header/banner/skeleton/status, safe-area
+  сверху, `/catalog`-заглушка; `StorefrontView` заменён; +16 тестов). `H-05` — [x] (Categories:
+  `CategoryCarousel`/`CategoryItem`, свайп, «Все →» и категория → Каталог; +8 тестов). `H-06` — [x]
+  (ProductGrid/ProductCard/FavoriteButton: 2 колонки, heart-cutout, цена/old/sold out; +11 тестов).
+  `H-07` — [x] (ProductSection: «Товары», лимит 6, «Смотреть все →»; +4 теста).   `H-09` — [x]
+  (FloatingNavBar покупателя на общем `BottomNavBar`: 5 вкладок, сердце по центру крупнее;
+  +6 тестов).
+  `H-08` — [x] (Catalog: поиск по названию, чипы категорий, сетка; Home search → автофокус;
+  фильтры отложены; +8 тестов).   `H-10` — [x] (pause-стор: брендовая шапка, гейт Home+Catalog,
+  покупка недоступна; +4 теста). `H-11` — [x] (performance polish: фолбэк изображений, Catalog
+  skeleton, общий `.skel`; сеть без N+1; +3 теста). **Buyer storefront MVP (H-01…H-11) закрыт.**
+- **Остаток (S3):** холодный старт витрины делает 2 запроса — `loadBuyerStore` (резолв `public_id`→store
+  ради `storeId`/pause) + `storefront_home_read`. Кандидат на оптимизацию: выводить `storeId`/`viewedStore`
+  из storefront-read (учесть legacy `store_<id>`). Не блокирует MVP.
+- **Блокеры/зависимости:** `1.13` (pause UI), `2.2` (favorites/cart в БД — не блокирует MVP, сейчас
+  zustand), `1.9` (RLS — `storefront_home_read` станет границей публичной проекции).
 
 ### [ ] 2.1 Reviews и Questions — код и UI
 - **Док:** `02 §9-10`, `03 §20-21`.
@@ -49,8 +84,8 @@ Severity: **S1** критично · **S2** высоко · **S3** средне.
 ### [ ] 2.4 Image pipeline
 - **Док:** `04 §6`, `03 §7`.
 - **Сейчас:** клиентский resize/crop в WebP (`src/utils/image.ts`, `createImageBitmap` + canvas, fallback JPEG);
-  товар `full` 1000px q0.75 + `thumb` 320px q0.75 (`product_images.storage_key`/`thumb_storage_key`),
-  обложка категории 320px, баннер 1024px; лимит `MAX_IMAGES = 4` соблюдён; откреплённые файлы удаляются из Storage.
+  товар — портрет 4:5: `full` 1000×1250 q0.75 + `thumb` 512×640 q0.75 (`product_images.storage_key`/`thumb_storage_key`),
+  обложка категории 320×320, баннер 1024px; лимит `MAX_IMAGES = 4` соблюдён; откреплённые файлы удаляются из Storage.
 - **Задача:** JPEG/PNG/WebP, max original 10 МБ, max 4096 px; серверная MIME/контент-валидация; серверные derivatives; strip metadata; reject malformed.
 
 ### [ ] 2.6 Search
@@ -71,6 +106,9 @@ Severity: **S1** критично · **S2** высоко · **S3** средне.
   `ProductGrid`, `CartItemCard`, `CheckoutModal`, `SearchBar`, `ProductImageCarousel`, `OrderManagementCard`,
   `InventoryTable`, `ProductForm`, `StatsCard` и пр.), `FloatingNavBar` покупателя, плюс delivery-feedback
   (RECEIVED/REFUSED, рейтинг 1–5, skip).
+- **Уточнение:** buyer-часть (Home, Каталог, Product Card, нижняя навигация покупателя) вынесена в
+  отдельный трек `1.14` и документ `13`; здесь остаётся seller-часть и общие buyer-экраны за пределами
+  storefront (Cart/Orders/Account/Product Detail).
 
 ---
 

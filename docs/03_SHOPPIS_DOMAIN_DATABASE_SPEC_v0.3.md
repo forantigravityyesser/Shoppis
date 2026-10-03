@@ -208,3 +208,38 @@ Orders survive catalog deletion because they use snapshots.
 
 ## 28. Future extension points
 Delivery zones/prices; multi-shop UI; customer profiles; refusal analytics; aggregated ratings; payments; multi-dimensional variants; staff roles; advanced analytics. None are MVP implementations.
+
+## 29. Buyer storefront projection
+
+Публичная витрина читается через отдельный read layer, а не напрямую из таблиц покупателем:
+
+```text
+public.storefront_home_read(p_public_id text)  -- read-only RPC, один запрос
+  → { store, categories, products }
+```
+
+Функция возвращает только разрешённые покупателю данные и является будущей границей под RLS
+(сейчас RLS выключен, reads идут через anon). Правила проекции:
+
+- `store` — по `public_id`; `status` (`ACTIVE|PAUSED`); `sellerAvatarUrl` = `photo_url`
+  владельца из `telegram_identities`; `bannerUrl`; `currency`.
+- `categories` — только `status = ACTIVE`, отсортированы по `sort_order`.
+- `products` — только `status = ACTIVE`, отсортированы по `sort_order`, затем `created_at`.
+- `categoryId` товара в проекции = `category_id`, если категория `ACTIVE`, иначе `null`
+  (архивная категория для покупателя не существует, но `product.category_id` в БД не меняется).
+- `imageUrl` — `thumb_storage_key` (fallback `storage_key`).
+- `price` / `originalPrice` — effective price **первого активного варианта** (`sort_order`, затем
+  `created_at`); деньги в minor units.
+- `available` — `stock = 0` у всех активных вариантов → `false` (товар остаётся видимым).
+
+## 30. Seller avatar (photo_url)
+
+Telegram `photo_url` фиксируется в identity-слое при серверной аутентификации:
+
+```text
+Telegram initData.photo_url → telegram-auth → telegram_identities.photo_url
+```
+
+Колонка: `telegram_identities.photo_url text` (nullable). Витрина получает `sellerAvatarUrl`
+через `storefront_home_read` (join `stores.owner_user_id → telegram_identities`). Денормализация
+в `stores` не требуется. Fallback на клиенте при `null` — первая буква `first_name`/имени.

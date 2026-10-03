@@ -56,6 +56,8 @@ export default async function (request) {
     first_name: tgUser.first_name || null,
     last_name: tgUser.last_name || null,
     language_code: tgUser.language_code || null,
+    // Seller/store avatar source; buyer never fetches seller photo directly. docs/13 §5.
+    photo_url: tgUser.photo_url || null,
   };
 
   try {
@@ -107,6 +109,7 @@ export default async function (request) {
         username: tgUser.username || '',
         firstName: tgUser.first_name || '',
         languageCode: tgUser.language_code || '',
+        photoUrl: tgUser.photo_url || '',
       },
     });
   } catch (e) {

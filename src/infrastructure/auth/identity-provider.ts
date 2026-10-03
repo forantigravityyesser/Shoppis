@@ -20,5 +20,6 @@ export function getDevServerUser(): ServerUser | null {
     username: 'dev_user',
     firstName: 'Dev User',
     languageCode: 'ru',
+    photoUrl: '',
   };
 }

@@ -131,21 +131,58 @@ export async function compressImage(
   }
 }
 
+/** Пропорция карточки товара (ширина / высота) — портрет 4:5. */
+export const CARD_ASPECT = 4 / 5;
+
 /**
- * MVP-нормализация фото: центрированный квадратный crop (WebP/JPEG).
- * Один «square»-вариант используется для карточки/детали/миниатюры.
+ * Прямоугольник центрального кропа под заданную пропорцию (width / height).
+ * Не увеличивает исходник: `sw/sh` всегда ≤ исходных размеров.
  */
-export async function prepareSquareImage(file: File, size = 1000, quality = 0.75): Promise<File> {
+export function cropRect(
+  srcWidth: number,
+  srcHeight: number,
+  aspect: number,
+): { sx: number; sy: number; sw: number; sh: number } {
+  const srcAspect = srcWidth / srcHeight;
+  if (srcAspect > aspect) {
+    // Шире целевой — режем бока.
+    const sw = Math.round(srcHeight * aspect);
+    return { sx: Math.round((srcWidth - sw) / 2), sy: 0, sw, sh: srcHeight };
+  }
+  // Уже/равно целевой — режем верх/низ.
+  const sh = Math.round(srcWidth / aspect);
+  return { sx: 0, sy: Math.round((srcHeight - sh) / 2), sw: srcWidth, sh };
+}
+
+/**
+ * Нормализация фото: центральный кроп под пропорцию `aspect` с ресайзом до
+ * заданной ширины (WebP/JPEG). Высота считается из пропорции.
+ */
+export async function prepareCroppedImage(
+  file: File,
+  width: number,
+  aspect: number,
+  quality = 0.75,
+): Promise<File> {
   if (!file.type.startsWith('image/')) return file;
 
   const decoded = await decodeImage(file);
   try {
-    const side = Math.min(decoded.width, decoded.height);
-    const sx = Math.round((decoded.width - side) / 2);
-    const sy = Math.round((decoded.height - side) / 2);
-    const out = Math.min(size, side);
-    return await renderToFile(decoded.source, sx, sy, side, side, out, out, file.name, quality);
+    const { sx, sy, sw, sh } = cropRect(decoded.width, decoded.height, aspect);
+    const outWidth = Math.max(1, Math.min(width, sw));
+    const outHeight = Math.max(1, Math.round(outWidth / aspect));
+    return await renderToFile(decoded.source, sx, sy, sw, sh, outWidth, outHeight, file.name, quality);
   } finally {
     decoded.release();
   }
+}
+
+/** Квадратная нормализация (обложки категорий). */
+export function prepareSquareImage(file: File, size = 1000, quality = 0.75): Promise<File> {
+  return prepareCroppedImage(file, size, 1, quality);
+}
+
+/** Портретная нормализация карточки товара (4:5) — full и thumb. */
+export function prepareCardImage(file: File, width: number, quality = 0.75): Promise<File> {
+  return prepareCroppedImage(file, width, CARD_ASPECT, quality);
 }

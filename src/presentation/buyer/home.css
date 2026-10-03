@@ -1,0 +1,526 @@
+/* ============================================================
+   Buyer Home (storefront) — визуал под прототип Dripzy, бренд Shoppis
+   ============================================================ */
+
+.home {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  /* Верхняя зона (шапка): мята в центре, лёгкий голубой расходится к верхним
+     краям — как в прототипе. */
+  background: radial-gradient(
+    78% 130% at 50% 0%,
+    var(--color-bg-storefront-mint) 0%,
+    var(--color-bg-storefront-mint) 10%,
+    var(--color-bg-storefront-blue) 100%
+  );
+  font-family: var(--font-ui);
+}
+
+/* ---- Header: название слева, поиск и профиль — справа ---- */
+.home-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-3);
+  min-height: 40px;
+  padding: calc(var(--spacing-3) + var(--safe-top, 0px)) var(--spacing-4) 8px;
+}
+
+.home-header__name {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  text-align: left;
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-header__actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.home-icon-btn {
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: var(--color-text-primary);
+  box-shadow: 0 2px 10px rgba(108, 92, 231, 0.1);
+  cursor: pointer;
+  overflow: hidden;
+  transition:
+    transform 0.12s,
+    background 0.15s,
+    box-shadow 0.2s;
+}
+
+.home-icon-btn:active {
+  transform: scale(0.94);
+  box-shadow: 0 1px 6px rgba(108, 92, 231, 0.15);
+}
+
+.home-avatar__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.home-avatar__initial {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--color-accent);
+}
+
+/* ---- Белый лист: скруглён сверху; с секции товаров плавно уходит в голубой ---- */
+.home-sheet {
+  position: relative;
+  flex: 1 1 auto;
+  margin-top: 10px;
+  padding: 14px var(--spacing-4) calc(var(--spacing-6) + var(--safe-bottom));
+  border-radius: 28px 28px 0 0;
+  background: linear-gradient(
+    180deg,
+    #ffffff 0%,
+    #ffffff 15%,
+    var(--color-bg-storefront-blue) 100%
+  );
+  min-height: 78vh;
+}
+
+/* ---- Единственный баннер ---- */
+.home-banner {
+  width: 100%;
+  aspect-ratio: 2.2 / 1;
+  border-radius: 22px;
+  overflow: hidden;
+  background: linear-gradient(145deg, #efeafb 0%, #e3ddf6 100%);
+  box-shadow: 0 6px 20px rgba(108, 92, 231, 0.1);
+}
+
+.home-banner__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.home-banner__placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-accent);
+  opacity: 0.65;
+  background: linear-gradient(135deg, #efeafb 0%, #e6e4f4 100%);
+}
+
+/* ---- Recoverable error ---- */
+.home-error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: calc(var(--spacing-3) + var(--safe-top, 0px)) var(--spacing-4) var(--spacing-6);
+}
+
+.home-retry {
+  margin-top: var(--spacing-2);
+  padding: 12px 18px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--color-accent);
+  color: var(--color-text-on-accent);
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  transition: transform 0.12s;
+}
+
+.home-retry:active {
+  transform: scale(0.97);
+}
+
+/* ---- Skeleton (no white flash, no layout jump) ---- */
+.home-skel {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  background: radial-gradient(
+    78% 130% at 50% 0%,
+    var(--color-bg-storefront-mint) 0%,
+    var(--color-bg-storefront-mint) 10%,
+    var(--color-bg-storefront-blue) 100%
+  );
+  font-family: var(--font-ui);
+}
+
+.home-skel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: calc(var(--spacing-3) + var(--safe-top, 0px)) var(--spacing-4) 8px;
+}
+
+.home-skel__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.skel--name {
+  width: 44%;
+  height: 26px;
+  border-radius: var(--radius-sm);
+}
+
+.skel--btn {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-full);
+}
+
+.home-skel__sheet {
+  flex: 1 1 auto;
+  margin-top: 10px;
+  padding: 14px var(--spacing-4) var(--spacing-6);
+  border-radius: 28px 28px 0 0;
+  background: linear-gradient(
+    180deg,
+    #ffffff 0%,
+    #ffffff 15%,
+    var(--color-bg-storefront-blue) 100%
+  );
+  min-height: 78vh;
+}
+
+.skel--banner {
+  width: 100%;
+  aspect-ratio: 2.2 / 1;
+  border-radius: 22px;
+  margin-bottom: var(--spacing-5);
+}
+
+.home-skel__row {
+  display: flex;
+  gap: var(--spacing-3);
+  margin-bottom: var(--spacing-5);
+  overflow: hidden;
+}
+
+.skel--cat {
+  flex: 0 0 auto;
+  width: 68px;
+  height: 68px;
+  border-radius: 20px;
+}
+
+.home-skel__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--spacing-3);
+}
+
+.skel--home-card {
+  width: 100%;
+  aspect-ratio: 1 / 1.46;
+  border-radius: 22px;
+}
+
+/* ---- Sections ---- */
+.home-section {
+  margin-top: var(--spacing-5);
+}
+
+.home-section__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-3);
+}
+
+.home-section__title {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--color-text-primary);
+}
+
+.home-section__all {
+  border: none;
+  background: none;
+  padding: 4px 0;
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition:
+    opacity 0.15s,
+    color 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.home-section__all:active {
+  opacity: 0.6;
+}
+
+/* ---- Product grid & card (единый белый блок) ---- */
+.product-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--spacing-3);
+}
+
+.product-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  background: #ffffff;
+  border-radius: 22px;
+  box-shadow: 0 4px 16px rgba(108, 92, 231, 0.08);
+  cursor: pointer;
+}
+
+.product-card__media {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  border-radius: 16px;
+  overflow: hidden;
+  background: linear-gradient(145deg, #f4f5f9 0%, #ecedf4 100%);
+}
+
+.product-card__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.product-card__placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+  font-weight: 800;
+  color: var(--color-accent);
+  background: linear-gradient(145deg, #efeafb 0%, #e6e4f4 50%, #ecedf7 100%);
+}
+
+.product-card--soldout .product-card__img,
+.product-card--soldout .product-card__placeholder {
+  opacity: 0.5;
+}
+
+/* Heart в белом cutout-уголке: белый круг вровень с углом карточки (без зазора)
+   и вогнутыми «швами», плавно переходящими в фото — как в прототипе. */
+.favorite-btn {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 3;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-full);
+  background: #ffffff;
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+
+/* Вогнутые переходы (fillet) от белого круга к фото. */
+.favorite-btn::before,
+.favorite-btn::after {
+  content: '';
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  pointer-events: none;
+  background: radial-gradient(circle at bottom left, transparent 14px, #ffffff 14.5px);
+}
+
+/* Шов вдоль верхней кромки фото. */
+.favorite-btn::before {
+  top: 8px;
+  left: 5px;
+  transform: translateX(-100%);
+}
+
+/* Шов вдоль правой кромки фото. */
+.favorite-btn::after {
+  top: 39px;
+  left: 22px;
+}
+
+.favorite-btn--active {
+  color: var(--color-badge-discount);
+}
+
+.favorite-btn__icon {
+  transition: transform 0.18s ease;
+}
+
+.favorite-btn--active .favorite-btn__icon {
+  animation: fav-pop 0.28s ease;
+}
+
+@keyframes fav-pop {
+  0% {
+    transform: scale(0.6);
+  }
+  60% {
+    transform: scale(1.25);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Бейдж sold out поверх фото. */
+.product-card__badge {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 2;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  background: #ffd60a;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  line-height: 1.3;
+  white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(26, 26, 46, 0.1);
+}
+
+/* Строка «название слева / цена справа». */
+.product-card__info {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 6px 4px;
+}
+
+.product-card__title {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.3;
+  color: var(--color-text-primary);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.product-card__price {
+  flex: 0 0 auto;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+}
+
+/* ---- Not found / paused storefront ---- */
+.store-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 48px var(--spacing-4);
+}
+
+.store-status__brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-2);
+  margin-bottom: var(--spacing-5);
+}
+
+.store-status__avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-full);
+  object-fit: cover;
+  box-shadow: var(--shadow-card);
+}
+
+.store-status__avatar--initial {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg-card);
+  color: var(--color-accent);
+  font-size: 26px;
+  font-weight: 800;
+}
+
+.store-status__name {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--color-text-primary);
+}
+
+.store-status__icon {
+  font-size: 48px;
+  line-height: 1;
+  margin-bottom: var(--spacing-3);
+}
+
+.store-status__title {
+  margin: 0 0 6px;
+  font-size: 20px;
+  font-weight: 900;
+  color: var(--color-text-primary);
+}
+
+.store-status__text {
+  margin: 0;
+  font-size: var(--font-size-md);
+  color: var(--color-text-secondary);
+}
+
+.store-status__contact {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  margin-top: var(--spacing-4);
+  padding: 12px 16px;
+  border-radius: var(--radius-lg);
+  background: #2aabee;
+  color: #ffffff;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: var(--font-size-md);
+}

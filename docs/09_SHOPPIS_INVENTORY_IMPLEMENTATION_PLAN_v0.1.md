@@ -63,8 +63,8 @@
   `CreateProductView` (Основное/Продажа/Вариант + «В архив»/«На витрину», ADR-06.8) и
   `CreateCategoryView` (название + порог).
 - `EditProductView` (`ProductForm` в режиме редактирования), `EditCategorySheet` (Phase 4).
-- Загрузка фото: `prepareSquareImage → uploadFile` (Storage `shoppis-media`) в форме товара
-  и обложках категорий.
+- Загрузка фото: товар — `prepareCardImage` (4:5) → `uploadFile` (Storage `shoppis-media`), обложки
+  категорий — `prepareSquareImage` (квадрат).
 - Удаление категории — в `EditCategorySheet` (подтверждение): товары переходят в «Без категории»
   (`category_id = null`), обложка удаляется из Storage; системную «Без категории» удалить нельзя.
 - Поведение: `+` в категории → сразу форма товара в контексте категории; `+ Добавить` (toolbar)

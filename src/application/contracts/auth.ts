@@ -5,6 +5,8 @@ export interface ServerUser {
   username: string;
   firstName: string;
   languageCode: string;
+  /** Telegram `photo_url`; пусто, если Telegram не отдал фото (fallback — первая буква). */
+  photoUrl: string;
 }
 
 /** Серверная runtime-сессия. */

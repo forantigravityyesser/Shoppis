@@ -10,7 +10,7 @@ import type { AppContext } from '../../domain/constants/app-context';
 
 /** Минимальная поверхность Telegram WebApp, используемая при инициализации. */
 interface TelegramWebApp {
-  safeAreaInset?: { bottom?: number };
+  safeAreaInset?: { top?: number; bottom?: number };
   expand?: () => void;
   ready?: () => void;
   enableClosingConfirmation?: () => void;
@@ -35,7 +35,9 @@ export function useAppInit(): void {
           const tg = (window as unknown as { Telegram?: { WebApp?: TelegramWebApp } }).Telegram
             ?.WebApp;
           if (tg) {
+            const topInset = tg.safeAreaInset?.top || 0;
             const bottomInset = tg.safeAreaInset?.bottom || 0;
+            document.documentElement.style.setProperty('--tg-safe-area-top', `${topInset}px`);
             document.documentElement.style.setProperty('--tg-safe-area-bottom', `${bottomInset}px`);
             if (typeof tg.expand === 'function') tg.expand();
             if (typeof tg.ready === 'function') tg.ready();

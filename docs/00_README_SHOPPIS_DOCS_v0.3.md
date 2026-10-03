@@ -4,6 +4,11 @@
 Identity-слоем и Seller App Shell (маршруты панели продавца, нижняя навигация, разделение
 Dashboard ↔ Settings).
 
+**Актуализация v0.4 (2026-10-01):** зафиксировано направление buyer storefront MVP — вкладка
+Главная, Каталог, Product Card, карточка товара, избранное, корзина, заказы, нижняя навигация
+покупателя и storefront-read layer (`13`). Синхронизированы `02` §18–19, `03` §29–30,
+`04` §6/§8/§9/§17/§18/§19, `05` Stage 3, `08`.
+
 Граница слоёв: `presentation` не импортирует `infrastructure` напрямую — доступ к haptics и
 загрузке изображений идёт через `application` (`useHaptic`, `image-service`). Детали — Technical
 Spec §9.0.
@@ -18,6 +23,7 @@ Spec §9.0.
 7. `10_SHOPPIS_STORE_SETTINGS_PLAN.md` — настройки магазина: product/UX spec (ЧТО).
 8. `11_SHOPPIS_HARDENING_BACKLOG.md` — отложенный hardening (RLS, тесты, косметика).
 9. `12_SHOPPIS_STORE_SETTINGS_IMPLEMENTATION_PLAN.md` — настройки магазина: реализация (КАК), этапы S-00…S-10.
+10. `13_SHOPPIS_BUYER_HOME_PLAN.md` — покупательская часть: Главная/Каталог/карточка/навигация, storefront-модель и read layer, этапы H-01…H-11 (ЧТО+КАК).
 
 ## Принцип двух сред проверки
 Telegram — не финальная интеграция, а целевая среда исполнения и проверки с первых этапов. Каждый глобальный этап имеет два состояния: `LOCAL VERIFIED` (браузер / локальный контур) и `TELEGRAM VERIFIED` (реальный Telegram Mini App на development-окружении). Этап не закрывается без обоих.

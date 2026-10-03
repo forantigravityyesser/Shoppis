@@ -585,10 +585,11 @@ create unique index if not exists categories_store_system_key
 
 ### Storage
 - Единый публичный bucket `shoppis-media` (товары, обложки категорий, баннеры).
-- Обработка на клиенте (без ручного редактора): центрированный квадратный crop → WebP
+- Обработка на клиенте (без ручного редактора): центрированный crop под пропорцию → WebP
   (`createImageBitmap` + canvas, fallback JPEG) в `utils/image.ts`:
-  - товар: `full` 1000px q0.75 + `thumb` 320px q0.75 (`uploadCatalogImage`);
-  - обложка категории: только `thumb` 320px (`uploadCategoryCover`) — она везде мелкая;
+  - товар — портрет **4:5** (`prepareCardImage`): `full` 1000×1250 q0.75 + `thumb` 512×640 q0.75
+    (`uploadCatalogImage`);
+  - обложка категории — квадрат: только `thumb` 320×320 (`uploadCategoryCover`);
   - баннер магазина: 1024px q0.78 (`compressImage`).
 - Списки/мини-карточки/обложки грузят `thumb`; hero/галерея — `full`. У загруженных ранее фото
   `thumb_storage_key = null` → UI падает на `storage_key` (совместимо).

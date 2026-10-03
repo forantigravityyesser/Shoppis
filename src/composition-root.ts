@@ -10,6 +10,7 @@ import { configureDependencies, type AppContainer } from './application/composit
 import * as productRepository from './infrastructure/repositories/product-repository';
 import * as categoryRepository from './infrastructure/repositories/category-repository';
 import * as orderRepository from './infrastructure/repositories/order-repository';
+import * as storefrontRepository from './infrastructure/repositories/storefront-repository';
 import {
   checkOwnershipByUser,
   createStore,
@@ -39,6 +40,7 @@ const container: AppContainer = {
   productRepository,
   categoryRepository,
   orderRepository,
+  storefrontRepository,
   storage,
   imageUpload,
   authApi,

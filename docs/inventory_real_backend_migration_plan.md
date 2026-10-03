@@ -161,7 +161,7 @@ graph TD
 ### 5. Слой представления (UI & Image Uploads)
 #### [MODIFY] `src/presentation/seller/components/ProductForm.tsx`
 - Интегрировать реальную загрузку фото:
-  - При выборе файлов запускать `prepareSquareImage(file)` -> `uploadFile(file)` в InsForge Storage `shoppis-media`.
+  - При выборе файлов запускать `prepareCardImage(file)` (портрет 4:5) -> `uploadFile(file)` в InsForge Storage `shoppis-media`.
   - Полученный постоянный URL сохранять в `photos`.
   - Отображать состояние загрузки (`processing`) в слоте добавления.
 
@@ -319,11 +319,12 @@ graph TD
 ### Что сделано
 
 1. **Клиентская обработка** (`utils/image.ts`): `createImageBitmap` + canvas (fallback на
-   `FileReader/Image`), кодирование WebP с fallback JPEG. Новые дефолты: `prepareSquareImage` —
-   1000px q0.75, `compressImage` — 1024px q0.78.
+   `FileReader/Image`), кодирование WebP с fallback JPEG. `cropRect` + `prepareCroppedImage`;
+   товар — `prepareCardImage` (портрет 4:5), обложка — `prepareSquareImage` (квадрат),
+   `compressImage` — 1024px q0.78.
 2. **Производные товара** (`infrastructure/storage/image-upload.ts`):
-   `uploadCatalogImage` готовит `full` 1000 + `thumb` 320 (параллельно) и грузит оба.
-   Обложка категории — только `thumb` 320 (`uploadCategoryCover`); баннер — 1024.
+   `uploadCatalogImage` готовит `full` 1000×1250 + `thumb` 512×640 (4:5, параллельно) и грузит оба.
+   Обложка категории — только `thumb` 320×320 (`uploadCategoryCover`); баннер — 1024.
    `product_images.thumb_storage_key` — миграция `0010`.
 3. **UI**: списки/мини-карточки/обложки грузят `thumb`, hero/галерея — `full`; у старых фото
    `thumb = null` → падение на `full`.
