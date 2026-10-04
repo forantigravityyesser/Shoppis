@@ -62,3 +62,15 @@ export interface Inventory {
   availableQuantity: number;
   heldQuantity: number;
 }
+
+/**
+ * Явная двусторонняя связь товаров («Связи» / «Похожее»). Хранится одной каноничной
+ * строкой на пару; читается в обе стороны, без транзитивности. docs/14 §7.
+ */
+export interface ProductLink {
+  id: string;
+  storeId: string;
+  productId: string;
+  relatedProductId: string;
+  createdAt: string;
+}

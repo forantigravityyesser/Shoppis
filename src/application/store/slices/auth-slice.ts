@@ -3,6 +3,7 @@ import type { AppContext } from '../../../domain/constants/app-context';
 import type { Store, StoreStatus } from '../../../domain/models/store';
 import type { CreateStoreInput, StoreProfilePatch } from '../../contracts/store';
 import type { ServerUser } from '../../contracts/auth';
+import type { PublicStoreContext } from '../../read-models/public-store';
 import { deps } from '../../composition/container';
 import { compressImage } from '../../../utils/image';
 import type { RootStore } from '../index';
@@ -18,8 +19,11 @@ export interface AuthSlice {
   storeId: string | null;
   /** Витрина продавца (для дашборда/онбординга) */
   currentStore: Store | null;
-  /** Публичная витрина, которую просматривает покупатель (по public_id). */
-  viewedStore: Store | null;
+  /**
+   * Публичный контекст витрины, которую просматривает покупатель. Минимальная
+   * проекция (`PublicStoreContext`) — без owner/private-полей. docs/15 §4.
+   */
+  viewedStore: PublicStoreContext | null;
   authLoading: boolean;
   authError: string | null;
   /** Флаг первички как в старом useUIStore.isAppInitializing */
@@ -44,8 +48,10 @@ export interface AuthSlice {
   loadSellerStore: () => Promise<string | null>;
   /**
    * Публичный вход покупателя по `public_id` (deep link витрины). Резолвит
-   * public_id → store, ставит storeId для каталога и viewedStore для отображения.
-   * null — нет витрины (показываем «магазин не найден»).
+   * ссылку → минимальный `PublicStoreContext` (без owner/private-полей), ставит
+   * `storeId` для scope и `viewedStore` для отображения. Legacy `store_<id>`
+   * поддержан резолвером как временная совместимость. `null` — витрина не найдена
+   * (показываем «магазин не найден»).
    */
   loadBuyerStore: (publicId: string | null) => Promise<string | null>;
   fetchCurrentStore: () => Promise<void>;
@@ -176,16 +182,10 @@ export const createAuthSlice: StateCreator<RootStore, [], [], AuthSlice> = (set,
     }
     set({ authLoading: true, authError: null });
     try {
-      // Канон — opaque public_id. Legacy-ссылки (`store_<internalId>`) резолвим
-      // по внутреннему id как переходный путь.
-      let store = await deps().storeRepository.fetchStoreByPublicId(publicId);
-      if (!store) {
-        try {
-          store = await deps().storeRepository.fetchStore(publicId);
-        } catch {
-          store = null;
-        }
-      }
+      // Публичный resolver отдаёт только минимальную проекцию (без owner_* и
+      // private seller data). Канон — opaque public_id; legacy `store_<id>`
+      // резолвится внутри SQL как переходный путь (docs/15 §4.2-4.3).
+      const store = await deps().storefrontRepository.loadPublicStoreContext(publicId);
       if (!store) {
         set({ viewedStore: null, storeId: null, authLoading: false });
         return null;

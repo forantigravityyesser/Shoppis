@@ -77,6 +77,8 @@
   --safe-bottom: max(env(safe-area-inset-bottom), var(--tg-safe-area-bottom, 0px));
   /* Верхний safe-area (Home header): Telegram кладёт --tg-safe-area-top, вне Telegram — env() */
   --safe-top: max(env(safe-area-inset-top), var(--tg-safe-area-top, 0px));
+  /* Высота плавающего нижнего навбара: bar (44 + 12) + вертикальные отступы обёртки + safe-area */
+  --bottom-nav-space: calc(88px + var(--safe-bottom));
 }
 
 * {
@@ -115,6 +117,7 @@ main {
    App shell — flex-колонка: контент скроллится, навбар не перекрывает
    ============================================================ */
 .app-shell {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100vh;
@@ -132,6 +135,8 @@ main {
   overflow-x: hidden;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+  /* Резерв под плавающий навбар: контент докручивается выше него */
+  padding-bottom: var(--bottom-nav-space);
 }
 
 /* Витрина покупателя: низ страницы (зона навбара) уходит в тот же голубой,
@@ -140,13 +145,26 @@ main {
   background: var(--color-bg-storefront-blue);
 }
 
-/* Обёртка нижней навигации: во flex-потоке, поэтому не перекрывает контент.
-   Панель компактная и центрированная, с отступом от краёв и от низа экрана. */
+/* Обёртка нижней навигации: плавает ПОВЕРХ контента (position absolute),
+   поэтому страница видна за стеклом и размывается backdrop-filter'ом.
+   Тапы проходят сквозь прозрачные зоны обёртки — ловит только сам bar. */
 .bottom-nav {
-  flex: 0 0 auto;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
   display: flex;
   justify-content: center;
-  padding: var(--spacing-2) var(--spacing-4) calc(var(--spacing-6) + var(--safe-bottom));
+  /* Нижний отступ уменьшен на ~35%, чтобы панель стояла ближе к низу экрана */
+  padding: var(--spacing-2) var(--spacing-4)
+    calc(var(--spacing-6) * 0.65 + var(--safe-bottom));
+  pointer-events: none;
+}
+
+/* При открытой клавиатуре навбар скрыт — резерв под него не нужен */
+body.keyboard-is-open .scrollable-content {
+  padding-bottom: 0;
 }
 
 /* ============================================================

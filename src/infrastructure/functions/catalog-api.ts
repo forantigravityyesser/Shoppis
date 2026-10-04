@@ -92,7 +92,8 @@ export async function updateProduct(
   if (patch.discountPercent !== undefined) p.discount_percent = patch.discountPercent;
   if (patch.images !== undefined) p.images = imagesPayload(patch.images);
   if (patch.attributes !== undefined) p.attributes = attributesPayload(patch.attributes);
-  if (patch.linkAttributes !== undefined) p.link_attributes = attributesPayload(patch.linkAttributes);
+  if (patch.linkAttributes !== undefined)
+    p.link_attributes = attributesPayload(patch.linkAttributes);
   if (patch.variants !== undefined) p.variants = patch.variants.map(variantPayload);
   await callCatalog(token, { action: 'product-update', productId, patch: p });
 }
@@ -133,4 +134,22 @@ export async function deleteProduct(
 export async function deleteCategory(token: string, categoryId: string): Promise<string | null> {
   const result = await callCatalog(token, { action: 'category-delete', categoryId });
   return result.imageStorageKey ?? null;
+}
+
+/** Связать два товара («Похожее»); связь двусторонняя, без транзитивности. */
+export async function linkProduct(
+  token: string,
+  productId: string,
+  targetId: string,
+): Promise<void> {
+  await callCatalog(token, { action: 'product-link-add', productId, targetId });
+}
+
+/** Убрать связь двух товаров. */
+export async function unlinkProduct(
+  token: string,
+  productId: string,
+  targetId: string,
+): Promise<void> {
+  await callCatalog(token, { action: 'product-link-remove', productId, targetId });
 }

@@ -1,5 +1,5 @@
-import { sellerAvatarInitial } from '../../../domain/rules/seller-avatar';
-import { useImageFallback } from '../hooks/useImageFallback';
+import { getInitial } from '../../../domain/rules/initial';
+import SafeImage from './SafeImage';
 
 interface Props {
   id: string;
@@ -10,12 +10,10 @@ interface Props {
 }
 
 /**
- * Карточка категории с обложкой (для Каталога): фото + название под ним.
- * Без обложки — заглушка с первой буквой. docs/13 §7.
+ * Карточка категории с обложкой (для Home и Каталога): фото + название под ним.
+ * Без обложки — заглушка с первой буквой. docs/13 §7, docs/15 §7.3.
  */
 export default function CategoryItem({ id, name, imageUrl, active = false, onSelect }: Props) {
-  const { failed, onError } = useImageFallback(imageUrl);
-
   return (
     <button
       type="button"
@@ -24,20 +22,16 @@ export default function CategoryItem({ id, name, imageUrl, active = false, onSel
       aria-label={name}
       aria-pressed={active}
     >
-      {imageUrl && !failed ? (
-        <img
-          className="category-item__img"
-          src={imageUrl}
-          alt=""
-          loading="lazy"
-          decoding="async"
-          onError={onError}
-        />
-      ) : (
-        <span className="category-item__placeholder" aria-hidden>
-          {sellerAvatarInitial(name)}
-        </span>
-      )}
+      <SafeImage
+        src={imageUrl}
+        alt=""
+        className="category-item__img"
+        fallback={
+          <span className="category-item__placeholder" aria-hidden>
+            {getInitial(name)}
+          </span>
+        }
+      />
       <span className="category-item__name">{name}</span>
     </button>
   );

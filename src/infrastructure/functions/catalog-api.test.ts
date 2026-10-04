@@ -10,6 +10,8 @@ import {
   setStatus,
   deleteProduct,
   deleteCategory,
+  linkProduct,
+  unlinkProduct,
 } from './catalog-api';
 
 function ok(result: unknown = {}) {
@@ -123,7 +125,12 @@ describe('catalog-api', () => {
 
   it('deleteProduct разворачивает ключи фото из images', async () => {
     invokeFunction.mockResolvedValue(
-      ok({ images: [{ storage_key: 'f', thumb_storage_key: 't' }, { storage_key: 'f2', thumb_storage_key: null }] }),
+      ok({
+        images: [
+          { storage_key: 'f', thumb_storage_key: 't' },
+          { storage_key: 'f2', thumb_storage_key: null },
+        ],
+      }),
     );
 
     await expect(deleteProduct('tok', 'p1')).resolves.toEqual([
@@ -135,6 +142,22 @@ describe('catalog-api', () => {
   it('deleteCategory возвращает ключ обложки', async () => {
     invokeFunction.mockResolvedValue(ok({ imageStorageKey: 'cover' }));
     await expect(deleteCategory('tok', 'c1')).resolves.toBe('cover');
+  });
+
+  it('linkProduct / unlinkProduct → product-link-add/remove с productId и targetId', async () => {
+    invokeFunction.mockResolvedValue(ok({ success: true }));
+
+    await linkProduct('tok', 'p1', 'p2');
+    expect(invokeFunction).toHaveBeenCalledWith('catalog-actions', {
+      token: 'tok',
+      body: { action: 'product-link-add', productId: 'p1', targetId: 'p2' },
+    });
+
+    await unlinkProduct('tok', 'p1', 'p2');
+    expect(invokeFunction).toHaveBeenCalledWith('catalog-actions', {
+      token: 'tok',
+      body: { action: 'product-link-remove', productId: 'p1', targetId: 'p2' },
+    });
   });
 
   it('бросает код серверной ошибки', async () => {

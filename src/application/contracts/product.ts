@@ -3,6 +3,7 @@ import type {
   Product,
   ProductAttribute,
   ProductImage,
+  ProductLink,
   ProductLinkAttribute,
   ProductStatus,
   Variant,
@@ -83,4 +84,6 @@ export interface ProductCatalog {
   images: ProductImage[];
   attributes: ProductAttribute[];
   linkAttributes: ProductLinkAttribute[];
+  /** Явные связи товаров («Похожее»), каноничные пары. docs/14 §7. */
+  productLinks: ProductLink[];
 }

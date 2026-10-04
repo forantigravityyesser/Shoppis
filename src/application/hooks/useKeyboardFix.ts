@@ -30,25 +30,25 @@ function moveCaretToEnd(el: HTMLInputElement | HTMLTextAreaElement): void {
 }
 
 /**
- * Мягкая клавиатура открывается только на тач-устройствах. На десктопе фокус на поле
- * прятал нижнюю навигацию, и при клике по кнопке (blur → возврат навбара) layout прыгал,
- * из-за чего первый клик не срабатывал. Поэтому на десктопе класс не трогаем.
+ * Мягкая клавиатура сжимает visual viewport. Фокус сам по себе клавиатуру не
+ * открывает: программный фокус (например, Home → Catalog с автфокусом поиска)
+ * вешает фокус на поле, но клавиатуры нет. Поэтому состояние определяем по
+ * реальному сжатию viewport — иначе навигация ложно прятала нижнюю панель,
+ * и она не возвращалась, пока поле оставалось в фокусе.
  */
-function hasCoarsePointer(): boolean {
-  return (
-    typeof window !== 'undefined' &&
-    typeof window.matchMedia === 'function' &&
-    window.matchMedia('(pointer: coarse)').matches
-  );
+function isKeyboardOpen(): boolean {
+  const vv = typeof window !== 'undefined' ? window.visualViewport : null;
+  if (!vv) return false;
+  return window.innerHeight - vv.height > 120;
 }
 
-/** Прячет нижнюю навигацию при открытой клавиатуре (фокус на текстовом поле), скроллит к активному input */
+/** Прячет нижнюю навигацию при открытой клавиатуре, скроллит к активному input */
 export function useKeyboardFix(): void {
   useEffect(() => {
+    const sync = () => document.body.classList.toggle('keyboard-is-open', isKeyboardOpen());
+
     const onFocusIn = (e: FocusEvent) => {
       const target = e.target;
-      if (hasCoarsePointer() && isTextEntry(target))
-        document.body.classList.add('keyboard-is-open');
       if (isCaretEditable(target)) {
         // Ставим каретку в конец после того, как браузер применит позицию по тапу.
         const el = target;
@@ -56,25 +56,33 @@ export function useKeyboardFix(): void {
           if (document.activeElement === el) moveCaretToEnd(el);
         });
       }
+      // Клавиатура открывается не мгновенно — проверим состояние после кадра.
+      requestAnimationFrame(sync);
     };
-    const onFocusOut = (e: FocusEvent) => {
-      if (hasCoarsePointer() && isTextEntry(e.target))
-        document.body.classList.remove('keyboard-is-open');
-    };
+    const onFocusOut = () => requestAnimationFrame(sync);
+
     const viewport = window.visualViewport;
     const onResize = () => {
-      const active = document.activeElement as HTMLElement | null;
-      if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) {
-        active.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      sync();
+      if (!isKeyboardOpen()) return;
+      const active = document.activeElement;
+      if (isTextEntry(active)) {
+        (active as HTMLElement).scrollIntoView({ block: 'center', behavior: 'smooth' });
       }
     };
+    // На iOS при открытой клавиатуре скролл страницы не меняет размер viewport,
+    // но сдвигает его — синхронизируем состояние и здесь.
+    const onScroll = () => sync();
+
     window.addEventListener('focusin', onFocusIn);
     window.addEventListener('focusout', onFocusOut);
     viewport?.addEventListener('resize', onResize);
+    viewport?.addEventListener('scroll', onScroll);
     return () => {
       window.removeEventListener('focusin', onFocusIn);
       window.removeEventListener('focusout', onFocusOut);
       viewport?.removeEventListener('resize', onResize);
+      viewport?.removeEventListener('scroll', onScroll);
       document.body.classList.remove('keyboard-is-open');
     };
   }, []);

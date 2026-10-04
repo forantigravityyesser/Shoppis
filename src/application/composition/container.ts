@@ -3,6 +3,8 @@ import type {
   CheckoutApi,
   NotificationApi,
   OrderApi,
+  QuestionApi,
+  ReviewApi,
   ShopApi,
   StoreSettingsApi,
 } from '../ports/apis';
@@ -13,6 +15,7 @@ import type { OrderRepository } from '../ports/order-repository';
 import type { ProductRepository } from '../ports/product-repository';
 import type { ImageUploadPort, StoragePort } from '../ports/storage';
 import type { StoreRepository } from '../ports/store-repository';
+import type { StorefrontProductRepository } from '../ports/storefront-product-repository';
 import type { StorefrontRepository } from '../ports/storefront-repository';
 import type { HapticsPort, TelegramPort } from '../ports/telegram';
 
@@ -27,6 +30,7 @@ export interface AppContainer {
   categoryRepository: CategoryRepository;
   storeRepository: StoreRepository;
   storefrontRepository: StorefrontRepository;
+  storefrontProductRepository: StorefrontProductRepository;
   orderRepository: OrderRepository;
   storage: StoragePort;
   imageUpload: ImageUploadPort;
@@ -36,6 +40,8 @@ export interface AppContainer {
   checkoutApi: CheckoutApi;
   orderApi: OrderApi;
   notificationApi: NotificationApi;
+  reviewApi: ReviewApi;
+  questionApi: QuestionApi;
   identity: IdentityProvider;
   telegram: TelegramPort;
   haptics: HapticsPort;

@@ -4,6 +4,7 @@ import type {
   Product,
   ProductAttribute,
   ProductImage,
+  ProductLink,
   ProductLinkAttribute,
   ProductStatus,
   Variant,
@@ -28,6 +29,8 @@ import {
   createVariant as createVariantViaApi,
   setStatus as setStatusViaApi,
   deleteProduct as deleteProductViaApi,
+  linkProduct as linkProductViaApi,
+  unlinkProduct as unlinkProductViaApi,
 } from '../functions/catalog-api';
 
 interface ProductImageRow {
@@ -58,6 +61,14 @@ interface InventoryRow {
   variant_id: string;
   available_quantity: number;
   held_quantity: number;
+}
+
+interface ProductLinkRow {
+  id: string;
+  store_id: string;
+  product_id: string;
+  related_product_id: string;
+  created_at: string;
 }
 
 interface VariantRow {
@@ -137,6 +148,16 @@ function pickInventory(row: VariantRow): InventoryRow | null {
   return Array.isArray(inv) ? (inv[0] ?? null) : inv;
 }
 
+function mapProductLink(row: ProductLinkRow): ProductLink {
+  return {
+    id: row.id,
+    storeId: row.store_id,
+    productId: row.product_id,
+    relatedProductId: row.related_product_id,
+    createdAt: row.created_at,
+  };
+}
+
 function splitCatalog(rows: ProductRow[]): ProductCatalog {
   const products: Product[] = [];
   const variants: Variant[] = [];
@@ -181,21 +202,27 @@ function splitCatalog(rows: ProductRow[]): ProductCatalog {
     }
   }
 
-  return { products, variants, inventories, images, attributes, linkAttributes };
+  return { products, variants, inventories, images, attributes, linkAttributes, productLinks: [] };
 }
 
 /** Весь каталог витрины одним запросом (без N+1). */
 export async function fetchCatalog(storeId: string): Promise<ProductCatalog> {
-  const { data, error } = await insforge.database
-    .from('products')
-    .select(
-      '*, product_images(*), product_attributes(*), product_link_attributes(*), variants(*, inventory(*))',
-    )
-    .eq('store_id', storeId)
-    .order('sort_order', { ascending: true })
-    .order('created_at', { ascending: true });
+  const [{ data, error }, linksResult] = await Promise.all([
+    insforge.database
+      .from('products')
+      .select(
+        '*, product_images(*), product_attributes(*), product_link_attributes(*), variants(*, inventory(*))',
+      )
+      .eq('store_id', storeId)
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: true }),
+    insforge.database.from('product_links').select('*').eq('store_id', storeId),
+  ]);
   if (error) throw error;
-  return splitCatalog((data ?? []) as ProductRow[]);
+  if (linksResult.error) throw linksResult.error;
+  const catalog = splitCatalog((data ?? []) as ProductRow[]);
+  catalog.productLinks = ((linksResult.data ?? []) as ProductLinkRow[]).map(mapProductLink);
+  return catalog;
 }
 
 function normalize(value: string): string {
@@ -544,4 +571,64 @@ export async function deleteProduct(
   return ((images ?? []) as Array<{ storage_key: string; thumb_storage_key: string | null }>).map(
     (row) => ({ storageKey: row.storage_key, thumbStorageKey: row.thumb_storage_key }),
   );
+}
+
+/** Каноничный порядок пары (product_id < related_product_id) — один ряд на связь. */
+function canonicalPair(a: string, b: string): [string, string] {
+  return a < b ? [a, b] : [b, a];
+}
+
+/** Связать два товара («Похожее»); двусторонне, без транзитивности. */
+export async function linkProducts(
+  productId: string,
+  targetId: string,
+  token: string | null,
+): Promise<void> {
+  if (token) {
+    await linkProductViaApi(token, productId, targetId);
+    return;
+  }
+  if (productId === targetId) throw new Error('SELF_LINK');
+  const { data, error } = await insforge.database
+    .from('products')
+    .select('id, store_id')
+    .in('id', [productId, targetId]);
+  if (error) throw error;
+  const rows = (data ?? []) as Array<{ id: string; store_id: string }>;
+  if (rows.length !== 2) throw new Error('PRODUCT_NOT_FOUND');
+  if (rows[0]?.store_id !== rows[1]?.store_id) throw new Error('SAME_STORE_REQUIRED');
+
+  const [a, b] = canonicalPair(productId, targetId);
+  const { data: existing, error: findError } = await insforge.database
+    .from('product_links')
+    .select('id')
+    .eq('product_id', a)
+    .eq('related_product_id', b)
+    .maybeSingle();
+  if (findError) throw findError;
+  if (existing) return;
+
+  const { error: insError } = await insforge.database
+    .from('product_links')
+    .insert({ store_id: rows[0]?.store_id, product_id: a, related_product_id: b });
+  if (insError) throw insError;
+}
+
+/** Убрать связь двух товаров. */
+export async function unlinkProducts(
+  productId: string,
+  targetId: string,
+  token: string | null,
+): Promise<void> {
+  if (token) {
+    await unlinkProductViaApi(token, productId, targetId);
+    return;
+  }
+  const [a, b] = canonicalPair(productId, targetId);
+  const { error } = await insforge.database
+    .from('product_links')
+    .delete()
+    .eq('product_id', a)
+    .eq('related_product_id', b);
+  if (error) throw error;
 }

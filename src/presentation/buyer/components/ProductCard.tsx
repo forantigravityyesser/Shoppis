@@ -1,8 +1,8 @@
-import type { KeyboardEvent } from 'react';
+import { ShoppingCart } from 'lucide-react';
 import type { StorefrontProductCard } from '../../../application/read-models/storefront';
 import { formatMoneyMinor } from '../../../domain/rules/product-rules';
-import { sellerAvatarInitial } from '../../../domain/rules/seller-avatar';
-import { useImageFallback } from '../hooks/useImageFallback';
+import { getInitial } from '../../../domain/rules/initial';
+import SafeImage from './SafeImage';
 import FavoriteButton from './FavoriteButton';
 
 interface Props {
@@ -12,56 +12,46 @@ interface Props {
 }
 
 /**
- * Карточка товара — единый белый скруглённый блок: внутреннее скруглённое фото
- * с сердцем в углу, ниже — название (слева, перенос до 2 строк) и цена (справа,
- * жирным). Sold out — бейдж «Нет в наличии». Вся карточка открывает товар. docs/13 §9-11.
+ * Карточка товара — единый белый скруглённый блок. Открытие товара и «сердце» —
+ * два независимых интерактивных элемента: `ProductOpenArea` (button) содержит фото
+ * и info, `FavoriteButton` — соседний button (клик не открывает товар). Никакого
+ * `role=button` на контейнере и вложенных кнопок. docs/15 §7.1.
  */
 export default function ProductCard({ product, currencySymbol, onOpen }: Props) {
   const { id, title, imageUrl, price, available } = product;
-  const { failed, onError } = useImageFallback(imageUrl);
-  const showImage = Boolean(imageUrl) && !failed;
-
-  const open = () => onOpen(id);
-  const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault();
-      open();
-    }
-  };
 
   return (
-    <article
-      className={`product-card${available ? '' : ' product-card--soldout'}`}
-      role="button"
-      tabIndex={0}
-      aria-label={title}
-      onClick={open}
-      onKeyDown={onKeyDown}
-    >
-      <div className="product-card__media">
-        {showImage ? (
-          <img
-            className="product-card__img"
-            src={imageUrl as string}
+    <article className={`product-card${available ? '' : ' product-card--soldout'}`}>
+      <button
+        type="button"
+        className="product-card__open"
+        aria-label={title}
+        onClick={() => onOpen(id)}
+      >
+        <span className="product-card__media">
+          <SafeImage
+            src={imageUrl}
             alt={title}
-            loading="lazy"
-            decoding="async"
-            onError={onError}
+            className="product-card__img"
+            fallback={
+              <span className="product-card__placeholder" aria-hidden>
+                {getInitial(title)}
+              </span>
+            }
           />
-        ) : (
-          <span className="product-card__placeholder" aria-hidden>
-            {sellerAvatarInitial(title)}
+        </span>
+
+        <span className="product-card__info">
+          {!available ? <span className="product-card__badge">Нет в наличии</span> : null}
+          <span className="product-card__title">{title}</span>
+          <span className="product-card__price">
+            <ShoppingCart size={14} strokeWidth={2.5} aria-hidden />
+            {formatMoneyMinor(price, currencySymbol)}
           </span>
-        )}
-      </div>
+        </span>
+      </button>
 
       <FavoriteButton productId={id} />
-      {!available ? <span className="product-card__badge">Нет в наличии</span> : null}
-
-      <div className="product-card__info">
-        <h3 className="product-card__title">{title}</h3>
-        <span className="product-card__price">{formatMoneyMinor(price, currencySymbol)}</span>
-      </div>
     </article>
   );
 }

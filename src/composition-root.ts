@@ -11,11 +11,11 @@ import * as productRepository from './infrastructure/repositories/product-reposi
 import * as categoryRepository from './infrastructure/repositories/category-repository';
 import * as orderRepository from './infrastructure/repositories/order-repository';
 import * as storefrontRepository from './infrastructure/repositories/storefront-repository';
+import * as storefrontProductRepository from './infrastructure/repositories/storefront-product-repository';
 import {
   checkOwnershipByUser,
   createStore,
   fetchStore,
-  fetchStoreByPublicId,
   fetchStoresByOwnerUser,
 } from './infrastructure/repositories/store-repository';
 import {
@@ -30,6 +30,8 @@ import * as storeSettingsApi from './infrastructure/functions/store-settings-api
 import * as checkoutApi from './infrastructure/functions/checkout-api';
 import * as orderApi from './infrastructure/functions/order-api';
 import * as notificationApi from './infrastructure/functions/notification-api';
+import * as reviewApi from './infrastructure/functions/review-api';
+import * as questionApi from './infrastructure/functions/question-api';
 import * as identity from './infrastructure/auth/identity-provider';
 import * as telegramApp from './infrastructure/telegram/telegram-app';
 import * as telegramShare from './infrastructure/telegram/telegram-share';
@@ -41,6 +43,7 @@ const container: AppContainer = {
   categoryRepository,
   orderRepository,
   storefrontRepository,
+  storefrontProductRepository,
   storage,
   imageUpload,
   authApi,
@@ -49,12 +52,13 @@ const container: AppContainer = {
   checkoutApi,
   orderApi,
   notificationApi,
+  reviewApi,
+  questionApi,
   identity,
   haptics,
   i18n,
   storeRepository: {
     fetchStore,
-    fetchStoreByPublicId,
     fetchStoresByOwnerUser,
     createStore,
     checkOwnershipByUser,

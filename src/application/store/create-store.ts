@@ -7,7 +7,6 @@ import { createCategorySlice } from './slices/category-slice';
 import { createFavoritesSlice } from './slices/favorites-slice';
 import { createOrderSlice } from './slices/order-slice';
 import { createProductSlice } from './slices/product-slice';
-import { createReviewSlice } from './slices/review-slice';
 import { createSettingsSlice } from './slices/settings-slice';
 import { createUiSlice } from './slices/ui-slice';
 
@@ -21,7 +20,6 @@ export const useStore = create<RootStore>()(
       ...createFavoritesSlice(...args),
       ...createOrderSlice(...args),
       ...createSettingsSlice(...args),
-      ...createReviewSlice(...args),
       ...createUiSlice(...args),
     }),
     {

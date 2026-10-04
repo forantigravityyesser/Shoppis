@@ -1,31 +1,18 @@
 import { describe, it, expect } from 'vitest';
-import { mapStorefrontHome } from './storefront-mappers';
+import {
+  mapPublicStoreContext,
+  mapStorefrontHome,
+  mapStorefrontHomeProductPage,
+} from './storefront-mappers';
 
 const baseStore = {
   id: 'store-1',
   publicId: 'pub-1',
   name: 'Nike Shop',
   bannerUrl: 'https://cdn/banner.jpg',
-  sellerAvatarUrl: 'https://cdn/avatar.jpg',
   status: 'ACTIVE',
   currencyCode: 'USD',
   currencySymbol: '$',
-};
-
-const fullHome = {
-  store: baseStore,
-  categories: [{ id: 'cat-1', name: 'Обувь', imageUrl: 'https://cdn/cat.jpg', sortOrder: 2 }],
-  products: [
-    {
-      id: 'p-1',
-      title: 'Nike T-Shirt',
-      categoryId: 'cat-1',
-      imageUrl: 'https://cdn/thumb.jpg',
-      price: 249000,
-      originalPrice: 349000,
-      available: true,
-    },
-  ],
 };
 
 describe('mapStorefrontHome', () => {
@@ -36,90 +23,47 @@ describe('mapStorefrontHome', () => {
   });
 
   it('возвращает null, если магазин отсутствует или без id/publicId', () => {
-    expect(mapStorefrontHome({ categories: [], products: [] })).toBeNull();
+    expect(mapStorefrontHome({ categories: [] })).toBeNull();
     expect(mapStorefrontHome({ store: { id: 'x' } })).toBeNull();
     expect(mapStorefrontHome({ store: { publicId: 'x' } })).toBeNull();
   });
 
-  it('маппит полный ответ', () => {
-    expect(mapStorefrontHome(fullHome)).toEqual({
+  it('маппит store + categories (без products)', () => {
+    expect(
+      mapStorefrontHome({
+        store: baseStore,
+        categories: [{ id: 'cat-1', name: 'Обувь', imageUrl: 'https://cdn/cat.jpg', sortOrder: 2 }],
+        products: [{ id: 'p-1', title: 'ignored' }],
+      }),
+    ).toEqual({
       store: {
         id: 'store-1',
         publicId: 'pub-1',
         name: 'Nike Shop',
         bannerUrl: 'https://cdn/banner.jpg',
-        sellerAvatarUrl: 'https://cdn/avatar.jpg',
         status: 'ACTIVE',
         currencyCode: 'USD',
         currencySymbol: '$',
       },
       categories: [{ id: 'cat-1', name: 'Обувь', imageUrl: 'https://cdn/cat.jpg', sortOrder: 2 }],
-      products: [
-        {
-          id: 'p-1',
-          title: 'Nike T-Shirt',
-          categoryId: 'cat-1',
-          imageUrl: 'https://cdn/thumb.jpg',
-          price: 249000,
-          originalPrice: 349000,
-          available: true,
-        },
-      ],
     });
   });
 
-  it('пустые/отсутствующие списки → []', () => {
-    const home = mapStorefrontHome({ store: baseStore });
-    expect(home?.categories).toEqual([]);
-    expect(home?.products).toEqual([]);
+  it('пустой/отсутствующий список категорий → []', () => {
+    expect(mapStorefrontHome({ store: baseStore })?.categories).toEqual([]);
   });
 
-  it('фильтрует некорректные элементы списков', () => {
+  it('фильтрует некорректные категории', () => {
     const home = mapStorefrontHome({
       store: baseStore,
       categories: [null, { name: 'Без id' }, { id: 'cat-1', name: 'Обувь' }],
-      products: ['bad', { title: 'Без id' }, { id: 'p-1', title: 'OK' }],
     });
     expect(home?.categories).toHaveLength(1);
     expect(home?.categories[0]?.id).toBe('cat-1');
-    expect(home?.products).toHaveLength(1);
-    expect(home?.products[0]?.id).toBe('p-1');
   });
 
-  it('продано: available=false и категория null сохраняются; originalPrice=null без скидки', () => {
-    const home = mapStorefrontHome({
-      store: baseStore,
-      products: [
-        {
-          id: 'p-1',
-          title: 'Sold out',
-          categoryId: null,
-          imageUrl: null,
-          price: 100000,
-          originalPrice: null,
-          available: false,
-        },
-      ],
-    });
-    const card = home?.products[0];
-    expect(card).toEqual({
-      id: 'p-1',
-      title: 'Sold out',
-      categoryId: null,
-      imageUrl: null,
-      price: 100000,
-      originalPrice: null,
-      available: false,
-    });
-  });
-
-  it('пустые строки URL → null; неизвестный статус → ACTIVE, PAUSED сохраняется', () => {
-    const empty = mapStorefrontHome({
-      store: { ...baseStore, bannerUrl: '', sellerAvatarUrl: '' },
-    });
-    expect(empty?.store.bannerUrl).toBeNull();
-    expect(empty?.store.sellerAvatarUrl).toBeNull();
-
+  it('пустой bannerUrl → null; неизвестный статус → ACTIVE, PAUSED сохраняется', () => {
+    expect(mapStorefrontHome({ store: { ...baseStore, bannerUrl: '' } })?.store.bannerUrl).toBeNull();
     expect(mapStorefrontHome({ store: { ...baseStore, status: 'WHATEVER' } })?.store.status).toBe(
       'ACTIVE',
     );
@@ -127,13 +71,133 @@ describe('mapStorefrontHome', () => {
       'PAUSED',
     );
   });
+});
 
-  it('числа-строки приводятся к number, битые → 0', () => {
-    const home = mapStorefrontHome({
-      store: baseStore,
-      products: [{ id: 'p-1', title: 'X', price: '249000', originalPrice: 'нет' }],
+describe('mapStorefrontHomeProductPage', () => {
+  it('возвращает null на некорректный ответ', () => {
+    expect(mapStorefrontHomeProductPage(null)).toBeNull();
+    expect(mapStorefrontHomeProductPage(undefined)).toBeNull();
+    expect(mapStorefrontHomeProductPage('nope')).toBeNull();
+  });
+
+  it('маппит products + nextCursor', () => {
+    const page = mapStorefrontHomeProductPage({
+      products: [
+        {
+          id: 'p-1',
+          title: 'Nike T-Shirt',
+          categoryId: 'cat-1',
+          imageUrl: 'https://cdn/thumb.jpg',
+          price: 249000,
+          available: true,
+        },
+      ],
+      nextCursor: '1790797824125169:f2dbdb71-a1c7-4c49-8164-75f6a3fd73dc',
     });
-    expect(home?.products[0]?.price).toBe(249000);
-    expect(home?.products[0]?.originalPrice).toBe(0);
+    expect(page).toEqual({
+      products: [
+        {
+          id: 'p-1',
+          title: 'Nike T-Shirt',
+          categoryId: 'cat-1',
+          imageUrl: 'https://cdn/thumb.jpg',
+          price: 249000,
+          available: true,
+        },
+      ],
+      nextCursor: '1790797824125169:f2dbdb71-a1c7-4c49-8164-75f6a3fd73dc',
+    });
+  });
+
+  it('отсутствующий/пустой nextCursor → null; пустой products → []', () => {
+    expect(mapStorefrontHomeProductPage({ products: [] })).toEqual({
+      products: [],
+      nextCursor: null,
+    });
+    expect(mapStorefrontHomeProductPage({ products: [], nextCursor: '' })?.nextCursor).toBeNull();
+    expect(mapStorefrontHomeProductPage({})?.products).toEqual([]);
+  });
+
+  it('фильтрует некорректные товары; sold out / категория null сохраняются', () => {
+    const page = mapStorefrontHomeProductPage({
+      products: [
+        'bad',
+        { title: 'Без id' },
+        {
+          id: 'p-1',
+          title: 'Sold out',
+          categoryId: null,
+          imageUrl: null,
+          price: 100000,
+          available: false,
+        },
+      ],
+    });
+    expect(page?.products).toHaveLength(1);
+    expect(page?.products[0]).toEqual({
+      id: 'p-1',
+      title: 'Sold out',
+      categoryId: null,
+      imageUrl: null,
+      price: 100000,
+      available: false,
+    });
+  });
+
+  it('цена-строка приводится к number, битая → 0', () => {
+    const page = mapStorefrontHomeProductPage({
+      products: [{ id: 'p-1', title: 'X', price: '249000' }],
+    });
+    expect(page?.products[0]?.price).toBe(249000);
+  });
+});
+
+describe('mapPublicStoreContext', () => {
+  it('возвращает null на некорректный ответ', () => {
+    expect(mapPublicStoreContext(null)).toBeNull();
+    expect(mapPublicStoreContext(undefined)).toBeNull();
+    expect(mapPublicStoreContext('nope')).toBeNull();
+    expect(mapPublicStoreContext({ name: 'no ids' })).toBeNull();
+    expect(mapPublicStoreContext({ id: 's1' })).toBeNull();
+    expect(mapPublicStoreContext({ publicId: 'pub1' })).toBeNull();
+  });
+
+  it('маппит минимальную проекцию (без owner-полей)', () => {
+    expect(
+      mapPublicStoreContext({
+        id: 's1',
+        publicId: 'pub1',
+        name: 'Nike',
+        status: 'PAUSED',
+        supportHandle: 'john',
+        logoUrl: 'https://cdn/logo.jpg',
+      }),
+    ).toEqual({
+      id: 's1',
+      publicId: 'pub1',
+      name: 'Nike',
+      status: 'PAUSED',
+      supportHandle: 'john',
+      logoUrl: 'https://cdn/logo.jpg',
+    });
+  });
+
+  it('пустые строки → null; неизвестный статус → ACTIVE', () => {
+    const ctx = mapPublicStoreContext({
+      id: 's1',
+      publicId: 'pub1',
+      name: '',
+      status: 'WHATEVER',
+      supportHandle: '',
+      logoUrl: '',
+    });
+    expect(ctx).toEqual({
+      id: 's1',
+      publicId: 'pub1',
+      name: '',
+      status: 'ACTIVE',
+      supportHandle: null,
+      logoUrl: null,
+    });
   });
 });

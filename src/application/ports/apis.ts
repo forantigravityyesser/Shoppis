@@ -33,6 +33,20 @@ export interface NotificationApi {
   enableTelegramNotifications(token: string): Promise<void>;
 }
 
+/** review-actions: запись отзывов/ответов по валидной сессии (actor из сессии). */
+export interface ReviewApi {
+  createReview(token: string, productId: string, rating: number, text: string): Promise<void>;
+  hideReview(token: string, reviewId: string): Promise<void>;
+  replyToReview(token: string, reviewId: string, text: string): Promise<void>;
+}
+
+/** question-actions: запись вопросов/ответов по валидной сессии (actor из сессии). */
+export interface QuestionApi {
+  createQuestion(token: string, productId: string, text: string): Promise<void>;
+  hideQuestion(token: string, questionId: string): Promise<void>;
+  answerQuestion(token: string, questionId: string, text: string): Promise<void>;
+}
+
 /** order-actions: жизненный цикл заказа и инвентаря. */
 export interface OrderApi {
   cancelOrder(

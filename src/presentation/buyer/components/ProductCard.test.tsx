@@ -15,13 +15,15 @@ const PRODUCT: StorefrontProductCard = {
   categoryId: null,
   imageUrl: 'https://cdn/thumb.jpg',
   price: 249000,
-  originalPrice: 349000,
   available: true,
 };
 
+let toggleFavorite: ReturnType<typeof vi.fn>;
+
 beforeEach(() => {
+  toggleFavorite = vi.fn();
   useFavorites.mockReset();
-  useFavorites.mockReturnValue({ isFavorite: () => false, toggleFavorite: vi.fn() });
+  useFavorites.mockReturnValue({ isFavorite: () => false, toggleFavorite });
 });
 
 describe('ProductCard', () => {
@@ -38,24 +40,57 @@ describe('ProductCard', () => {
     expect(screen.getByText('2490 $')).toBeInTheDocument();
     expect(screen.queryByText('3490 $')).toBeNull(); // originalPrice на карточке не показываем
     expect(screen.queryByText('Нет в наличии')).toBeNull();
-    // Единая карточка: название и цена в одной строке.
     expect(container.querySelector('.product-card__info')).not.toBeNull();
   });
 
-
   it('sold out: бейдж «Нет в наличии»', () => {
     render(
-      <ProductCard product={{ ...PRODUCT, available: false }} currencySymbol="$" onOpen={vi.fn()} />,
+      <ProductCard
+        product={{ ...PRODUCT, available: false }}
+        currencySymbol="$"
+        onOpen={vi.fn()}
+      />,
     );
     expect(screen.getByText('Нет в наличии')).toBeInTheDocument();
   });
 
-  it('клик по карточке открывает товар по id', async () => {
+  it('клик по области открытия открывает товар по id', async () => {
     const onOpen = vi.fn();
     render(<ProductCard product={PRODUCT} currencySymbol="$" onOpen={onOpen} />);
 
     await userEvent.click(screen.getByRole('button', { name: 'Nike T-Shirt' }));
     expect(onOpen).toHaveBeenCalledWith('p1');
+  });
+
+  it('открытие товара доступно с клавиатуры (Enter и Space)', async () => {
+    const onOpen = vi.fn();
+    render(<ProductCard product={PRODUCT} currencySymbol="$" onOpen={onOpen} />);
+    const openArea = screen.getByRole('button', { name: 'Nike T-Shirt' });
+
+    openArea.focus();
+    await userEvent.keyboard('{Enter}');
+    await userEvent.keyboard(' ');
+
+    expect(onOpen).toHaveBeenCalledTimes(2);
+    expect(onOpen).toHaveBeenCalledWith('p1');
+  });
+
+  it('heart — отдельный элемент: клик не открывает товар', async () => {
+    const onOpen = vi.fn();
+    render(<ProductCard product={PRODUCT} currencySymbol="$" onOpen={onOpen} />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'В избранное' }));
+
+    expect(toggleFavorite).toHaveBeenCalledWith('p1');
+    expect(onOpen).not.toHaveBeenCalled();
+  });
+
+  it('контейнер не является кнопкой; ровно две кнопки (открыть + heart)', () => {
+    const { container } = render(
+      <ProductCard product={PRODUCT} currencySymbol="$" onOpen={vi.fn()} />,
+    );
+    expect(container.querySelector('article[role="button"]')).toBeNull();
+    expect(screen.getAllByRole('button')).toHaveLength(2);
   });
 
   it('без фото — заглушка с первой буквой', () => {

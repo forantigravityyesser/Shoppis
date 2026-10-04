@@ -27,4 +27,8 @@ export interface ProductRepository {
     id: string,
     token: string | null,
   ): Promise<Array<{ storageKey: string; thumbStorageKey: string | null }>>;
+  /** Связать товар с другим («Похожее»); двусторонне, без транзитивности. */
+  linkProducts(productId: string, targetId: string, token: string | null): Promise<void>;
+  /** Убрать связь товаров. */
+  unlinkProducts(productId: string, targetId: string, token: string | null): Promise<void>;
 }

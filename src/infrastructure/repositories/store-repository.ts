@@ -55,19 +55,6 @@ export async function fetchStore(storeId: string): Promise<Store | null> {
   return row ? mapStore(row) : null;
 }
 
-/** Публичное чтение витрины по opaque public_id (без владения). */
-export async function fetchStoreByPublicId(publicId: string): Promise<Store | null> {
-  if (!publicId) return null;
-  const { data, error } = await insforge.database
-    .from('stores')
-    .select('*')
-    .eq('public_id', publicId)
-    .maybeSingle();
-  if (error) throw error;
-  const row = data as StoreRow | null;
-  return row ? mapStore(row) : null;
-}
-
 /** Витрины серверного User (authoritative identity), поиск по owner_user_id. */
 export async function fetchStoresByOwnerUser(ownerUserId: string): Promise<Store[]> {
   const { data, error } = await insforge.database

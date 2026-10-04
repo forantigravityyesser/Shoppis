@@ -3,7 +3,8 @@
 // POST body:
 //   {
 //     action: 'product-create' | 'product-update' | 'variant-create'
-//           | 'product-status' | 'product-delete' | 'category-delete',
+//           | 'product-status' | 'product-delete' | 'category-delete'
+//           | 'product-link-add' | 'product-link-remove',
 //     ...payload
 //   }
 // Header: Authorization: Bearer <session token from telegram-auth>
@@ -29,6 +30,8 @@ const ERROR_STATUS = {
   TITLE_REQUIRED: 400,
   INVALID_STATUS: 400,
   INVALID_QUANTITY: 400,
+  SELF_LINK: 400,
+  SAME_STORE_REQUIRED: 400,
   DUPLICATE_VARIANT: 409,
   NO_ACTIVE_VARIANT: 409,
   NOT_ARCHIVED: 409,
@@ -74,6 +77,18 @@ function dispatch(client, action, session, body) {
     case 'category-delete':
       return client.database.rpc('category_delete_atomic', {
         p_category_id: body.categoryId,
+        p_actor_user_id: session.uid,
+      });
+    case 'product-link-add':
+      return client.database.rpc('product_link_add_atomic', {
+        p_product_id: body.productId,
+        p_target_id: body.targetId,
+        p_actor_user_id: session.uid,
+      });
+    case 'product-link-remove':
+      return client.database.rpc('product_link_remove_atomic', {
+        p_product_id: body.productId,
+        p_target_id: body.targetId,
         p_actor_user_id: session.uid,
       });
     default:

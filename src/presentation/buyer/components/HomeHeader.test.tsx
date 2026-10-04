@@ -10,7 +10,8 @@ function setup(overrides: Partial<Parameters<typeof HomeHeader>[0]> = {}) {
   const result = render(
     <HomeHeader
       storeName="Nike Shop"
-      sellerAvatarUrl={null}
+      buyerAvatarUrl={null}
+      buyerName="Александр"
       onSearch={onSearch}
       onProfile={onProfile}
       {...overrides}
@@ -31,15 +32,25 @@ describe('HomeHeader', () => {
     expect(onProfile).toHaveBeenCalledTimes(1);
   });
 
-  it('показывает фото продавца, когда оно есть', () => {
-    const { container } = setup({ sellerAvatarUrl: 'https://cdn/avatar.jpg' });
+  it('показывает фото покупателя, когда оно есть', () => {
+    const { container } = setup({ buyerAvatarUrl: 'https://cdn/buyer.jpg' });
     const img = container.querySelector('.home-avatar__img');
-    expect(img).toHaveAttribute('src', 'https://cdn/avatar.jpg');
+    expect(img).toHaveAttribute('src', 'https://cdn/buyer.jpg');
   });
 
-  it('fallback: первая буква, когда фото нет', () => {
-    setup({ storeName: 'nike shop', sellerAvatarUrl: null });
-    expect(screen.getByText('N')).toBeInTheDocument();
+  it('fallback: первая буква имени покупателя, когда фото нет', () => {
+    setup({ buyerName: 'мария', buyerAvatarUrl: null });
+    expect(screen.getByText('М')).toBeInTheDocument();
+  });
+
+  it('пустое имя покупателя → «?»', () => {
+    setup({ buyerName: '', buyerAvatarUrl: null });
+    expect(screen.getByText('?')).toBeInTheDocument();
+  });
+
+  it('Unicode-имя → первая графема без разрезания', () => {
+    setup({ buyerName: '🎉 party', buyerAvatarUrl: null });
+    expect(screen.getByText('🎉')).toBeInTheDocument();
   });
 
   it('нет уведомлений: только две кнопки в шапке', () => {

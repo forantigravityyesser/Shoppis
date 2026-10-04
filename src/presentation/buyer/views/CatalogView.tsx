@@ -3,6 +3,7 @@ import { LayoutGrid } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { useStore } from '../../../application/store';
 import { useStorefrontHome } from '../../../application/hooks/useStorefrontHome';
+import { useStorefrontHomeProducts } from '../../../application/hooks/useStorefrontHomeProducts';
 import ProductGrid from '../components/ProductGrid';
 import CategoryItem from '../components/CategoryItem';
 import SearchBar from '../components/SearchBar';
@@ -12,16 +13,21 @@ import '../category.css';
 import '../catalog.css';
 
 /**
- * Каталог покупателя: поиск по названию, категории-чипы, сетка товаров.
- * Данные — тот же `storefront_home_read` (кэш React Query), фильтрация на клиенте.
- * Home search → `/catalog?focus=1` автфокусит поле. docs/13 §8.
+ * Прототип Каталога покупателя: поиск по названию, категории-чипы, сетка товаров.
+ * Данные — контекст (`useStorefrontHome`) + первая (широкая) страница товаров
+ * (`useStorefrontHomeProducts`), фильтрация на клиенте. Настоящий Каталог
+ * (server-side search/filters/sort/pagination) — отдельная будущая feature
+ * (docs/15 §8); здесь только поддерживаем работоспособность.
  */
+const CATALOG_PRODUCTS_LIMIT = 200;
+
 export default function CatalogView() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const viewedStore = useStore((s) => s.viewedStore);
   const publicId = viewedStore?.publicId ?? null;
   const { home, loading, error, notFound, refresh } = useStorefrontHome(publicId);
+  const productStream = useStorefrontHomeProducts(publicId, CATALOG_PRODUCTS_LIMIT);
 
   const [query, setQuery] = useState('');
   const [categoryId, setCategoryId] = useState<string | null>(searchParams.get('category'));
@@ -33,24 +39,31 @@ export default function CatalogView() {
   }, [shouldFocus]);
 
   const products = useMemo(() => {
-    const list = home?.products ?? [];
+    const list = productStream.products;
     const q = query.trim().toLowerCase();
     return list.filter(
       (p) =>
         (!categoryId || p.categoryId === categoryId) &&
         (!q || p.title.toLowerCase().includes(q)),
     );
-  }, [home, query, categoryId]);
+  }, [productStream.products, query, categoryId]);
 
-  if (loading) {
+  if (loading || productStream.loading) {
     return <CatalogSkeleton />;
   }
 
-  if (error) {
+  if (error ?? productStream.error) {
     return (
       <div className="catalog">
         <h1 className="catalog__title">Каталог</h1>
-        <button type="button" className="home-retry" onClick={refresh}>
+        <button
+          type="button"
+          className="home-retry"
+          onClick={() => {
+            refresh();
+            productStream.refresh();
+          }}
+        >
           Повторить
         </button>
       </div>
@@ -66,7 +79,7 @@ export default function CatalogView() {
       <StoreStatusView
         variant="paused"
         storeName={home.store.name}
-        sellerAvatarUrl={home.store.sellerAvatarUrl}
+        logoUrl={viewedStore?.logoUrl ?? null}
         supportHandle={viewedStore?.supportHandle}
       />
     );

@@ -9,6 +9,18 @@ Dashboard ↔ Settings).
 покупателя и storefront-read layer (`13`). Синхронизированы `02` §18–19, `03` §29–30,
 `04` §6/§8/§9/§17/§18/§19, `05` Stage 3, `08`.
 
+**Актуализация (2026-10-04):** hardening вкладки **Главная** покупателя **выполнен**
+(HOME-HARDEN-01…11): buyer avatar (а не seller), public store boundary вместо `select('*')`,
+progressive/cursor product loading вместо `slice(0,6)`, семантика `ProductCard`, единый `SafeImage`,
+удаление `originalPrice` из Home, keyset-индекс (замер 0.9 ms / 2000 товаров). Разбор, план и
+финальный аудит — `15`; `13` приведён в соответствие (v0.5). Home считается hardened; следующий
+крупный блок — Catalog (server-side) и Product Detail (`14`).
+
+**Актуализация (2026-10-03):** следующий блок buyer-части — карточка товара: экран, галерея,
+варианты/цена/наличие, избранное, корзина, «О товаре / Отзывы / Вопросы» (чтение), related
+(ProductGroup), публичный read layer `0015` и seller mini-stage для linking attributes/ProductGroup —
+`14_SHOPPIS_PRODUCT_DETAIL_PLAN.md` (этапы `PD-01…PD-14`).
+
 Граница слоёв: `presentation` не импортирует `infrastructure` напрямую — доступ к haptics и
 загрузке изображений идёт через `application` (`useHaptic`, `image-service`). Детали — Technical
 Spec §9.0.
@@ -24,6 +36,9 @@ Spec §9.0.
 8. `11_SHOPPIS_HARDENING_BACKLOG.md` — отложенный hardening (RLS, тесты, косметика).
 9. `12_SHOPPIS_STORE_SETTINGS_IMPLEMENTATION_PLAN.md` — настройки магазина: реализация (КАК), этапы S-00…S-10.
 10. `13_SHOPPIS_BUYER_HOME_PLAN.md` — покупательская часть: Главная/Каталог/карточка/навигация, storefront-модель и read layer, этапы H-01…H-11 (ЧТО+КАК).
+11. `14_SHOPPIS_PRODUCT_DETAIL_PLAN.md` — карточка товара покупателя: экран/галерея/варианты/цена/наличие/избранное/корзина, отзывы и вопросы (чтение), related (ProductGroup), публичный read layer `0015`, seller mini-stage; этапы PD-01…PD-14 (ЧТО+КАК).
+12. `15_SHOPPIS_BUYER_HOME_HARDENING_AUDIT.md` — hardening Главной покупателя: разбор аудита против кода, public store boundary, buyer avatar, progressive/cursor product loading, семантика `ProductCard`, image hardening, убрать `originalPrice` из Home; этапы HOME-HARDEN-01…11. Переопределяет `13` §3/§5/§9-10/§19/§28 — см. Приложение C.
+13. `16_SHOPPIS_REMAINING_WORK.md` — реестр незавершённого/отложенного (product follow-up'ы, roadmap, ссылки на hardening `11` и divergence `08`). Сюда перенесён редактор linking attributes (из `14` PD-14).
 
 ## Принцип двух сред проверки
 Telegram — не финальная интеграция, а целевая среда исполнения и проверки с первых этапов. Каждый глобальный этап имеет два состояния: `LOCAL VERIFIED` (браузер / локальный контур) и `TELEGRAM VERIFIED` (реальный Telegram Mini App на development-окружении). Этап не закрывается без обоих.

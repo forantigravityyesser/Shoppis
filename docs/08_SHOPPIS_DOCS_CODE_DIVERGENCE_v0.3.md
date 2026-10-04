@@ -35,7 +35,7 @@ Severity: **S1** критично · **S2** высоко · **S3** средне.
 - **Закрыто:** полноценный storefront-state — `StoreStatusView` (брендовая шапка, сообщение, контакт) с
   гейтом на Home и Catalog (покупка/поиск недоступны), серверный guard `STORE_PAUSED` сохранён. `H-10`.
 
-### [ ] 1.14 Buyer storefront (Главная + Каталог) — новый слой
+### [x] 1.14 Buyer storefront (Главная + Каталог) — новый слой
 - **Док:** `13` (весь документ), `02 §18-19`, `03 §29`, `04 §6, §8, §17, §18, §19`, `05 Stage 3`.
 - **Сейчас:** есть только резолв витрины + pause/шапка (`StorefrontView`); `HomeView` показывает
   заглушку «Каталог товаров появится на следующем этапе». `DetailsView`/`FavoritesView`/`OrdersView` —
@@ -48,8 +48,8 @@ Severity: **S1** критично · **S2** высоко · **S3** средне.
   разделена на `HomeView` (оркестрация) + `StoreStatusView` (notFound/PAUSED) + `HomeHeader`/`HomeBanner`.
 - **Прогресс:** `H-01` — [x] (миграция `0014` применена, функция проверена на реальных данных;
   контракты + маппер + тесты). `H-02` — [x] (`telegram-auth` пишет `photo_url`, отдаёт `photoUrl`,
-  передеплоен; `ServerUser.photoUrl`; fallback `seller-avatar.ts`; проекция `sellerAvatarUrl`
-  проверена с временным значением). `H-03` — [x] (`StorefrontRepository` порт + infra RPC-репозиторий
+  передеплоен; `ServerUser.photoUrl`; fallback `initial.ts`; проекция `sellerAvatarUrl` позже удалена
+  в hardening `15`). `H-03` — [x] (`StorefrontRepository` порт + infra RPC-репозиторий
   + `useStorefrontHome`; +9 тестов). `H-04` — [x] (Home shell: header/banner/skeleton/status, safe-area
   сверху, `/catalog`-заглушка; `StorefrontView` заменён; +16 тестов). `H-05` — [x] (Categories:
   `CategoryCarousel`/`CategoryItem`, свайп, «Все →» и категория → Каталог; +8 тестов). `H-06` — [x]
@@ -61,9 +61,10 @@ Severity: **S1** критично · **S2** высоко · **S3** средне.
   фильтры отложены; +8 тестов).   `H-10` — [x] (pause-стор: брендовая шапка, гейт Home+Catalog,
   покупка недоступна; +4 теста). `H-11` — [x] (performance polish: фолбэк изображений, Catalog
   skeleton, общий `.skel`; сеть без N+1; +3 теста). **Buyer storefront MVP (H-01…H-11) закрыт.**
-- **Остаток (S3):** холодный старт витрины делает 2 запроса — `loadBuyerStore` (резолв `public_id`→store
-  ради `storeId`/pause) + `storefront_home_read`. Кандидат на оптимизацию: выводить `storeId`/`viewedStore`
-  из storefront-read (учесть legacy `store_<id>`). Не блокирует MVP.
+- **Закрыто hardening'ом (`15`):** buyer resolver — минимальный `PublicStoreContext` (без `select('*')`);
+  Home делает 2 read (context + первая страница товаров) с progressive/cursor-догрузкой; keyset-индекс
+  `0024`; buyer avatar; `originalPrice` убран из Home. Catalog-прототип (client-side) — отдельная
+  server-side feature в будущем.
 - **Блокеры/зависимости:** `1.13` (pause UI), `2.2` (favorites/cart в БД — не блокирует MVP, сейчас
   zustand), `1.9` (RLS — `storefront_home_read` станет границей публичной проекции).
 

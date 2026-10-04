@@ -34,13 +34,13 @@ describe('StoreStatusView', () => {
     expect(screen.getByText('N')).toBeInTheDocument();
   });
 
-  it('paused с аватаром: показывает изображение', () => {
+  it('paused с логотипом магазина: показывает изображение', () => {
     const { container } = render(
-      <StoreStatusView variant="paused" storeName="Nike" sellerAvatarUrl="https://cdn/a.jpg" />,
+      <StoreStatusView variant="paused" storeName="Nike" logoUrl="https://cdn/logo.jpg" />,
     );
     expect(container.querySelector('.store-status__avatar')).toHaveAttribute(
       'src',
-      'https://cdn/a.jpg',
+      'https://cdn/logo.jpg',
     );
   });
 

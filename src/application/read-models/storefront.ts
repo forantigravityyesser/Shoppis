@@ -1,14 +1,23 @@
 import type { StoreCurrency, StoreStatus } from '../../domain/models/store';
 
 /**
- * Публичная storefront-модель покупателя. Projection приходит из
- * `storefront_home_read(public_id)` одним запросом (docs/13 §19-21, docs/03 §29).
+ * Публичный storefront покупателя разделён на две части (docs/15 §5.6):
+ *  - `StorefrontHome` — статичный контекст (store + категории): малый, редко меняется;
+ *  - `StorefrontHomeProductPage` — товарный поток: большой, пагинируется.
  * Здесь только то, что разрешено покупателю: без вариантов, inventory и attributes.
  */
+
+/** Статичный контекст витрины: магазин + активные категории. */
 export interface StorefrontHome {
   store: StorefrontStore;
   categories: StorefrontCategory[];
+}
+
+/** Страница товарного потока Home с keyset-курсором следующей страницы. */
+export interface StorefrontHomeProductPage {
   products: StorefrontProductCard[];
+  /** null — страниц больше нет. */
+  nextCursor: string | null;
 }
 
 export interface StorefrontStore {
@@ -16,8 +25,6 @@ export interface StorefrontStore {
   publicId: string;
   name: string;
   bannerUrl: string | null;
-  /** Аватар продавца из Telegram `photo_url`; null → fallback по первой букве. */
-  sellerAvatarUrl: string | null;
   status: StoreStatus;
   currencyCode: StoreCurrency;
   currencySymbol: string;
@@ -37,10 +44,8 @@ export interface StorefrontProductCard {
   categoryId: string | null;
   /** Лёгкая миниатюра (thumb), fallback — полное фото. */
   imageUrl: string | null;
-  /** Effective price первого активного варианта, minor units. */
+  /** Effective price первого активного варианта, minor units (только конечная цена). */
   price: number;
-  /** Цена до скидки, только если скидка > 0; иначе null. */
-  originalPrice: number | null;
   /** false — все активные варианты закончились (карточка остаётся видимой). */
   available: boolean;
 }

@@ -15,7 +15,6 @@ const PRODUCTS: StorefrontProductCard[] = [
     categoryId: null,
     imageUrl: 'https://cdn/1.jpg',
     price: 249000,
-    originalPrice: null,
     available: true,
   },
   {
@@ -24,7 +23,6 @@ const PRODUCTS: StorefrontProductCard[] = [
     categoryId: null,
     imageUrl: 'https://cdn/2.jpg',
     price: 250000,
-    originalPrice: null,
     available: false,
   },
 ];

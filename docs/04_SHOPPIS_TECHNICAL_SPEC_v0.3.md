@@ -134,8 +134,8 @@ Security, money, inventory and state transitions are not React-only logic.
 - При открытой клавиатуре `body.keyboard-is-open .bottom-nav { display: none }` (см. `useKeyboardFix`).
 - Нижняя навигация — router-agnostic `BottomNavBar` (`presentation/shared/components`): активная
   вкладка и `onTabChange` передаются адаптерами (`SellerNavBar`; у покупателя — `FloatingNavBar`).
-  Buyer-вариант: 5 вкладок (`/`, `/catalog`, `/favorites`, `/orders`, `/cart`), центральный элемент
-  (сердце) крупнее остальных, бар имеет вырез под него; accent-эффект активной вкладки общий. `13 §3`.
+  Buyer-вариант: 5 равнозначных вкладок (`/`, `/catalog`, `/favorites`, `/orders`, `/cart`) на общем
+  `BottomNavBar` (pill, liquid, haptic); особого центрального элемента нет. `15 §3.10`.
 - Buyer Header — сквозной верхний блок (название магазина слева; поиск и профиль справа). Иконка
   профиля справа вверху — единственный вход в `AccountView`; bell/in-app-уведомлений нет. `13 §4, §16`.
 
@@ -219,10 +219,10 @@ Priorities:
 - optimized/lazy images;
 - critical order flow prioritized over cosmetics.
 
-Buyer storefront (требование MVP): весь экран загружается **одним** read-запросом
-`storefront_home_read(public_id)`; никаких повторных запросов на каждый рендер; skeleton без белого
-flash и layout shift; карточки — `thumb`, lazy; Home показывает ограниченную подборку (6–8) и
-отдаёт остальное Каталогу. `13 §21–§24`. Exact SLOs are set after real traffic data.
+Buyer storefront (требование MVP): Home делает **2 read** — `storefront_home_context_read` (store +
+категории) и `storefront_home_products_read` (первая страница товаров, keyset-курсор); товары
+догружаются progressive-страницами по скроллу. Никаких повторных запросов на каждый рендер; skeleton
+без белого flash и layout shift; карточки — `thumb`, lazy. `15 §5-6`. Exact SLOs are set after real traffic data.
 
 ## 18. Pause/archive behavior
 PAUSED shop resolves but shows technical-pause state and rejects new orders. Существующие заказы не
@@ -230,7 +230,7 @@ PAUSED shop resolves but shows technical-pause state and rejects new orders. С�
 
 ARCHIVED product is excluded from normal catalog and cannot enter checkout.
 
-Storefront-проекция (`storefront_home_read`):
+Storefront-проекция (`storefront_home_context_read` / `storefront_home_products_read`):
 - `ARCHIVED` product не попадает ни в Home, ни в Catalog, ни в Category, ни в Search;
 - `ARCHIVED` category скрыта из списка категорий, а её активные товары показываются как
   `categoryId = null` («Все товары»); `product.category_id` в БД при этом не меняется, поэтому
@@ -253,7 +253,7 @@ Storefront-проекция (`storefront_home_read`):
 
 Точка входа после резолва `public_id` — Главная витрины (Home), откуда покупатель уходит в
 Каталог/карточку. Порядок инициализации: `authenticate → resolve public_id → loadBuyerStore →
-storefront_home_read → Home`. `13 §26`.
+storefront_home_context_read + storefront_home_products_read → Home`. `13 §26`.
 
 > Если `t.me/<bot>/<app>` открывает **чат бота**, значит именованное Mini App с таким short name в BotFather не создано (или имя невалидно — не строчное); если `t.me/<bot>?startapp=` открывает чат — не включён Main Mini App. Это конфигурация BotFather, а не формат ссылки.
 

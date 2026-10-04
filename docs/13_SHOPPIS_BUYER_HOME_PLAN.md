@@ -1,12 +1,22 @@
 # SHOPPIS — BUYER HOME / STOREFRONT PLAN
 
-**Version:** 0.4
-**Статус:** зафиксированное направление buyer storefront MVP. Один документ: продуктовое видение (ЧТО) + техническая архитектура + глобальный путь разработки (КАК, этапы 1–11).
+**Version:** 0.5
+**Статус:** зафиксированное направление buyer storefront MVP. Один документ: продуктовое видение (ЧТО) + техническая архитектура + глобальный путь разработки (КАК, этапы 1–11). **Hardening Home (HOME-HARDEN-01…11) выполнен** — актуальный источник правды `15_SHOPPIS_BUYER_HOME_HARDENING_AUDIT.md`; устаревшие детали `13` исправлены/помечены ниже.
 
 **Область:** покупательская (buyer) часть Shoppis — вкладка **Главная**, связанные **Каталог**, **Product Card**, **Карточка товара**, **Избранное**, **Корзина**, **Заказы**, нижняя навигация и storefront-read layer.
 **Вне области:** кабинет продавца (см. `06`, `07`, `09`, `10`, `12`).
 
 **Связанные документы:** `02` (Product Spec), `03` (Domain & Database Spec), `04` (Technical Spec), `05` (Implementation Plan), `08` (Divergence), `12` (Store Settings, S-08).
+
+> **⚠ Актуализация 2026-10-04 — `15_SHOPPIS_BUYER_HOME_HARDENING_AUDIT.md` переопределяет части этого документа:**
+> - §3 — нижняя навигация: **5 равнозначных вкладок** (особого «сердца по центру» в коде нет);
+> - §5 — верхний правый аватар: **аккаунт покупателя** (`serverUser.photoUrl` / `firstName`), а не `sellerAvatarUrl`;
+> - §9-10 — цена карточки Home: **только effective price**, `originalPrice` из Home удаляется;
+> - §19 — модель Home: split `{store, categories}` + отдельный `HomeProductPage {products, nextCursor}`;
+> - §20-21 — вместо одного `storefront_home_read` — **split-чтение**: `storefront_home_context_read` (store + категории) + `storefront_home_products_read` (товары, keyset-курсор);
+> - §28 H-07 — вместо фикс. 6 товаров — **progressive/cursor stream**.
+>
+> Полный разбор и план (HOME-HARDEN-01…11) — в документе `15`.
 
 ---
 
@@ -39,11 +49,11 @@
 |---|---|---|---|
 | 1 | 🏠 **Главная** | `/` | Витрина, первое впечатление, привлечение к покупке |
 | 2 | 🔎 **Каталог** | `/catalog` | Все товары, категории, поиск, фильтры |
-| 3 | ❤️ **Избранное** | `/favorites` | Локально сохранённые товары (**центральный выделенный элемент**) |
+| 3 | ❤️ **Избранное** | `/favorites` | Локально сохранённые товары (store-scoped, Zustand persist) |
 | 4 | 📦 **Заказы** | `/orders` | Заказы покупателя |
 | 5 | 🛒 **Корзина** | `/cart` | Текущая корзина |
 
-**Сердце по центру** — визуально выделенный центральный элемент навигации (см. §3).
+Все пять вкладок **равнозначны** (особый центральный элемент не выделяется) — документация приведена к реализации (`15 §3.10`).
 
 Профиль покупателя доступен **только** через аватар/имя продавца в правом верхнем углу хедера (§4); это сквозная для всего приложения иконка справа вверху. **Уведомлений нет** (§16).
 
@@ -78,16 +88,14 @@
 └──────────────────────────────────────┘
 ```
 
-Ограничение: **Главная не показывает весь каталог**. Показываем секцию из **6–8 товаров** (§7 этап 7) и кнопку **«Смотреть все товары →»** → **Каталог**.
+Главная не показывает весь каталог: она отдаёт **первую страницу товарного потока** (progressive/cursor, `15 §5`) и кнопку **«Смотреть все товары →»** → **Каталог**.
 
 ---
 
 ## 3. Нижняя навигация (форма)
 
 - 5 вкладок: `Главная · Каталог · ❤️ · Заказы · Корзина`.
-- **Центральный элемент (сердце) крупный и визуально выделен.** Бар имеет вырез/скругление в центре: навбар не является простым прямоугольником — в месте сердца форма закругляется под крупный центральный элемент.
-- При нажатии на сердце — **тот же accent-эффект заполнения**, что и у остальных вкладок (единый язык навигации).
-- Визуал/анимации переиспользуются из `BottomNavBar` (pill, liquid-индикатор); для buyer-варианта добавляется конфигурация выреза и крупного центрального элемента. Реализация — покупательский адаптер `FloatingNavBar` поверх `BottomNavBar`.
+- **Все вкладки равнозначны.** Единый `BottomNavBar` (pill, liquid-индикатор, haptic); покупательский адаптер `FloatingNavBar` передаёт 5 вкладок. Особого «крупного сердца» в центре нет — документация приведена к фактической реализации (`15 §3.10`).
 
 ---
 
@@ -113,51 +121,27 @@ Very Long Store Na...
 
 ---
 
-## 5. Аватар продавца
+## 5. Аватар покупателя
 
-При авторизации Telegram получаем:
-
-```ts
-photo_url?: string
-```
-
-Если Telegram предоставил фото:
+Верхний правый профиль Home — это **текущий Telegram-аккаунт покупателя** (`serverUser`), а **не** продавец. При авторизации Telegram получаем `photo_url` и `first_name` текущего пользователя; `serverUser.photoUrl` уже заполняется на auth.
 
 ```text
-sellerAvatarUrl = photo_url
+serverUser.photoUrl есть  → фото покупателя
+serverUser.photoUrl пуст  → getInitial(serverUser.firstName)  → первая буква
 ```
 
-Если нет:
+Fallback — generic-правило `getInitial` (`domain/rules/initial.ts`; не режет эмодзи/суррогатные пары).
+
+### Storefront vs ServerUser (зафиксировано)
+
+Продавец и покупатель не смешиваются:
 
 ```text
-sellerAvatarUrl = null
+StorefrontStore → публичные данные магазина (name, logoUrl, bannerUrl, status, supportHandle, currency)
+ServerUser      → данные текущего покупателя (photoUrl, firstName)
 ```
 
-Fallback — первая буква имени пользователя / Telegram `first_name`:
-
-```text
-Александр → А     John → J     Мария → М
-```
-
-### Архитектура (зафиксировано)
-
-Фото продавца **не** тянется из buyer Mini App напрямую. Поток:
-
-```text
-Seller opens Mini App
-        ↓
-Telegram initData (photo_url)
-        ↓
-backend (telegram-auth)
-        ↓
-telegram_identities.photo_url
-        ↓
-storefront projection
-        ↓
-store.sellerAvatarUrl  (buyer)
-```
-
-Хранение: колонка `photo_url` в `telegram_identities` (identity-слой); витрина получает `sellerAvatarUrl` через storefront-read (§20). Денормализация в `stores` не требуется.
+`sellerAvatarUrl` (Telegram-фото продавца) в buyer storefront **не используется** и удалён из проекции (миграция `0022`). На pause-экране показывается **публичный логотип магазина** (`logoUrl`), fallback — `getInitial(storeName)`. Полное обоснование — `15 §3.3-3.4`.
 
 ---
 
@@ -271,8 +255,7 @@ Home → Catalog → focus search input → keyboard/search
 
 - фото;
 - название;
-- текущую цену;
-- зачёркнутую оригинальную цену **если есть скидка**;
+- **только конечную (effective) цену**;
 - сердце.
 
 ### Что НЕ показываем
@@ -293,13 +276,7 @@ Variants: S → 2 490 ₽, M → 2 690 ₽, L → 2 690 ₽
 На Home:  2 490 ₽
 ```
 
-Если есть original price:
-
-```text
-3 490 ₽   2 490 ₽
-```
-
-**Процент скидки не показываем.**
+На карточке Home показываем **только** конечную effective price — без зачёркнутой original и без процента скидки. Оригинальная цена и скидка относятся к Product Detail (`15 §3.9`); `originalPrice` удалён из Home read-model и SQL-проекции (`15 §7.4`).
 
 Формула едина — `domain/rules/product-rules.ts` (`currentPriceMinor`, `effectivePrice`), без float на границах, деньги в minor units.
 
@@ -474,6 +451,12 @@ HOME → Product ID → PRODUCT DETAIL → самостоятельная заг
 
 Не таскаем большой `ProductDetail` через Home — это важно для производительности.
 
+Полноценная реализация Product Detail вынесена в отдельный блок —
+`docs/14_SHOPPIS_PRODUCT_DETAIL_PLAN.md` (этапы `PD-01…PD-14`): публичный read-model
+(`storefront_product_detail_read`, миграция `0015`), галерея (main = full, миниатюры = thumb),
+варианты/цена/наличие, вкладки «О товаре / Отзывы / Вопросы» (чтение), related (ProductGroup)
+и immersive-режим без нижнего navbar.
+
 ---
 
 ## 19. Новая storefront-модель
@@ -482,7 +465,11 @@ HOME → Product ID → PRODUCT DETAIL → самостоятельная заг
 interface StorefrontHome {
   store: StorefrontStore;
   categories: StorefrontCategory[];
+}
+
+interface StorefrontHomeProductPage {
   products: StorefrontProductCard[];
+  nextCursor: string | null;
 }
 ```
 
@@ -495,7 +482,6 @@ interface StorefrontStore {
   name: string;
 
   bannerUrl: string | null;
-  sellerAvatarUrl: string | null;
 
   status: 'ACTIVE' | 'PAUSED';
 
@@ -525,8 +511,7 @@ interface StorefrontProductCard {
   categoryId: string | null; // null, если категория не ACTIVE (archived) или удалена
 
   imageUrl: string | null;
-  price: number;
-  originalPrice: number | null;
+  price: number; // только конечная (effective) цена
 
   available: boolean;
 }
@@ -541,7 +526,8 @@ interface StorefrontProductCard {
 Отдельный публичный read layer:
 
 ```text
-storefront_home_read(public_id)
+storefront_home_context_read(public_id)                 -- store + активные категории
+storefront_home_products_read(public_id, cursor, limit) -- товарный поток, keyset-курсор
 ```
 
 Возвращает только то, что разрешено покупателю. Логика:
@@ -555,7 +541,6 @@ store (public_id)
   ↓ first active variant
   ↓ effective price
   ↓ availability
-  ↓ seller avatar (telegram_identities.photo_url владельца)
 ```
 
 ### Product visibility
@@ -580,11 +565,11 @@ category.status = ACTIVE — только такие категории.
 
 ### Реализация (зафиксировано)
 
-**Read-only SQL-функция `public.storefront_home_read(p_public_id text)`**, доступная через PostgREST RPC (один запрос). Проекция целиком на сервере — это будущая граница под RLS, покупатель не собирает данные на клиенте. Миграция — этап 1 (H-01).
+**Read-only SQL-функции `public.storefront_home_context_read(p_public_id text)` и `public.storefront_home_products_read(p_public_id text, p_cursor text, p_limit int)`** через PostgREST RPC. Проекция целиком на сервере — будущая граница под RLS. Миграции `0021`–`0024`; монолитный `storefront_home_read` (`0014`) удалён (`15 §6`).
 
 ---
 
-## 21. Один запрос вместо N+1
+## 21. Нет N+1, поток пагинируется
 
 Обязательное техническое требование. Не:
 
@@ -595,8 +580,10 @@ getStore() getCategories() getProducts() getImages() getVariants() getInventory(
 А:
 
 ```text
-loadStorefrontHome(publicId) → один контролируемый read → render
+Home → 2 read: storefront_home_context_read(public_id) + storefront_home_products_read(public_id, cursor, limit)
 ```
+
+Товарный поток догружается progressive-страницами (cursor), а не грузит весь магазин сразу (`15 §5`).
 
 ---
 
@@ -735,22 +722,24 @@ Home
 
 Последовательность неизменна. Один этап за раз: реализация → проверка (`typecheck`/`lint`/`test`) → ручная сверка владельцем → следующий этап.
 
-**Статус:** `H-01 — выполнено` (миграция `0014_storefront_home_read.sql` применена; `photo_url`; SQL-функция; контракты `read-models/storefront.ts` + маппер + тесты). `H-02 — выполнено` (`telegram-auth` читает `photo_url` → identity, ответ отдаёт `photoUrl`; `ServerUser.photoUrl`; fallback-правило `seller-avatar.ts`; функция передеплоена). `H-03 — выполнено` (порт `StorefrontRepository`, infra `loadStorefrontHome` (RPC + маппер), хук `useStorefrontHome` с loading/error/notFound/refresh; +9 тестов). `H-04 — выполнено` (Home shell: `HomeHeader` — название + поиск + аватар/fallback, `HomeBanner` (один, 2.2:1), `HomeSkeleton`, `StoreStatusView` (notFound/PAUSED), safe-area сверху, роут `/catalog`-заглушка; `StorefrontView` заменён; +16 тестов). `H-05 — выполнено` (`CategoryCarousel` + `CategoryItem`: фото категории + название, горизонтальный свайп, «Все →» и тап категории → Каталог; +8 тестов). `H-06 — выполнено` (`ProductGrid` (2 колонки) + `ProductCard` (фото/название/цена/зачёркнутая original/sold out, heart-cutout) + `FavoriteButton` (store-scoped, анимация, клик не открывает товар); `DetailsView` — заглушка; +11 тестов). `H-07 — выполнено` (`ProductSection`: заголовок «Товары», лимит `HOME_PRODUCTS_LIMIT = 6`, «Смотреть все →» в Каталог; +4 теста). `H-09 — выполнено` (вне очереди, по запросу): `FloatingNavBar` покупателя на том же `BottomNavBar`, что у продавца (pill, liquid-подсветка, haptic) — 5 вкладок (Главная · Каталог · ❤️(центр) · Заказы · Корзина), сердце по центру чуть крупнее (`iconSize: 28`); +6 тестов. `H-08 — выполнено` (`CatalogView`: поиск по названию (клиентский), чипы категорий «Все» + активные категории, сетка товаров; Home search → `/catalog?focus=1` + автофокус; данные через тот же `storefront_home_read` (кэш); фильтры/сортировка отложены по решению; +8 тестов). `H-10 — выполнено` (полноценный pause: `StoreStatusView` с брендовой шапкой (аватар+название)+контакт; гейт на Home **и** Catalog — покупка/поиск недоступны, добавление в корзину/оформление отсутствуют; существующие заказы не затрагиваются, серверный `STORE_PAUSED` остаётся; +4 теста). `H-11 — выполнено` (performance polish): изображения — thumb на карточках, `loading=lazy`/`decoding=async`, баннер `eager`, **фолбэк при сбое загрузки** (`useImageFallback`) в карточке/баннере/категории; загрузка — скелетоны Home и **Catalog** без белого flash/layout jump, базовый `.skel` вынесен в общий `components.css`; сеть — один `storefront_home_read` на Home и Catalog (общий кэш React Query, staleTime 5 мин, `refetchOnWindowFocus:false`), N+1 нет; UI — анимация сердца, плавный скролл категорий, `prefers-reduced-motion`. Telegram QA (iOS/Android/Desktop) — ручная проверка владельцем. **Все этапы H-01…H-11 закрыты.**
+**Статус (H-01…H-11):** buyer storefront MVP закрыт. **Hardening Home (HOME-HARDEN-01…11) выполнен** — см. `15_SHOPPIS_BUYER_HOME_HARDENING_AUDIT.md` (актуальные решения, миграции `0019`/`0021`–`0024`, прогрессивная cursor-пагинация, buyer avatar, только effective price, 5 равных вкладок). Историческая детализация H-01…H-11 ниже устарела в части фикс. 6 товаров, seller-аватара и «центрального сердца» и оставлена для истории.
+
+**Следующий блок:** Product Detail — `docs/14_SHOPPIS_PRODUCT_DETAIL_PLAN.md` (этапы `PD-01…PD-14`).
 
 ### Этап 1 — Storefront contracts + SQL `[H-01]`
 
-- Миграция `0014_storefront_home_read.sql`:
-  - `alter table telegram_identities add column photo_url text`;
-  - функция `public.storefront_home_read(p_public_id text)` (RPC, один запрос) → store/categories/products;
+- Миграция `0014` (исторически) заменена split-чтением `0021`/`0023`:
+  - `alter table telegram_identities add column photo_url text` (остаётся);
+  - `storefront_home_context_read(public_id)` + `storefront_home_products_read(public_id, cursor, limit)`;
   - grant execute.
-- Проверяем: store, public_id, store status, seller avatar, active categories, archived categories, active products, archived products, product images, first active variant, effective price, availability.
+- Проверяем: store, public_id, store status, active categories, archived categories, active products, archived products, product images, first active variant, effective price, availability.
 - Фиксируем поведение: deleted category → uncategorized; archived category → временно uncategorized; archived product → invisible; sold out → visible; paused store → storefront paused.
 
-### Этап 2 — Seller Telegram Avatar `[H-02]`
+### Этап 2 — Buyer Telegram Avatar `[H-02]`
 
-- В Telegram identity добавить `photoUrl`.
-- При seller auth: `Telegram photo_url → backend → photo_url` в identity.
-- Fallback: недоступно фото → первая буква.
+- В Telegram identity добавить `photoUrl`; `telegram-auth` отдаёт `photoUrl`.
+- Верхний правый Home — аватар **покупателя** (`serverUser.photoUrl`), fallback `getInitial(firstName)`.
+- Pause-шапка — публичный `logoUrl` магазина.
 
 ### Этап 3 — Buyer Storefront Repository `[H-03]`
 
@@ -772,7 +761,7 @@ Home
 
 ### Этап 7 — Home product section `[H-07]`
 
-- Ограниченное количество товаров: **6–8** + «Смотреть все →» → Catalog.
+- Первая страница progressive/cursor-потока + «Смотреть все →» → Catalog (`15 §5`).
 
 ### Этап 8 — Catalog `[H-08]`
 
@@ -781,7 +770,7 @@ Home
 
 ### Этап 9 — Bottom Navigation `[H-09]`
 
-- Покупательский навбар: Home, Catalog, Favorites, Orders, Cart; центр — крупное сердце с вырезом и единым accent-эффектом (§3).
+- Покупательский навбар: Home, Catalog, Favorites, Orders, Cart — 5 равнозначных вкладок (`15 §3.10`).
 
 ### Этап 10 — Pause Store `[H-10]`
 
@@ -823,11 +812,11 @@ BUYER APP
 │
 ├── 🏠 HOME
 │   ├── Store name
-│   ├── Seller avatar / profile (top-right, app-wide)
+│   ├── Buyer avatar / profile (top-right, app-wide)
 │   ├── Search → Catalog + focus
 │   ├── Banner (single)
 │   ├── Categories carousel (+ «Все →»)
-│   ├── Product preview grid (6–8)
+│   ├── Product stream (first page, progressive/cursor)
 │   └── View all → Catalog
 │
 ├── 🔎 CATALOG
@@ -857,17 +846,16 @@ BUYER APP
 Backend:
 
 ```text
-Telegram identity (photo_url)
+Telegram initData
        │
        ▼
-Seller / Store
+ServerUser (buyer photo/name)  ·  Store (seller)
+
+public_id
        │
        ▼
-storefront_home_read()
-       │
-       ├── Store
-       ├── Categories
-       └── Product Cards
+storefront_home_context_read()  → Store + Categories
+storefront_home_products_read() → Product Cards (cursor)
               │
               ▼
              HOME
@@ -884,16 +872,15 @@ storefront_home_read()
 - светлый холодный фон витрины; белые скруглённые карточки;
 - фото товара по центру;
 - сердце в **белом cutout-контейнере** в правом верхнем углу (у избранных — заполненное/акцентное);
-- под фото: название в 2 строки, цена жирным;
-- при скидке — зачёркнутая original рядом.
+- под фото: название в 2 строки, цена жирным (**только конечная effective price**; скидка/оригинал — в Product Detail).
 
 ### D.2 Главная
 
-- header: название магазина слева, справа поиск и профиль (**bell убираем**);
+- header: название магазина слева, справа поиск и профиль покупателя (**bell убираем**);
 - один крупный баннер;
 - секция категорий (в прототипе «Popular Brands» — **заменяем на категории магазина**, brands вне MVP);
-- секция товаров (в прототипе «New Arrival») → наш «Товары» + «Смотреть все»;
-- нижняя навигация с выделенным центральным сердцем.
+- секция товаров (в прототипе «New Arrival») → наш «Товары» (progressive/cursor) + «Смотреть все»;
+- нижняя навигация — 5 равнозначных вкладок (без особого центрального элемента).
 
 > Файлы прототипов положить в `docs/assets/buyer-home-proto-cards.png` и `docs/assets/buyer-home-proto-screen.png`; при необходимости вставим изображения в этот документ.
 

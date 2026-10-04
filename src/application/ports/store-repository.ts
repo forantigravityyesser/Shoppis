@@ -3,8 +3,6 @@ import type { CreateStoreInput } from '../contracts/store';
 
 export interface StoreRepository {
   fetchStore(storeId: string): Promise<Store | null>;
-  /** Публичное чтение витрины по opaque public_id. */
-  fetchStoreByPublicId(publicId: string): Promise<Store | null>;
   fetchStoresByOwnerUser(ownerUserId: string): Promise<Store[]>;
   createStore(input: CreateStoreInput): Promise<Store>;
   checkOwnershipByUser(storeId: string, userId: string): Promise<boolean>;

@@ -1,43 +1,43 @@
 import { Search } from 'lucide-react';
-import { sellerAvatarInitial } from '../../../domain/rules/seller-avatar';
+import { getInitial } from '../../../domain/rules/initial';
 
 interface Props {
   storeName: string;
-  sellerAvatarUrl: string | null;
+  /** Аватар текущего покупателя (`serverUser.photoUrl`); null → инициал. */
+  buyerAvatarUrl: string | null;
+  /** Имя покупателя (`serverUser.firstName`) для fallback-инициала. */
+  buyerName: string;
   onSearch: () => void;
   onProfile: () => void;
 }
 
 /**
  * Шапка витрины: слева название магазина (с усечением), справа поиск и профиль.
- * Уведомлений нет — вместо bell только поиск и аватар. docs/13 §4-5.
+ * Правый профиль — это аккаунт покупателя (`serverUser`), не продавец. Уведомлений
+ * нет — вместо bell только поиск и аватар. docs/15 §3.3.
  */
-export default function HomeHeader({ storeName, sellerAvatarUrl, onSearch, onProfile }: Props) {
+export default function HomeHeader({
+  storeName,
+  buyerAvatarUrl,
+  buyerName,
+  onSearch,
+  onProfile,
+}: Props) {
   return (
     <header className="home-header">
       <h1 className="home-header__name" title={storeName}>
         {storeName}
       </h1>
       <div className="home-header__actions">
-        <button
-          type="button"
-          className="home-icon-btn"
-          aria-label="Поиск"
-          onClick={onSearch}
-        >
+        <button type="button" className="home-icon-btn" aria-label="Поиск" onClick={onSearch}>
           <Search size={20} strokeWidth={2.5} />
         </button>
-        <button
-          type="button"
-          className="home-icon-btn"
-          aria-label="Профиль"
-          onClick={onProfile}
-        >
-          {sellerAvatarUrl ? (
-            <img className="home-avatar__img" src={sellerAvatarUrl} alt="" decoding="async" />
+        <button type="button" className="home-icon-btn" aria-label="Профиль" onClick={onProfile}>
+          {buyerAvatarUrl ? (
+            <img className="home-avatar__img" src={buyerAvatarUrl} alt="" decoding="async" />
           ) : (
             <span className="home-avatar__initial" aria-hidden>
-              {sellerAvatarInitial(storeName)}
+              {getInitial(buyerName)}
             </span>
           )}
         </button>

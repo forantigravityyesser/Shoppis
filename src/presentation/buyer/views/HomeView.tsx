@@ -1,6 +1,8 @@
 import { useNavigate } from 'react-router';
 import { useStore } from '../../../application/store';
 import { useStorefrontHome } from '../../../application/hooks/useStorefrontHome';
+import { useStorefrontHomeProducts } from '../../../application/hooks/useStorefrontHomeProducts';
+import { useInfiniteScrollSentinel } from '../hooks/useInfiniteScrollSentinel';
 import HomeHeader from '../components/HomeHeader';
 import HomeBanner from '../components/HomeBanner';
 import CategorySection from '../components/CategorySection';
@@ -11,27 +13,41 @@ import '../category.css';
 import '../home.css';
 
 /**
- * Главная витрины покупателя. Данные — одним запросом (`storefront_home_read`)
- * через `useStorefrontHome`. Статус-гейт: loading → skeleton, не найдено / PAUSED →
- * состояние, ACTIVE → шапка, белый лист: баннер + категории с фото + товары.
+ * Главная витрины покупателя. Данные разделены: статичный контекст
+ * (`useStorefrontHome`: store + категории) и товарный поток
+ * (`useStorefrontHomeProducts`: первая страница с серверным лимитом).
+ * Статус-гейт: loading → skeleton, не найдено / PAUSED → состояние,
+ * ACTIVE → шапка, баннер, категории, товары. docs/15 §5-6.
  */
 export default function HomeView() {
   const navigate = useNavigate();
   const viewedStore = useStore((s) => s.viewedStore);
+  const serverUser = useStore((s) => s.serverUser);
   const authLoading = useStore((s) => s.authLoading);
 
   const publicId = viewedStore?.publicId ?? null;
   const { home, loading, error, notFound, refresh } = useStorefrontHome(publicId);
+  const productStream = useStorefrontHomeProducts(publicId);
+  const sentinelRef = useInfiniteScrollSentinel({
+    onLoadMore: productStream.loadMore,
+    enabled: productStream.hasNextPage && !productStream.fetchingNextPage,
+  });
 
-  if (authLoading || loading) {
+  const retry = () => {
+    refresh();
+    productStream.refresh();
+  };
+
+  if (authLoading || loading || productStream.loading) {
     return <HomeSkeleton />;
   }
 
-  if (error) {
+  const loadError = error ?? productStream.error;
+  if (loadError) {
     return (
       <div className="home home-error">
         <div className="card card__muted">Не удалось загрузить магазин.</div>
-        <button type="button" className="home-retry" onClick={refresh}>
+        <button type="button" className="home-retry" onClick={retry}>
           Повторить
         </button>
       </div>
@@ -47,7 +63,7 @@ export default function HomeView() {
       <StoreStatusView
         variant="paused"
         storeName={home.store.name}
-        sellerAvatarUrl={home.store.sellerAvatarUrl}
+        logoUrl={viewedStore?.logoUrl ?? null}
         supportHandle={viewedStore?.supportHandle}
       />
     );
@@ -57,7 +73,8 @@ export default function HomeView() {
     <div className="home">
       <HomeHeader
         storeName={home.store.name}
-        sellerAvatarUrl={home.store.sellerAvatarUrl}
+        buyerAvatarUrl={serverUser?.photoUrl ?? null}
+        buyerName={serverUser?.firstName ?? ''}
         onSearch={() => navigate('/catalog?focus=1')}
         onProfile={() => navigate('/account')}
       />
@@ -69,11 +86,31 @@ export default function HomeView() {
           onViewAll={() => navigate('/catalog')}
         />
         <ProductSection
-          products={home.products}
+          products={productStream.products}
           currencySymbol={home.store.currencySymbol}
           onOpen={(productId) => navigate(`/product/${productId}`)}
           onViewAll={() => navigate('/catalog')}
         />
+        {productStream.products.length > 0 ? (
+          <>
+            <div
+              ref={sentinelRef}
+              className="home-stream-sentinel"
+              aria-hidden
+              data-testid="home-stream-sentinel"
+            />
+            {productStream.fetchingNextPage ? (
+              <div
+                className="home-stream-loading"
+                role="status"
+                aria-label="Загрузка товаров"
+                data-testid="home-stream-loading"
+              >
+                <span className="home-stream-spinner" aria-hidden />
+              </div>
+            ) : null}
+          </>
+        ) : null}
       </div>
     </div>
   );

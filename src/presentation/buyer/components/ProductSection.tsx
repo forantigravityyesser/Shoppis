@@ -1,29 +1,20 @@
 import type { StorefrontProductCard } from '../../../application/read-models/storefront';
 import ProductGrid from './ProductGrid';
 
-/** Сколько карточек показываем на Главной (остальное — в Каталоге). docs/13 §2, §7. */
-export const HOME_PRODUCTS_LIMIT = 6;
-
 interface Props {
   products: StorefrontProductCard[];
   currencySymbol: string;
   onOpen: (id: string) => void;
   /** «Смотреть все →» — переход в Каталог. */
   onViewAll: () => void;
-  limit?: number;
 }
 
 /**
- * Секция «Товары» на Главной: ограниченная подборка + «Смотреть все →» в Каталог.
- * Home остаётся лёгкой и продающей, весь ассортимент — в Каталоге. docs/13 §2, §7.
+ * Секция «Товары» на Главной: рендерит полученную страницу товарного потока +
+ * «Смотреть все →» в Каталог. Лимит задаётся сервером в `useStorefrontHomeProducts`
+ * (никакого «все товары + slice»). docs/15 §5.
  */
-export default function ProductSection({
-  products,
-  currencySymbol,
-  onOpen,
-  onViewAll,
-  limit = HOME_PRODUCTS_LIMIT,
-}: Props) {
+export default function ProductSection({ products, currencySymbol, onOpen, onViewAll }: Props) {
   if (!products.length) return null;
 
   return (
@@ -34,11 +25,7 @@ export default function ProductSection({
           Смотреть все →
         </button>
       </div>
-      <ProductGrid
-        products={products.slice(0, limit)}
-        currencySymbol={currencySymbol}
-        onOpen={onOpen}
-      />
+      <ProductGrid products={products} currencySymbol={currencySymbol} onOpen={onOpen} />
     </section>
   );
 }

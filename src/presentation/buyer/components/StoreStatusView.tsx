@@ -1,13 +1,14 @@
 import { Send } from 'lucide-react';
-import { sellerAvatarInitial } from '../../../domain/rules/seller-avatar';
+import { getInitial } from '../../../domain/rules/initial';
 
 interface Props {
   variant: 'notFound' | 'paused';
   /** Название магазина для брендовой шапки на паузе. docs/13 §15. */
   storeName?: string;
-  sellerAvatarUrl?: string | null;
-  /** Контакт продавца (только для pause). */
-  supportHandle?: string;
+  /** Публичный логотип магазина; null → инициал названия. docs/15 §3.4. */
+  logoUrl?: string | null;
+  /** Контакт продавца (только для pause); null/undefined → кнопка не рендерится. */
+  supportHandle?: string | null;
 }
 
 /**
@@ -18,7 +19,7 @@ interface Props {
 export default function StoreStatusView({
   variant,
   storeName,
-  sellerAvatarUrl,
+  logoUrl,
   supportHandle,
 }: Props) {
   if (variant === 'notFound') {
@@ -37,11 +38,11 @@ export default function StoreStatusView({
     <div className="store-status">
       {storeName ? (
         <div className="store-status__brand">
-          {sellerAvatarUrl ? (
-            <img className="store-status__avatar" src={sellerAvatarUrl} alt="" decoding="async" />
+          {logoUrl ? (
+            <img className="store-status__avatar" src={logoUrl} alt="" decoding="async" />
           ) : (
             <span className="store-status__avatar store-status__avatar--initial" aria-hidden>
-              {sellerAvatarInitial(storeName)}
+              {getInitial(storeName)}
             </span>
           )}
           <span className="store-status__name">{storeName}</span>

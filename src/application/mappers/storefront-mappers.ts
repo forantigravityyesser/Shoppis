@@ -1,7 +1,15 @@
-import type { StorefrontCategory, StorefrontHome, StorefrontProductCard, StorefrontStore } from '../read-models/storefront';
+import type {
+  StorefrontCategory,
+  StorefrontHome,
+  StorefrontHomeProductPage,
+  StorefrontProductCard,
+  StorefrontStore,
+} from '../read-models/storefront';
+import type { PublicStoreContext } from '../read-models/public-store';
 
 /**
- * Нормализует ответ `storefront_home_read` (jsonb) в `StorefrontHome`.
+ * Нормализует ответы публичного storefront-read (`storefront_home_context_read`,
+ * `storefront_home_products_read`, `storefront_public_context_read`) в read-модели.
  * Возвращает null, если магазин не найден/ответ некорректен — вызывающий слой
  * показывает состояние «магазин не найден». Defensive parsing: projection
  * приходит из БД, но граница типов остаётся явной.
@@ -33,7 +41,6 @@ function mapStore(raw: unknown): StorefrontStore | null {
     publicId,
     name: asString(raw.name),
     bannerUrl: asNullableString(raw.bannerUrl),
-    sellerAvatarUrl: asNullableString(raw.sellerAvatarUrl),
     status: raw.status === 'PAUSED' ? 'PAUSED' : 'ACTIVE',
     currencyCode: asString(raw.currencyCode) as StorefrontStore['currencyCode'],
     currencySymbol: asString(raw.currencySymbol),
@@ -62,11 +69,30 @@ function mapProduct(raw: unknown): StorefrontProductCard | null {
     categoryId: asNullableString(raw.categoryId),
     imageUrl: asNullableString(raw.imageUrl),
     price: asNumber(raw.price),
-    originalPrice: raw.originalPrice == null ? null : asNumber(raw.originalPrice),
     available: raw.available === true,
   };
 }
 
+/**
+ * Минимальный публичный контекст витрины (`storefront_public_context_read`).
+ * Обязательны `id` и `publicId`; остального проекция может не содержать.
+ */
+export function mapPublicStoreContext(raw: unknown): PublicStoreContext | null {
+  if (!isRecord(raw)) return null;
+  const id = asString(raw.id);
+  const publicId = asString(raw.publicId);
+  if (!id || !publicId) return null;
+  return {
+    id,
+    publicId,
+    name: asString(raw.name),
+    status: raw.status === 'PAUSED' ? 'PAUSED' : 'ACTIVE',
+    supportHandle: asNullableString(raw.supportHandle),
+    logoUrl: asNullableString(raw.logoUrl),
+  };
+}
+
+/** Контекст витрины: store + активные категории (`storefront_home_context_read`). */
 export function mapStorefrontHome(raw: unknown): StorefrontHome | null {
   if (!isRecord(raw)) return null;
   const store = mapStore(raw.store);
@@ -76,8 +102,16 @@ export function mapStorefrontHome(raw: unknown): StorefrontHome | null {
     categories: Array.isArray(raw.categories)
       ? raw.categories.map(mapCategory).filter((c): c is StorefrontCategory => c !== null)
       : [],
+  };
+}
+
+/** Страница товарного потока (`storefront_home_products_read`). */
+export function mapStorefrontHomeProductPage(raw: unknown): StorefrontHomeProductPage | null {
+  if (!isRecord(raw)) return null;
+  return {
     products: Array.isArray(raw.products)
       ? raw.products.map(mapProduct).filter((p): p is StorefrontProductCard => p !== null)
       : [],
+    nextCursor: asNullableString(raw.nextCursor),
   };
 }

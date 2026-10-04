@@ -4,25 +4,38 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 
-const { useStorefrontHome, state } = vi.hoisted(() => ({
+const { useStorefrontHome, useStorefrontHomeProducts, state } = vi.hoisted(() => ({
   useStorefrontHome: vi.fn(),
+  useStorefrontHomeProducts: vi.fn(),
   state: {
-    viewedStore: null as null | { publicId: string; supportHandle?: string },
+    viewedStore: null as null | {
+      publicId: string;
+      supportHandle?: string;
+      logoUrl?: string | null;
+    },
     authLoading: false,
     storeId: undefined as string | undefined,
+    serverUser: null as null | { photoUrl: string; firstName: string },
     favoritesByStore: {} as Record<string, string[]>,
     toggleFavorite: () => {},
   },
 }));
 
 vi.mock('../../../application/hooks/useStorefrontHome', () => ({ useStorefrontHome }));
+vi.mock('../../../application/hooks/useStorefrontHomeProducts', () => ({
+  useStorefrontHomeProducts,
+}));
 vi.mock('../../../application/store', () => ({
   useStore: (selector: (s: typeof state) => unknown) => selector(state),
 }));
 
 import HomeView from './HomeView';
-import type { StorefrontHome } from '../../../application/read-models/storefront';
+import type {
+  StorefrontHome,
+  StorefrontProductCard,
+} from '../../../application/read-models/storefront';
 import type { StorefrontHomeState } from '../../../application/hooks/useStorefrontHome';
+import type { StorefrontHomeProductsState } from '../../../application/hooks/useStorefrontHomeProducts';
 
 const HOME: StorefrontHome = {
   store: {
@@ -30,21 +43,44 @@ const HOME: StorefrontHome = {
     publicId: 'pub1',
     name: 'Nike Shop',
     bannerUrl: 'https://cdn/banner.jpg',
-    sellerAvatarUrl: null,
     status: 'ACTIVE',
     currencyCode: 'USD',
     currencySymbol: '$',
   },
   categories: [],
-  products: [],
 };
 
-function hookState(overrides: Partial<StorefrontHomeState> = {}): StorefrontHomeState {
+const PRODUCT: StorefrontProductCard = {
+  id: 'p1',
+  title: 'Nike T-Shirt',
+  categoryId: null,
+  imageUrl: null,
+  price: 249000,
+  available: true,
+};
+
+function contextState(overrides: Partial<StorefrontHomeState> = {}): StorefrontHomeState {
   return {
     home: null,
     loading: false,
     error: null,
     notFound: false,
+    refresh: vi.fn(),
+    ...overrides,
+  };
+}
+
+function productsState(
+  overrides: Partial<StorefrontHomeProductsState> = {},
+): StorefrontHomeProductsState {
+  return {
+    products: [],
+    nextCursor: null,
+    hasNextPage: false,
+    loading: false,
+    fetchingNextPage: false,
+    error: null,
+    loadMore: vi.fn(),
     refresh: vi.fn(),
     ...overrides,
   };
@@ -60,27 +96,37 @@ function renderHome() {
 
 beforeEach(() => {
   useStorefrontHome.mockReset();
+  useStorefrontHomeProducts.mockReset();
   state.viewedStore = { publicId: 'pub1', supportHandle: '' };
   state.authLoading = false;
+  state.serverUser = null;
+  useStorefrontHomeProducts.mockReturnValue(productsState());
 });
 
 describe('HomeView', () => {
-  it('loading → skeleton', () => {
-    useStorefrontHome.mockReturnValue(hookState({ loading: true }));
+  it('loading контекста → skeleton', () => {
+    useStorefrontHome.mockReturnValue(contextState({ loading: true }));
     const { container } = renderHome();
     expect(container.querySelector('.home-skel')).toBeTruthy();
   });
 
-  it('authLoading → skeleton даже без loading хука', () => {
+  it('loading товарного потока → skeleton', () => {
+    useStorefrontHome.mockReturnValue(contextState({ home: HOME }));
+    useStorefrontHomeProducts.mockReturnValue(productsState({ loading: true }));
+    const { container } = renderHome();
+    expect(container.querySelector('.home-skel')).toBeTruthy();
+  });
+
+  it('authLoading → skeleton даже без loading хуков', () => {
     state.authLoading = true;
-    useStorefrontHome.mockReturnValue(hookState());
+    useStorefrontHome.mockReturnValue(contextState());
     const { container } = renderHome();
     expect(container.querySelector('.home-skel')).toBeTruthy();
   });
 
   it('notFound → «Магазин не найден»', () => {
     state.viewedStore = null;
-    useStorefrontHome.mockReturnValue(hookState({ notFound: true }));
+    useStorefrontHome.mockReturnValue(contextState({ notFound: true }));
     renderHome();
     expect(screen.getByText('Магазин не найден')).toBeInTheDocument();
   });
@@ -88,7 +134,7 @@ describe('HomeView', () => {
   it('PAUSED → экран паузы с контактом', () => {
     state.viewedStore = { publicId: 'pub1', supportHandle: 'john' };
     useStorefrontHome.mockReturnValue(
-      hookState({ home: { ...HOME, store: { ...HOME.store, status: 'PAUSED' } } }),
+      contextState({ home: { ...HOME, store: { ...HOME.store, status: 'PAUSED' } } }),
     );
     renderHome();
     expect(screen.getByText('Магазин временно закрыт')).toBeInTheDocument();
@@ -100,13 +146,13 @@ describe('HomeView', () => {
   });
 
   it('ACTIVE → шапка с названием магазина', () => {
-    useStorefrontHome.mockReturnValue(hookState({ home: HOME }));
+    useStorefrontHome.mockReturnValue(contextState({ home: HOME }));
     renderHome();
     expect(screen.getByRole('heading', { name: 'Nike Shop' })).toBeInTheDocument();
   });
 
   it('ACTIVE → рендерит единственный баннер магазина', () => {
-    useStorefrontHome.mockReturnValue(hookState({ home: HOME }));
+    useStorefrontHome.mockReturnValue(contextState({ home: HOME }));
     renderHome();
     expect(screen.getByRole('img', { name: 'Nike Shop' })).toHaveAttribute(
       'src',
@@ -116,48 +162,57 @@ describe('HomeView', () => {
 
   it('ACTIVE → рендерит категории-чипы', () => {
     useStorefrontHome.mockReturnValue(
-      hookState({
-        home: {
-          ...HOME,
-          categories: [{ id: 'c1', name: 'Обувь', imageUrl: null, sortOrder: 0 }],
-        },
+      contextState({
+        home: { ...HOME, categories: [{ id: 'c1', name: 'Обувь', imageUrl: null, sortOrder: 0 }] },
       }),
     );
     renderHome();
     expect(screen.getByRole('button', { name: 'Обувь' })).toBeInTheDocument();
   });
 
-  it('ACTIVE → рендерит карточки товаров', () => {
-    useStorefrontHome.mockReturnValue(
-      hookState({
-        home: {
-          ...HOME,
-          products: [
-            {
-              id: 'p1',
-              title: 'Nike T-Shirt',
-              categoryId: null,
-              imageUrl: null,
-              price: 249000,
-              originalPrice: null,
-              available: true,
-            },
-          ],
-        },
-      }),
-    );
+  it('ACTIVE → рендерит карточки из товарного потока', () => {
+    useStorefrontHome.mockReturnValue(contextState({ home: HOME }));
+    useStorefrontHomeProducts.mockReturnValue(productsState({ products: [PRODUCT] }));
     renderHome();
     expect(screen.getByRole('heading', { name: 'Товары' })).toBeInTheDocument();
     expect(screen.getByText('Nike T-Shirt')).toBeInTheDocument();
     expect(screen.getByText('2490 $')).toBeInTheDocument();
   });
 
-  it('ошибка → «Повторить» вызывает refresh', async () => {
+  it('товарный поток: sentinel догрузки рендерится при товарах', () => {
+    useStorefrontHome.mockReturnValue(contextState({ home: HOME }));
+    useStorefrontHomeProducts.mockReturnValue(
+      productsState({ products: [PRODUCT], hasNextPage: true }),
+    );
+    renderHome();
+    expect(screen.getByTestId('home-stream-sentinel')).toBeInTheDocument();
+  });
+
+  it('товарный поток: во время догрузки — индикатор, без sentinel-эффекта', () => {
+    useStorefrontHome.mockReturnValue(contextState({ home: HOME }));
+    useStorefrontHomeProducts.mockReturnValue(
+      productsState({ products: [PRODUCT], hasNextPage: true, fetchingNextPage: true }),
+    );
+    renderHome();
+    expect(screen.getByTestId('home-stream-loading')).toBeInTheDocument();
+  });
+
+  it('без товаров sentinel не рендерится', () => {
+    useStorefrontHome.mockReturnValue(contextState({ home: HOME }));
+    useStorefrontHomeProducts.mockReturnValue(productsState({ products: [] }));
+    renderHome();
+    expect(screen.queryByTestId('home-stream-sentinel')).toBeNull();
+  });
+
+  it('ошибка → «Повторить» вызывает refresh контекста и потока', async () => {
     const refresh = vi.fn();
-    useStorefrontHome.mockReturnValue(hookState({ error: 'boom', refresh }));
+    const refreshProducts = vi.fn();
+    useStorefrontHome.mockReturnValue(contextState({ error: 'boom', refresh }));
+    useStorefrontHomeProducts.mockReturnValue(productsState({ refresh: refreshProducts }));
     renderHome();
 
     await userEvent.click(screen.getByRole('button', { name: 'Повторить' }));
     expect(refresh).toHaveBeenCalledTimes(1);
+    expect(refreshProducts).toHaveBeenCalledTimes(1);
   });
 });

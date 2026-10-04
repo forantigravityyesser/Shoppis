@@ -9,6 +9,14 @@ export interface FlyingDot {
   y: number;
 }
 
+export interface ToastMessage {
+  /** Уникальный id — ключ для перезапуска анимации и (re)таймера. */
+  id: string;
+  text: string;
+  /** Миниатюра товара (например, при добавлении в корзину). */
+  imageUrl?: string | null;
+}
+
 export interface UiSlice {
   animations: FlyingDot[];
   pushAnimation: (dot: Omit<FlyingDot, 'id'>) => void;
@@ -16,8 +24,9 @@ export interface UiSlice {
   activeModal: string | null;
   openModal: (name: string) => void;
   closeModal: () => void;
-  toast: string | null;
-  showToast: (text: string) => void;
+  toast: ToastMessage | null;
+  /** Строка (обычный тост) либо объект с миниатюрой (напр. добавление в корзину). */
+  showToast: (input: string | { text: string; imageUrl?: string | null }) => void;
   clearToast: () => void;
 }
 
@@ -33,6 +42,12 @@ export const createUiSlice: StateCreator<RootStore, [], [], UiSlice> = (set) => 
   openModal: (name) => set({ activeModal: name }),
   closeModal: () => set({ activeModal: null }),
   toast: null,
-  showToast: (text) => set({ toast: text }),
+  showToast: (input) =>
+    set({
+      toast:
+        typeof input === 'string'
+          ? { id: uid(), text: input }
+          : { id: uid(), text: input.text, imageUrl: input.imageUrl ?? null },
+    }),
   clearToast: () => set({ toast: null }),
 });

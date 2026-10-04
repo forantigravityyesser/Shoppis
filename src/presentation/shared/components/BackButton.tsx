@@ -1,6 +1,7 @@
 import { ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { useHaptic } from '../../../application/hooks/useHaptic';
+import { canGoBack } from '../can-go-back';
 
 interface BackButtonProps {
   /**
@@ -9,25 +10,27 @@ interface BackButtonProps {
    */
   fallback: string;
   label?: string;
-}
-
-/** Есть ли в истории роутера предыдущий переход, куда можно вернуться. */
-function canGoBack(): boolean {
-  if (typeof window === 'undefined' || !window.history.state) return false;
-  const { idx } = window.history.state as { idx?: number };
-  return typeof idx === 'number' && idx > 0;
+  /**
+   * Перехватить навигацию (например, чтобы проиграть анимацию выхода слоя).
+   * Если задан — вызывается вместо стандартного перехода; haptic сохраняется.
+   */
+  onClick?: () => void;
 }
 
 /**
  * Умный «назад» как в мобильных приложениях: возвращает по истории роутера,
  * а при её отсутствии ведёт на безопасный fallback-маршрут вместо выхода из приложения.
  */
-export default function BackButton({ fallback, label = 'Назад' }: BackButtonProps) {
+export default function BackButton({ fallback, label = 'Назад', onClick }: BackButtonProps) {
   const navigate = useNavigate();
   const { selectTick } = useHaptic();
 
   const goBack = () => {
     selectTick();
+    if (onClick) {
+      onClick();
+      return;
+    }
     if (canGoBack()) {
       navigate(-1);
     } else {

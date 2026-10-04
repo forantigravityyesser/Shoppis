@@ -1,22 +1,29 @@
+import { MotionConfig } from 'framer-motion';
 import { useStore } from './application/store';
 import { useAppInit } from './application/hooks/useAppInit';
 import AppRouter from './router';
 
-/** Точка входа: init/resolve auth → роутер buyer/seller */
+/**
+ * Точка входа: init/resolve auth → роутер buyer/seller.
+ * `MotionConfig reducedMotion="user"` — единая политика: transform/layout-анимации
+ * отключаются при системном prefers-reduced-motion, opacity/color остаются (docs/14 §16).
+ */
 export default function App() {
   const isAppInitializing = useStore((s) => s.isAppInitializing);
 
   useAppInit();
 
-  if (isAppInitializing) {
-    return (
-      <div style={styles.loader}>
-        <div style={styles.spinner} />
-      </div>
-    );
-  }
-
-  return <AppRouter />;
+  return (
+    <MotionConfig reducedMotion="user">
+      {isAppInitializing ? (
+        <div style={styles.loader}>
+          <div style={styles.spinner} />
+        </div>
+      ) : (
+        <AppRouter />
+      )}
+    </MotionConfig>
+  );
 }
 
 const styles: Record<string, React.CSSProperties> = {

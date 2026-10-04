@@ -214,25 +214,25 @@ Delivery zones/prices; multi-shop UI; customer profiles; refusal analytics; aggr
 Публичная витрина читается через отдельный read layer, а не напрямую из таблиц покупателем:
 
 ```text
-public.storefront_home_read(p_public_id text)  -- read-only RPC, один запрос
-  → { store, categories, products }
+public.storefront_home_context_read(p_public_id text)             -- store + categories
+public.storefront_home_products_read(p_public_id, cursor, limit)  -- products (keyset)
 ```
 
 Функция возвращает только разрешённые покупателю данные и является будущей границей под RLS
 (сейчас RLS выключен, reads идут через anon). Правила проекции:
 
-- `store` — по `public_id`; `status` (`ACTIVE|PAUSED`); `sellerAvatarUrl` = `photo_url`
-  владельца из `telegram_identities`; `bannerUrl`; `currency`.
+- `store` — по `public_id`; `status` (`ACTIVE|PAUSED`); `bannerUrl`; `currency`. Аватар продавца
+  в buyer-проекцию не входит.
 - `categories` — только `status = ACTIVE`, отсортированы по `sort_order`.
-- `products` — только `status = ACTIVE`, отсортированы по `sort_order`, затем `created_at`.
+- `products` — только `status = ACTIVE`; keyset-порядок `created_at DESC, id DESC`.
 - `categoryId` товара в проекции = `category_id`, если категория `ACTIVE`, иначе `null`
   (архивная категория для покупателя не существует, но `product.category_id` в БД не меняется).
 - `imageUrl` — `thumb_storage_key` (fallback `storage_key`).
-- `price` / `originalPrice` — effective price **первого активного варианта** (`sort_order`, затем
-  `created_at`); деньги в minor units.
+- `price` — **только конечная effective price** первого активного варианта; деньги в minor units.
+  (`originalPrice`/скидка в Home-проекцию не входят — только Product Detail.)
 - `available` — `stock = 0` у всех активных вариантов → `false` (товар остаётся видимым).
 
-## 30. Seller avatar (photo_url)
+## 30. Telegram photo_url
 
 Telegram `photo_url` фиксируется в identity-слое при серверной аутентификации:
 
@@ -240,6 +240,7 @@ Telegram `photo_url` фиксируется в identity-слое при серв
 Telegram initData.photo_url → telegram-auth → telegram_identities.photo_url
 ```
 
-Колонка: `telegram_identities.photo_url text` (nullable). Витрина получает `sellerAvatarUrl`
-через `storefront_home_read` (join `stores.owner_user_id → telegram_identities`). Денормализация
-в `stores` не требуется. Fallback на клиенте при `null` — первая буква `first_name`/имени.
+Колонка: `telegram_identities.photo_url text` (nullable). Используется как `ServerUser.photoUrl` —
+аватар **текущего покупателя** в шапке Home (fallback `getInitial(firstName)`). В buyer storefront
+`photo_url` продавца **не** отдаётся: `sellerAvatarUrl` удалён из проекции (`15 §3.3-3.4`). На pause
+показывается публичный логотип магазина (`stores.logo_url`).

@@ -16,7 +16,6 @@ function makeProducts(count: number): StorefrontProductCard[] {
     categoryId: null,
     imageUrl: null,
     price: 100000,
-    originalPrice: null,
     available: true,
   }));
 }
@@ -55,20 +54,18 @@ describe('ProductSection', () => {
     expect(onViewAll).toHaveBeenCalledTimes(1);
   });
 
-  it('ограничивает количество карточек лимитом', () => {
+  it('рендерит все переданные карточки (лимит — на сервере)', () => {
     render(
       <ProductSection
         products={makeProducts(8)}
         currencySymbol="$"
         onOpen={vi.fn()}
         onViewAll={vi.fn()}
-        limit={6}
       />,
     );
 
-    expect(screen.getByText('Товар 6')).toBeInTheDocument();
-    expect(screen.queryByText('Товар 7')).toBeNull();
-    expect(screen.queryByText('Товар 8')).toBeNull();
+    expect(screen.getByText('Товар 1')).toBeInTheDocument();
+    expect(screen.getByText('Товар 8')).toBeInTheDocument();
   });
 
   it('тап карточки открывает товар', async () => {

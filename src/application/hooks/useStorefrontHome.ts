@@ -13,9 +13,10 @@ export interface StorefrontHomeState {
 }
 
 /**
- * Публичная витрина по `public_id` одним запросом (`storefront_home_read`).
- * Кэш/ретраи — на `QueryClient` (staleTime 5 мин, retry 1). Без `publicId`
- * запрос отключён, чтобы не ходить в сеть до резолва магазина (`useAppInit`).
+ * Статичный контекст витрины по `public_id` (`storefront_home_context_read`):
+ * store + активные категории. Товарный поток — отдельно (`useStorefrontHomeProducts`).
+ * Кэш/ретраи — на `QueryClient`. Без `publicId` запрос отключён, чтобы не ходить
+ * в сеть до резолва магазина (`useAppInit`).
  */
 export function useStorefrontHome(publicId: string | null): StorefrontHomeState {
   const enabled = Boolean(publicId);

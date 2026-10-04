@@ -19,19 +19,16 @@ OpenCode receives one bounded task at a time. Each task states objective, files/
 - **Между Stage 2 и Stage 3 (выполнено):** Inventory (`06`–`09`, реальный backend + image
   optimization), Store Settings и storefront link (`10`, `12`: профиль/валюта/язык/контакт/шара,
   pause, Deep Link `shop_<public_id>`).
-- **Stage 3 — Buyer storefront (Главная + Каталог)** — текущее направление. Полная спецификация и
-  этапы `H-01…H-11` — `13_SHOPPIS_BUYER_HOME_PLAN.md §28`. Кратко:
-  - **H-01** storefront contracts + SQL `storefront_home_read` (+ `telegram_identities.photo_url`); миграция `0014`;
-  - **H-02** seller avatar (`photo_url` → projection);
-  - **H-03** `StorefrontRepository` + `useStorefrontHome` (loading/error/retry/cache);
-  - **H-04** Home shell (Header, баннер, safe-area, skeleton);
-  - **H-05** Categories (`CategoryCarousel`, «Все →» → Catalog);
-  - **H-06** Product Grid (`ProductGrid`, `ProductCard`, `FavoriteButton`, heart cutout);
-  - **H-07** Home product section (6–8 + «Смотреть все»);
-  - **H-08** Catalog (search, all, categories, filters, grid; Home search → focus);
-  - **H-09** buyer Bottom Navigation (5 вкладок, крупное сердце по центру);
+- **Stage 3 — Buyer storefront (Главная + Каталог)** — **выполнен** (H-01…H-11 + hardening
+  HOME-HARDEN-01…11). Спецификация — `13` (v0.5), разбор и hardening — `15`. Кратко (актуальное):
+  - **H-01/H-02** публичный storefront-read + `telegram_identities.photo_url`; buyer avatar;
+  - **H-03/H-07** `StorefrontRepository`, `useStorefrontHome` (context) + `useStorefrontHomeProducts`
+    (progressive/cursor), `StorefrontHomeProductPage`;
+  - **H-04/H-05/H-06** Home shell, Categories, Product Grid (`ProductCard` — open-area button + heart);
+  - **H-08** Catalog (прототип: client-side search/filter; отдельная server-side feature — далее);
+  - **H-09** buyer Bottom Navigation — 5 равнозначных вкладок;
   - **H-10** pause store state;
-  - **H-11** performance polish (skeleton/images/network/UI/Telegram QA).
+  - **H-11** performance (единый `SafeImage`, 2 read, keyset-индекс `0024`).
   Правило сохраняется: один этап за раз → тесты → ручная сверка владельцем → следующий этап.
 - **Далее** — остальные vertical slices (Product Detail, Cart, Orders, Reviews/Questions, …).
 
@@ -74,7 +71,7 @@ Available/held buckets, InventoryMovement, atomic updates, manual held→availab
 ### 8 — Buyer storefront
 Shop, pause screen, categories, search title+description, product detail, variants, favorites, related products.
 Home и Catalog разделены: Home — витрина/завлечение, Catalog — поиск/фильтры/весь ассортимент.
-Storefront-read — `storefront_home_read(public_id)`. Детали и этапы `H-01…H-11` — `13`.
+Storefront-read — `storefront_home_context_read` + `storefront_home_products_read` (keyset). Детали — `13` (v0.5); hardening — `15`.
 
 ### 9 — Cart
 Shop-scoped cart, quantities, selected checkout items. No reservation.

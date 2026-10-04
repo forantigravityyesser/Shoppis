@@ -11,6 +11,16 @@ const CartView = lazy(() => import('./presentation/buyer/views/CartView'));
 const FavoritesView = lazy(() => import('./presentation/buyer/views/FavoritesView'));
 const OrdersView = lazy(() => import('./presentation/buyer/views/OrdersView'));
 const AccountView = lazy(() => import('./presentation/buyer/views/AccountView'));
+const ProductAbout = lazy(() => import('./presentation/buyer/views/product/ProductAbout'));
+const StorefrontProductReviewsView = lazy(
+  () => import('./presentation/buyer/views/product/ProductReviewsView'),
+);
+const StorefrontProductQuestionsView = lazy(
+  () => import('./presentation/buyer/views/product/ProductQuestionsView'),
+);
+const StorefrontProductRelatedView = lazy(
+  () => import('./presentation/buyer/views/product/ProductRelated'),
+);
 
 const SellerDashboard = lazy(() => import('./presentation/seller/views/SellerDashboard'));
 const InventoryView = lazy(() => import('./presentation/seller/views/InventoryView'));
@@ -129,7 +139,12 @@ export default function AppRouter() {
         <Route path="/favorites" element={<FavoritesView />} />
         <Route path="/orders" element={<OrdersView />} />
         <Route path="/account" element={<AccountView />} />
-        <Route path="/product/:id" element={<DetailsView />} />
+        <Route path="/product/:id" element={<DetailsView />}>
+          <Route index element={<ProductAbout />} />
+          <Route path="reviews" element={<StorefrontProductReviewsView />} />
+          <Route path="questions" element={<StorefrontProductQuestionsView />} />
+          <Route path="related" element={<StorefrontProductRelatedView />} />
+        </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

@@ -19,13 +19,11 @@ const HOME: StorefrontHome = {
     publicId: 'pub1',
     name: 'Nike',
     bannerUrl: null,
-    sellerAvatarUrl: null,
     status: 'ACTIVE',
     currencyCode: 'USD',
     currencySymbol: '$',
   },
   categories: [],
-  products: [],
 };
 
 let client: QueryClient;

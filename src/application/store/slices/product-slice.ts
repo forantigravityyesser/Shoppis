@@ -12,6 +12,7 @@ import type {
   Product,
   ProductAttribute,
   ProductImage,
+  ProductLink,
   ProductLinkAttribute,
   Variant,
 } from '../../../domain/models/product';
@@ -33,6 +34,7 @@ export interface ProductSlice {
   images: ProductImage[];
   attributes: ProductAttribute[];
   linkAttributes: ProductLinkAttribute[];
+  productLinks: ProductLink[];
   catalogLoading: boolean;
   catalogError: string | null;
   catalogStoreId: string | null;
@@ -46,6 +48,8 @@ export interface ProductSlice {
   updateVariantStock: (variantId: string, patch: VariantStockPatch) => Promise<void>;
   addVariant: (productId: string, variant: AddVariantInput) => Promise<void>;
   moveHeldToAvailable: (variantId: string, quantity?: number) => Promise<void>;
+  linkProducts: (productId: string, targetId: string) => Promise<void>;
+  unlinkProducts: (productId: string, targetId: string) => Promise<void>;
 }
 
 export const createProductSlice: StateCreator<RootStore, [], [], ProductSlice> = (set, get) => ({
@@ -55,6 +59,7 @@ export const createProductSlice: StateCreator<RootStore, [], [], ProductSlice> =
   images: [],
   attributes: [],
   linkAttributes: [],
+  productLinks: [],
   catalogLoading: false,
   catalogError: null,
   catalogStoreId: null,
@@ -84,6 +89,7 @@ export const createProductSlice: StateCreator<RootStore, [], [], ProductSlice> =
       images: [],
       attributes: [],
       linkAttributes: [],
+      productLinks: [],
       catalogError: null,
       catalogStoreId: null,
     }),
@@ -233,5 +239,31 @@ export const createProductSlice: StateCreator<RootStore, [], [], ProductSlice> =
       availableQuantity: row.availableQuantity + moved,
       heldQuantity: row.heldQuantity - moved,
     });
+  },
+
+  linkProducts: async (productId, targetId) => {
+    const { storeId, sessionToken } = get();
+    if (!storeId) throw new Error('No store selected');
+    set({ catalogLoading: true, catalogError: null });
+    try {
+      await deps().productRepository.linkProducts(productId, targetId, sessionToken);
+      await get().fetchCatalog(storeId);
+    } catch (e) {
+      set({ catalogLoading: false, catalogError: (e as Error).message });
+      throw e;
+    }
+  },
+
+  unlinkProducts: async (productId, targetId) => {
+    const { storeId, sessionToken } = get();
+    if (!storeId) throw new Error('No store selected');
+    set({ catalogLoading: true, catalogError: null });
+    try {
+      await deps().productRepository.unlinkProducts(productId, targetId, sessionToken);
+      await get().fetchCatalog(storeId);
+    } catch (e) {
+      set({ catalogLoading: false, catalogError: (e as Error).message });
+      throw e;
+    }
   },
 });

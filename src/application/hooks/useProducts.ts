@@ -8,6 +8,7 @@ export function useProducts() {
   const images = useStore((s) => s.images);
   const attributes = useStore((s) => s.attributes);
   const linkAttributes = useStore((s) => s.linkAttributes);
+  const productLinks = useStore((s) => s.productLinks);
   const catalogLoading = useStore((s) => s.catalogLoading);
   const catalogError = useStore((s) => s.catalogError);
   const categories = useStore((s) => s.categories);
@@ -19,6 +20,8 @@ export function useProducts() {
   const fetchCategories = useStore((s) => s.fetchCategories);
   const addCategory = useStore((s) => s.addCategory);
   const archiveCategory = useStore((s) => s.archiveCategory);
+  const linkProducts = useStore((s) => s.linkProducts);
+  const unlinkProducts = useStore((s) => s.unlinkProducts);
   return {
     storeId,
     products,
@@ -27,6 +30,7 @@ export function useProducts() {
     images,
     attributes,
     linkAttributes,
+    productLinks,
     catalogLoading,
     catalogError,
     categories,
@@ -38,5 +42,7 @@ export function useProducts() {
     fetchCategories,
     addCategory,
     archiveCategory,
+    linkProducts,
+    unlinkProducts,
   };
 }
