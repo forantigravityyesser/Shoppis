@@ -565,7 +565,7 @@ category.status = ACTIVE — только такие категории.
 
 ### Реализация (зафиксировано)
 
-**Read-only SQL-функции `public.storefront_home_context_read(p_public_id text)` и `public.storefront_home_products_read(p_public_id text, p_cursor text, p_limit int)`** через PostgREST RPC. Проекция целиком на сервере — будущая граница под RLS. Миграции `0021`–`0024`; монолитный `storefront_home_read` (`0014`) удалён (`15 §6`).
+**Read-only SQL-функции `public.storefront_home_context_read(p_public_id text)` и `public.storefront_home_products_read(p_public_id text, p_cursor text, p_limit int)`** через PostgREST RPC. Проекция целиком на сервере — будущая граница под RLS. Миграции `0021`–`0024` (Home) / `0025` (Product Detail links); монолитный `storefront_home_read` (`0014`) удалён (`15 §6`).
 
 ---
 

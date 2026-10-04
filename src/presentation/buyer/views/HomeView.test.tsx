@@ -23,6 +23,7 @@ const { useStorefrontHome, useStorefrontHomeProducts, state } = vi.hoisted(() =>
 
 vi.mock('../../../application/hooks/useStorefrontHome', () => ({ useStorefrontHome }));
 vi.mock('../../../application/hooks/useStorefrontHomeProducts', () => ({
+  HOME_PRODUCTS_PAGE_SIZE: 6,
   useStorefrontHomeProducts,
 }));
 vi.mock('../../../application/store', () => ({
@@ -79,7 +80,8 @@ function productsState(
     hasNextPage: false,
     loading: false,
     fetchingNextPage: false,
-    error: null,
+    initialError: null,
+    nextPageError: null,
     loadMore: vi.fn(),
     refresh: vi.fn(),
     ...overrides,
@@ -143,6 +145,13 @@ describe('HomeView', () => {
       'href',
       'https://t.me/john',
     );
+    expect(useStorefrontHomeProducts).toHaveBeenCalledWith('pub1', 6, false);
+  });
+
+  it('ACTIVE → товарный поток включён (enabled=true)', () => {
+    useStorefrontHome.mockReturnValue(contextState({ home: HOME }));
+    renderHome();
+    expect(useStorefrontHomeProducts).toHaveBeenCalledWith('pub1', 6, true);
   });
 
   it('ACTIVE → шапка с названием магазина', () => {
@@ -214,5 +223,33 @@ describe('HomeView', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Повторить' }));
     expect(refresh).toHaveBeenCalledTimes(1);
     expect(refreshProducts).toHaveBeenCalledTimes(1);
+  });
+
+  it('initialError товарного потока → fatal-экран магазина', () => {
+    useStorefrontHome.mockReturnValue(contextState({ home: HOME }));
+    useStorefrontHomeProducts.mockReturnValue(productsState({ initialError: 'boom' }));
+    renderHome();
+    expect(screen.getByText('Не удалось загрузить магазин.')).toBeInTheDocument();
+  });
+
+  it('nextPageError не рушит Home: товары остаются + локальный retry', async () => {
+    const loadMore = vi.fn();
+    useStorefrontHome.mockReturnValue(contextState({ home: HOME }));
+    useStorefrontHomeProducts.mockReturnValue(
+      productsState({
+        products: [PRODUCT],
+        hasNextPage: true,
+        nextPageError: 'page2 failed',
+        loadMore,
+      }),
+    );
+    renderHome();
+
+    expect(screen.getByText('Nike T-Shirt')).toBeInTheDocument();
+    expect(screen.getByTestId('home-stream-error')).toBeInTheDocument();
+    expect(screen.queryByTestId('home-stream-sentinel')).toBeNull();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Повторить' }));
+    expect(loadMore).toHaveBeenCalledTimes(1);
   });
 });

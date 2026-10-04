@@ -1,5 +1,6 @@
 import { Send } from 'lucide-react';
 import { getInitial } from '../../../domain/rules/initial';
+import SafeImage from './SafeImage';
 
 interface Props {
   variant: 'notFound' | 'paused';
@@ -38,13 +39,16 @@ export default function StoreStatusView({
     <div className="store-status">
       {storeName ? (
         <div className="store-status__brand">
-          {logoUrl ? (
-            <img className="store-status__avatar" src={logoUrl} alt="" decoding="async" />
-          ) : (
-            <span className="store-status__avatar store-status__avatar--initial" aria-hidden>
-              {getInitial(storeName)}
-            </span>
-          )}
+          <SafeImage
+            src={logoUrl ?? null}
+            alt=""
+            className="store-status__avatar"
+            fallback={
+              <span className="store-status__avatar store-status__avatar--initial" aria-hidden>
+                {getInitial(storeName)}
+              </span>
+            }
+          />
           <span className="store-status__name">{storeName}</span>
         </div>
       ) : null}

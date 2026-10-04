@@ -469,7 +469,7 @@ Home ≠ Catalog   и   Product Detail ≠ Home
 - **`0021_storefront_public_context.sql`** — `storefront_public_context_read` + grant (выполнено).
 - **`0022_storefront_home_read_no_seller_avatar.sql`** — home-проекция без `sellerAvatarUrl` (выполнено).
 - **`0023_storefront_home_split_read.sql`** — `storefront_home_context_read` + `storefront_home_products_read(p_public_id, p_cursor, p_limit)` с deterministic `order by (created_at, id desc)` и keyset-курсором; монолитный `storefront_home_read` удалён (выполнено).
-- **`0024_home_products_keyset_index.sql`** — частичный индекс `products (store_id, created_at desc, id desc) where status='ACTIVE'` для O(page) keyset-пагинации (выполнено).
+- **`0024_home_products_keyset_index.sql`** — частичный индекс `products (store_id, created_at desc, id desc) where status='ACTIVE'` для O(page) keyset-пагинации (выполнено). Ранее существовавшая коллизия номера `0024` (`0024_product_link.sql`, Product Detail) устранена переименованием в `0025_product_link.sql` (`§17`, HOME-FIX-05).
 - Обе — `security definer`, `set search_path = public`, доступ через PostgREST RPC (как `0014`).
 - Возврат `originalPrice` **не включать** (§7.4).
 
@@ -1002,3 +1002,29 @@ Home не мыслится как «покажем 6 товаров», а как
 - **Catalog** — не трогаем как готовую feature; проектируем отдельно после Home hardening.
 - **Product Detail** — продолжается параллельно.
 - **Performance** — оптимизируем сейчас только Home; общий pass — в конце проекта.
+
+---
+
+## 17. Post-hardening fixes (HOME-FIX-01…05)
+
+Точечный ревью Home после финализации hardening (`§16`). Пять правок, каждая с тестами;
+`typecheck` / `lint` / `test` зелёные.
+
+| # | Проблема | Решение | Артефакты |
+|---|---|---|---|
+| **01** | Ошибка *догрузки* страницы рушила весь Home: `HomeView` считал fatal `productStream.error`, а `useInfiniteQuery.error` включает initial + append + refetch | Разделены `initialError` (`isLoadingError`) и `nextPageError` (`isFetchNextPageError`); fatal — только context error / `initialError`; append-сбой → локальный блок «Не удалось загрузить ещё товары» + `loadMore`; sentinel гаснет при `nextPageError` (нет авто-петли observer) | `useStorefrontHomeProducts.ts`, `HomeView.tsx`, `home.css` |
+| **02** | `p_limit` публичного RPC без верхней границы (client 5000 → «весь магазин») | Clamp `least(greatest(coalesce(p_limit, 6), 1), 24)`. Общий RPC с прототипом Каталога → `CATALOG_PRODUCTS_LIMIT` 200 → 24 | `0023` (переприменена), `CatalogView.tsx` |
+| **03** | PAUSED магазин всё равно грузил products (context + products стартовали вместе) | Frontend: `enabled = storeActive` (`home.store.status ?? viewedStore.status`, без waterfall); backend defense-in-depth: ранний `return {products:[], nextCursor:null}` при `store.status <> 'ACTIVE'` | `useStorefrontHomeProducts.ts`, `HomeView.tsx`, `0023` (переприменена) |
+| **04** | Аватар покупателя / логотип магазина — сырой `<img>`, broken URL не фолбэкался | Переведены на единый `SafeImage` (`null`/broken → инициал `getInitial`) | `HomeHeader.tsx`, `StoreStatusView.tsx` |
+| **05** | Коллизия номеров миграций: `0024_home_products_keyset_index.sql` и `0024_product_link.sql` | `0024_product_link.sql` → `0025_product_link.sql`; `0024` остаётся у home-keyset-index (соответствует хронологии Home → Product Detail) | `migrations/0025_product_link.sql` |
+
+**Верификация на реальных данных (InsForge):** clamp `p_limit` `5→5`, `0→1`, `5000→≤24`;
+PAUSED-магазин → `{products:[], nextCursor:null}`; ACTIVE-магазин → товары. Тестовый магазин
+возвращён в `ACTIVE`.
+
+### 17.1 Отложено (P2 / future)
+
+- **`maxPages` у `useInfiniteQuery` (память Home).** Сейчас все загруженные страницы остаются
+  в `query.data.pages` и DOM. Для витрины 10–500 товаров модель нормальна; лимит страниц имеет
+  смысл делать вместе с виртуализацией списка (иначе пользователь теряет уже просмотренные
+  карточки при скролле). Оставлено как future performance hardening; реестр — `16`.

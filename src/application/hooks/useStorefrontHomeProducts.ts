@@ -16,7 +16,10 @@ export interface StorefrontHomeProductsState {
   loading: boolean;
   /** Догрузка следующей страницы. */
   fetchingNextPage: boolean;
-  error: string | null;
+  /** Ошибка первой загрузки (данных нет) — fatal для экрана. */
+  initialError: string | null;
+  /** Ошибка догрузки следующей страницы — локальная: товары сохраняются. */
+  nextPageError: string | null;
   /** Загрузить следующую страницу; no-op при отсутствии страниц/уже идущей догрузке. */
   loadMore: () => void;
   refresh: () => void;
@@ -26,23 +29,27 @@ export interface StorefrontHomeProductsState {
  * Товарный поток Home на `useInfiniteQuery`: первая страница + append следующих
  * (`storefront_home_products_read`, keyset-курсор). `loadMore` защищён от
  * повторного/параллельного вызова (in-flight ref), products дедуплицируются по id.
- * UI-триггер догрузки (IntersectionObserver) — HARDEN-06. docs/15 §5.5-5.7.
+ * Ошибка первой загрузки (`initialError`) и ошибка догрузки (`nextPageError`)
+ * разделены: append-сбой не должен рушить уже показанный Home. HARDEN-06,
+ * HOME-FIX-01. `enabled=false` (напр. PAUSED магазин) отключает сам запрос.
  */
 export function useStorefrontHomeProducts(
   publicId: string | null,
   limit: number = HOME_PRODUCTS_PAGE_SIZE,
+  enabled: boolean = true,
 ): StorefrontHomeProductsState {
-  const enabled = Boolean(publicId);
+  const queryEnabled = Boolean(publicId) && enabled;
   const query = useInfiniteQuery({
     queryKey: ['storefront-home-products', publicId, limit],
     queryFn: ({ pageParam }) =>
       deps().storefrontRepository.loadStorefrontHomeProducts(publicId as string, pageParam, limit),
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => lastPage?.nextCursor ?? undefined,
-    enabled,
+    enabled: queryEnabled,
   });
 
-  const { fetchNextPage, hasNextPage, isFetchingNextPage } = query;
+  const { fetchNextPage, hasNextPage, isFetchingNextPage, isLoadingError, isFetchNextPageError } =
+    query;
 
   const products = dedupeById((query.data?.pages ?? []).flatMap((page) => page?.products ?? []));
   const pages = query.data?.pages ?? [];
@@ -57,13 +64,16 @@ export function useStorefrontHomeProducts(
     });
   }, [fetchNextPage, hasNextPage]);
 
+  const errorMessage = query.error ? (query.error as Error).message : null;
+
   return {
     products,
     nextCursor,
     hasNextPage: hasNextPage === true,
-    loading: enabled && query.isLoading,
-    fetchingNextPage: enabled && isFetchingNextPage,
-    error: query.error ? (query.error as Error).message : null,
+    loading: queryEnabled && query.isLoading,
+    fetchingNextPage: queryEnabled && isFetchingNextPage,
+    initialError: queryEnabled && isLoadingError ? errorMessage : null,
+    nextPageError: queryEnabled && isFetchNextPageError ? errorMessage : null,
     loadMore,
     refresh: () => {
       void query.refetch();

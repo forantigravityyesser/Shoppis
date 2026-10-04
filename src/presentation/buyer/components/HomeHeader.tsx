@@ -1,5 +1,6 @@
 import { Search } from 'lucide-react';
 import { getInitial } from '../../../domain/rules/initial';
+import SafeImage from './SafeImage';
 
 interface Props {
   storeName: string;
@@ -33,13 +34,16 @@ export default function HomeHeader({
           <Search size={20} strokeWidth={2.5} />
         </button>
         <button type="button" className="home-icon-btn" aria-label="Профиль" onClick={onProfile}>
-          {buyerAvatarUrl ? (
-            <img className="home-avatar__img" src={buyerAvatarUrl} alt="" decoding="async" />
-          ) : (
-            <span className="home-avatar__initial" aria-hidden>
-              {getInitial(buyerName)}
-            </span>
-          )}
+          <SafeImage
+            src={buyerAvatarUrl}
+            alt=""
+            className="home-avatar__img"
+            fallback={
+              <span className="home-avatar__initial" aria-hidden>
+                {getInitial(buyerName)}
+              </span>
+            }
+          />
         </button>
       </div>
     </header>

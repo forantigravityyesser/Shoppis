@@ -8,6 +8,9 @@
 --
 -- Deterministic order: created_at DESC, id DESC. Keyset cursor is opaque text
 -- "<epoch_microseconds>:<id>"; an invalid cursor falls back to the first page.
+-- p_limit is clamped to [1, 24]: the RPC is public, so the client limit must not
+-- turn the paginated stream into "give me the whole store" (HOME-FIX-02).
+-- A PAUSED store returns an empty product page (HOME-FIX-03).
 -- security definer; public projection is the boundary (RLS is currently disabled).
 
 create or replace function public.storefront_home_context_read(p_public_id text)
@@ -73,7 +76,8 @@ set search_path = public
 as $$
 declare
   v_store public.stores;
-  v_limit int := greatest(coalesce(p_limit, 6), 1);
+  -- Hard cap for the public RPC: client asks 6/12/24 → as-is; asks 5000 → 24.
+  v_limit int := least(greatest(coalesce(p_limit, 6), 1), 24);
   v_cursor_ts timestamptz;
   v_cursor_id uuid;
   v_result jsonb;
@@ -89,6 +93,12 @@ begin
 
   if not found then
     return null;
+  end if;
+
+  -- PAUSED store is not a product surface: empty page (defense-in-depth with the
+  -- frontend `enabled` gate). HOME-FIX-03.
+  if v_store.status <> 'ACTIVE' then
+    return jsonb_build_object('products', '[]'::jsonb, 'nextCursor', null);
   end if;
 
   -- Keyset cursor "<epoch_microseconds>:<id>"; malformed → first page.

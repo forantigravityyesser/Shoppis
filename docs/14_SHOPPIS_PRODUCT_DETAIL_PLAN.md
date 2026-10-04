@@ -891,7 +891,7 @@ seller-вкладка (ответ 1 раз + удаление любого во�
 позиции скролла shell (`useScrollToTop` + «О товаре» под слоем); фейд галереи; зум/панорама в
 fullscreen; «pop» сердца; мини-тост с фото + морф кнопки «✓ Добавлено»; motion-тесты
 `BackButton`/`SocialLayer`/`useScrollToTop`/`DetailsCtaBar`/`Toast`).
-`PD-14a — выполнено` (миграция `0024_product_link.sql`: таблица `product_links` + `product_link_add_atomic`/
+`PD-14a — выполнено` (миграция `0025_product_link.sql`: таблица `product_links` + `product_link_add_atomic`/
 `product_link_remove_atomic` + пересоздан `storefront_product_detail_read` с `relatedProducts` из связей,
 обе стороны, без транзитивности, без limit; edge `catalog-actions` += `product-link-add/remove`
 (задеплоена); модель `ProductLink` + `catalog-api` + `product-repository` + `product-slice`; ручной SQL-прогон:

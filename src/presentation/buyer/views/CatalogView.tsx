@@ -19,7 +19,9 @@ import '../catalog.css';
  * (server-side search/filters/sort/pagination) — отдельная будущая feature
  * (docs/15 §8); здесь только поддерживаем работоспособность.
  */
-const CATALOG_PRODUCTS_LIMIT = 200;
+// Прототип тянет одну широкую страницу того же RPC, что и Home; серверный потолок
+// `p_limit` = 24 (HOME-FIX-02). Реальный Каталог получит свой paginated-RPC (docs/15 §8).
+const CATALOG_PRODUCTS_LIMIT = 24;
 
 export default function CatalogView() {
   const navigate = useNavigate();
@@ -52,7 +54,7 @@ export default function CatalogView() {
     return <CatalogSkeleton />;
   }
 
-  if (error ?? productStream.error) {
+  if (error ?? productStream.initialError) {
     return (
       <div className="catalog">
         <h1 className="catalog__title">Каталог</h1>

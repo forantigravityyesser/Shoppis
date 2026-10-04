@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import StoreStatusView from './StoreStatusView';
 
 describe('StoreStatusView', () => {
@@ -42,6 +42,17 @@ describe('StoreStatusView', () => {
       'src',
       'https://cdn/logo.jpg',
     );
+  });
+
+  it('битый логотип → fallback-инициал магазина', () => {
+    const { container } = render(
+      <StoreStatusView variant="paused" storeName="Nike" logoUrl="https://cdn/broken.jpg" />,
+    );
+    const img = container.querySelector('img.store-status__avatar');
+    expect(img).toBeTruthy();
+    fireEvent.error(img as Element);
+    expect(container.querySelector('img.store-status__avatar')).toBeNull();
+    expect(container.querySelector('.store-status__avatar--initial')).toHaveTextContent('N');
   });
 
   it('notFound не показывает бренд даже с storeName', () => {

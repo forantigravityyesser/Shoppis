@@ -1,7 +1,10 @@
 import { useNavigate } from 'react-router';
 import { useStore } from '../../../application/store';
 import { useStorefrontHome } from '../../../application/hooks/useStorefrontHome';
-import { useStorefrontHomeProducts } from '../../../application/hooks/useStorefrontHomeProducts';
+import {
+  HOME_PRODUCTS_PAGE_SIZE,
+  useStorefrontHomeProducts,
+} from '../../../application/hooks/useStorefrontHomeProducts';
 import { useInfiniteScrollSentinel } from '../hooks/useInfiniteScrollSentinel';
 import HomeHeader from '../components/HomeHeader';
 import HomeBanner from '../components/HomeBanner';
@@ -27,10 +30,17 @@ export default function HomeView() {
 
   const publicId = viewedStore?.publicId ?? null;
   const { home, loading, error, notFound, refresh } = useStorefrontHome(publicId);
-  const productStream = useStorefrontHomeProducts(publicId);
+  // Товарный поток включаем только для ACTIVE: PAUSED не должен тянуть products.
+  // Опора на `viewedStore.status` до резолва контекста сохраняет параллельный
+  // старт context+products (без waterfall); свежий `home.store.status` — приоритетнее.
+  const storeActive = (home?.store.status ?? viewedStore?.status) === 'ACTIVE';
+  const productStream = useStorefrontHomeProducts(publicId, HOME_PRODUCTS_PAGE_SIZE, storeActive);
   const sentinelRef = useInfiniteScrollSentinel({
     onLoadMore: productStream.loadMore,
-    enabled: productStream.hasNextPage && !productStream.fetchingNextPage,
+    enabled:
+      productStream.hasNextPage &&
+      !productStream.fetchingNextPage &&
+      !productStream.nextPageError,
   });
 
   const retry = () => {
@@ -42,7 +52,7 @@ export default function HomeView() {
     return <HomeSkeleton />;
   }
 
-  const loadError = error ?? productStream.error;
+  const loadError = error ?? productStream.initialError;
   if (loadError) {
     return (
       <div className="home home-error">
@@ -92,24 +102,37 @@ export default function HomeView() {
           onViewAll={() => navigate('/catalog')}
         />
         {productStream.products.length > 0 ? (
-          <>
-            <div
-              ref={sentinelRef}
-              className="home-stream-sentinel"
-              aria-hidden
-              data-testid="home-stream-sentinel"
-            />
-            {productStream.fetchingNextPage ? (
-              <div
-                className="home-stream-loading"
-                role="status"
-                aria-label="Загрузка товаров"
-                data-testid="home-stream-loading"
+          productStream.nextPageError ? (
+            <div className="home-stream-error" role="alert" data-testid="home-stream-error">
+              <span className="home-stream-error__text">Не удалось загрузить ещё товары</span>
+              <button
+                type="button"
+                className="home-stream-error__retry"
+                onClick={productStream.loadMore}
               >
-                <span className="home-stream-spinner" aria-hidden />
-              </div>
-            ) : null}
-          </>
+                Повторить
+              </button>
+            </div>
+          ) : (
+            <>
+              <div
+                ref={sentinelRef}
+                className="home-stream-sentinel"
+                aria-hidden
+                data-testid="home-stream-sentinel"
+              />
+              {productStream.fetchingNextPage ? (
+                <div
+                  className="home-stream-loading"
+                  role="status"
+                  aria-label="Загрузка товаров"
+                  data-testid="home-stream-loading"
+                >
+                  <span className="home-stream-spinner" aria-hidden />
+                </div>
+              ) : null}
+            </>
+          )
         ) : null}
       </div>
     </div>

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import HomeHeader from './HomeHeader';
 
@@ -41,6 +41,15 @@ describe('HomeHeader', () => {
   it('fallback: первая буква имени покупателя, когда фото нет', () => {
     setup({ buyerName: 'мария', buyerAvatarUrl: null });
     expect(screen.getByText('М')).toBeInTheDocument();
+  });
+
+  it('битый аватар → fallback-инициал покупателя', () => {
+    const { container } = setup({ buyerName: 'Александр', buyerAvatarUrl: 'https://cdn/broken.jpg' });
+    const img = container.querySelector('.home-avatar__img');
+    expect(img).toBeTruthy();
+    fireEvent.error(img as Element);
+    expect(container.querySelector('.home-avatar__img')).toBeNull();
+    expect(screen.getByText('А')).toBeInTheDocument();
   });
 
   it('пустое имя покупателя → «?»', () => {

@@ -1,4 +1,4 @@
--- 0024_product_link.sql
+-- 0025_product_link.sql
 -- Explicit pairwise product links ("Связи" / «Похожее»). A link is bidirectional
 -- and NOT transitive: liking product A to B makes each appear in the other's
 -- related list; linking B to C does not surface C on A. Source: docs/14 §7.

@@ -55,6 +55,9 @@
   стоком, RPC-переходы заказов, инварианты инвентаря (`11` §S2 «Тесты»).
 - **Warning-и** `react-hooks/set-state-in-effect` (7 шт.) и `react-refresh` — `11` §S3/§S4.
 - **DRY в ботах**, CSS-чистка, `npm audit` (valibot) — `11`.
+- **Home infinite-query memory (`maxPages`)** — `DEFERRED`: все загруженные страницы остаются
+  в `query.data.pages`/DOM. Лимит страниц делать вместе с виртуализацией списка (иначе теряются
+  просмотренные карточки). Детали — `15 §17.1`.
 
 ---
 
