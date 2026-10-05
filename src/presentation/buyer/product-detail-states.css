@@ -1,0 +1,67 @@
+/* product-detail-states.css — skeleton и состояния (не найден / ошибка). */
+
+/* ---- Skeleton ---- */
+.pd-skel__media {
+  height: 50dvh;
+}
+
+.pd-skel__sheet {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: -28px;
+  padding: 18px var(--spacing-4);
+  border-radius: 28px 28px 0 0;
+  background: #fff;
+}
+
+.pd-skel__thumbs {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.pd-skel__thumb {
+  width: 64px;
+  height: 80px;
+}
+
+.pd-skel__line {
+  height: 16px;
+  width: 68%;
+}
+
+.pd-skel__line--short {
+  width: 38%;
+}
+
+/* ---- Состояния (не найден / ошибка / пауза) ---- */
+.pd-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  min-height: 100dvh;
+  padding: calc(72px + var(--safe-top, 0px)) var(--spacing-6) var(--spacing-6);
+  text-align: center;
+  font-family: var(--font-ui);
+}
+
+.pd-state__icon {
+  font-size: 44px;
+}
+
+.pd-state__title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--color-text-primary);
+}
+
+.pd-state__text {
+  margin: 0;
+  color: var(--color-text-secondary);
+}
+

@@ -18,12 +18,18 @@ progressive/cursor product loading вместо `slice(0,6)`, семантика
 
 **Актуализация (2026-10-04):** вкладка **Каталог** покупателя **реализована** (server-driven): RPC
 `storefront_catalog_products_read` + `storefront_catalog_price_bounds_read` (миграция `0026`,
-hardening `0030`: PAUSED-boundary + literal search), продавец управляет порядком категорий
+hardening `0033`: PAUSED-boundary + literal search), продавец управляет порядком категорий
 (`category_reorder_atomic`, миграция `0027`, edge `catalog-actions`), application-контур
 `StorefrontCatalogRepository`/`useStorefrontCatalog` (`useInfiniteQuery` + `keepPreviousData`),
 URL-состояние (`category`/`q`/`minPrice`/`maxPrice`), поиск с debounce, фильтр цены, чипсы,
 infinite loading, состояния. План/аудит — `17` (CAT-00…CAT-16).
 Осталось: ручная визуальная проверка в Telegram; RLS — вне scope.
+
+**Актуализация (2026-10-05) — migration hygiene:** убран дубль номера
+(`0030_storefront_catalog_hardening` → `0033_storefront_catalog_hardening`), введён трекинг
+применённых проектных миграций — таблица `public.schema_migrations` (`0034`), проверки
+`npm run migrations:check` / `migrations:record`, конвенция `migrations/README.md`. InsForge CLI
+`db migrations` не используется (timestamp-имена + нет backfill) — обоснование в README.
 
 **Актуализация (2026-10-03):** следующий блок buyer-части — карточка товара: экран, галерея,
 варианты/цена/наличие, избранное, корзина, «О товаре / Отзывы / Вопросы» (чтение), related

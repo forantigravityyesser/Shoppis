@@ -1,8 +1,9 @@
 # SHOPPIS — BUYER PRODUCT DETAIL PLAN
 
 **Version:** 0.3 (2026-10-04)
-**Статус:** `PD-01…PD-14` выполнены (реализация + тесты); `PD-13` — код-level QA закрыт,
-финальные `LOCAL/TELEGRAM VERIFIED` — за владельцем. Отложенное — в `16_SHOPPIS_REMAINING_WORK.md`.
+**Статус:** `PD-01…PD-14` выполнены (реализация + тесты). `PD-13` — functional/unit QA;
+security/business-rule hardening закрыт (PD-H pass, применён на dev). Финальные
+`LOCAL/TELEGRAM VERIFIED` — за владельцем. Отложенное — в `16_SHOPPIS_REMAINING_WORK.md`.
 Предпосылки выполнены: `H-01…H-11` (buyer Home/Catalog, docs/13) и seller-домен
 (варианты, inventory, эффективные цены, изображения full/thumb).
 
@@ -10,9 +11,9 @@
 варианты/цена/наличие, избранное, добавление в корзину, вкладки «О товаре / Отзывы / Вопросы»
 (отзывы и вопросы — **чтение + запись**: покупатель пишет/удаляет своё, продавец отвечает/
 модерирует), related-товары (**явные двусторонние связи** `product_links`, «Похожее»),
-routing/immersive layout, motion, публичный read layer (миграции `0015`/`0019`/`0024`) и
+routing/immersive layout, motion, публичный read layer (миграции `0015`/`0019`/`0025`) и
 write layer (edge `review-actions`/`question-actions`/`catalog-actions`; миграции
-`0017`/`0020`/`0024`). Seller-управление связями — во вкладке «Витрина» (`PD-14b`).
+`0017`/`0020`/`0025`). Seller-управление связями — во вкладке «Витрина» (`PD-14b`).
 
 **Вне области:**
 - Home / Каталог / навигация — закрыты в docs/13;
@@ -369,7 +370,7 @@ UI **не дублирует формулу** (`product-rules.ts` остаётс
   B видит A и C, C видит только B (никакой «свалки похожестей»).
 - Правила чтения: товары, связанные с текущим (в обе стороны), same store, `status = ACTIVE`,
   исключая текущий; сортировка по `created_at` связи (**сначала новые**); **limit 8**
-  (`MAX_RELATED_PRODUCTS`) — scaling contract; «Показать ещё» — позже (docs/18 PD-H-07).
+  (`MAX_RELATED_PRODUCTS`) — scaling contract; «Показать ещё» — позже (PD-H-07).
 - Нет связей → **пустое состояние** вкладки (не угадываем «похожие» искусственно).
 - UI: вкладка **«Похожее»** (`/product/:id/related`) — **сетка мини-карточек в 2 колонки**
   (вертикальный скролл панели): фото (`thumb ?? full`), название (2 строки), цена
@@ -901,7 +902,7 @@ A↔B/B↔C → A видит только B, B — A+C; SELF_LINK/SAME_STORE_REQ
 `LinkProductsSheet` (поиск по всем товарам, связать/убрать); CSS; тесты).
 `PD-14c — реализовано, ожидает ручной проверки владельцем` (buyer «Похожее»: сетка мини-карточек
 в 2 колонки, вертикальный скролл, тап → товар, пустое состояние; тесты).
-`PD-13 — реализовано (код-level QA), ожидает ручной проверки владельцем (LOCAL + TELEGRAM)`:
+`PD-13 — реализовано (functional/unit QA; security/business-rule hardening закрыт), ожидает ручной проверки владельцем (LOCAL + TELEGRAM)`:
 сверка §20 против кода, полировка loading/empty/error; robustness-фикс — битые/пустые фото
 в «Похожее» и списке «Связей» теперь через единый `SafeImage` (плейсхолдер вместо broken image);
 `typecheck`/`lint`/`test` зелёные. Финальные `LOCAL VERIFIED` + `TELEGRAM VERIFIED` (iOS/Android/
@@ -982,7 +983,7 @@ Desktop) — за владельцем. Отложенное вынесено в
 - Галерея: фейд смены main. Fullscreen: плавное появление + зум/панорама.
 - Favorite: «pop» сердца. Add-to-cart: мини-тост с миниатюрой/галочкой + морф кнопки.
 
-### Этап 13 — QA + Definition of Done `[PD-13]` — выполнено (код-level)
+### Этап 13 — QA + Definition of Done `[PD-13]` — выполнено (functional/unit; hardening закрыт)
 
 - QA-матрица §20 сверена с кодом; loading/empty/error закрыты; robustness: битые/пустые фото
   в «Похожее»/«Связях» — через `SafeImage` (плейсхолдер вместо broken image).
@@ -993,7 +994,7 @@ Desktop) — за владельцем. Отложенное вынесено в
 
 - **Модель:** явные двусторонние связи `product_links` (одна каноничная строка на пару),
   без транзитивности; `product_group_id` не используется (остаётся дремать).
-- **Backend (PD-14a):** миграция `0024` — таблица + `product_link_add_atomic`/`product_link_remove_atomic`
+- **Backend (PD-14a):** миграция `0025` — таблица + `product_link_add_atomic`/`product_link_remove_atomic`
   + `storefront_product_detail_read.relatedProducts` из связей (обе стороны, ACTIVE, без limit);
   edge `catalog-actions` += `product-link-add/remove`; слой repo/slice/api.
 - **Seller UI (PD-14b):** вкладка «Витрина» → блок «Связи» + `LinkProductsSheet` (поиск по всем

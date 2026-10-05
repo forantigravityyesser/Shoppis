@@ -1,4 +1,4 @@
--- 0030_storefront_catalog_hardening.sql
+-- 0033_storefront_catalog_hardening.sql
 -- Hardening pass over 0026 (post-implementation audit response). Function bodies
 -- mirror 0026 exactly except for two boundary fixes:
 --

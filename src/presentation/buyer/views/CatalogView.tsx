@@ -74,14 +74,19 @@ export default function CatalogView() {
   }, [searchParams]);
 
   // Внешнее изменение `q` (back/forward, переход с Home, ссылка) синхронизирует поле:
-  // URL — источник истины. Заодно снимаем отложенную запись, чтобы старый debounce
-  // не перетёр только что пришедшее внешнее значение.
+  // URL — источник истины. Паттерн React «adjust state during render» (вместо effect,
+  // чтобы не плодить set-state-in-effect). Отложенную запись снимаем отдельным
+  // эффектом без setState, чтобы старый debounce не перетёр внешнее значение.
+  const [syncedSearch, setSyncedSearch] = useState(search);
+  if (syncedSearch !== search) {
+    setSyncedSearch(search);
+    setSearchDraft(search);
+  }
   useEffect(() => {
     if (debounceRef.current) {
       window.clearTimeout(debounceRef.current);
       debounceRef.current = null;
     }
-    setSearchDraft(search);
   }, [search]);
 
   const shouldFocus = searchParams.get('focus') === '1';

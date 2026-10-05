@@ -158,7 +158,7 @@ begin
           'originalPrice', case when rc.discount_percent > 0 then rc.original_amount_minor else null end,
           'available', rc.available
         )
-        order by rc.link_created_at asc
+        order by rc.link_created_at desc
       )
       from (
         select

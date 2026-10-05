@@ -14,7 +14,9 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "migrations:check": "node scripts/check-migrations.mjs",
+    "migrations:record": "node scripts/record-migration.mjs"
   },
   "dependencies": {
     "@insforge/sdk": "^1.5.2",

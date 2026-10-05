@@ -523,12 +523,12 @@ CatalogView → useStorefrontCatalog / useStorefrontHome / useStorefrontCatalogP
 
 Точечный hardening после аудита (8.7/10): без смены архитектуры, только границы и UX-состояния.
 
-- ✅ **Backend `0030_storefront_catalog_hardening.sql`** (`create or replace` поверх `0026`):
+- ✅ **Backend `0033_storefront_catalog_hardening.sql`** (`create or replace` поверх `0026`):
   - **PAUSED-boundary:** `storefront_catalog_products_read` → `v_empty`, `storefront_catalog_price_bounds_read` → `null` при `store.status <> 'ACTIVE'` (паритет с Home `0023`). Live: временный `PAUSED` (в самооткатывающейся транзакции) → `products=0`, `bounds=null`; магазин возвращён в `ACTIVE`.
   - **Literal search:** `%`, `_`, `\` экранируются, паттерн `... escape '\'`. Live: `p_search='%'` → 0 из 11 товаров (раньше — все).
   - Shop-boundary, курсор, clamp, price semantics, проекция — без изменений.
 - ✅ **Frontend gating (defense-in-depth):** `CatalogView` передаёт `enabled = home.store.status === 'ACTIVE'` в `useStorefrontCatalog` и `useStorefrontCatalogPriceBounds`; для PAUSED запросы не уходят вовсе.
-- ✅ **URL = source of truth:** `searchDraft` синхронизируется с `q` через `useEffect` (+ снятие отложенного debounce), поэтому внешняя смена `q` (back/forward, ссылка) обновляет поле; рантайм-рассинхронизация `UI ≠ URL ≠ backend` устранена.
+- ✅ **URL = source of truth:** `searchDraft` синхронизируется с `q` паттерном React «adjust state during render» (отдельный effect снимает отложенный debounce), поэтому внешняя смена `q` (back/forward, ссылка) обновляет поле; рантайм-рассинхронизация `UI ≠ URL ≠ backend` устранена и без `set-state-in-effect`.
 - ✅ **Price bounds state разделены:** `loading` / `error` / `empty` в `CatalogFilterSheet`; ошибка → «Не удалось загрузить фильтр цены» + «Повторить» (`boundsError`/`refreshBounds`), а не ложное «нет цен».
 - ✅ **Stale-индикатор:** `useStorefrontCatalog.updating` (`isPlaceholderData && isFetching`); при смене фильтра/поиска предыдущие товары приглушаются (`catalog-results--updating` + `aria-busy`) с лёгким спиннером — `keepPreviousData` сохранён, skeleton не подменяет экран.
 - ✅ **Решение по категориям (`CAT-07c`) подтверждено: 8 карточек.** Блок — 4 колонки × 2 ряда; white-stop `catalog-sheet` (250px) рассчитан ровно под 2 ряда плиток, визуальной правки не требует (обновлён только устаревший комментарий).

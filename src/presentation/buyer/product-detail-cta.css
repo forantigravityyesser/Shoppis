@@ -1,0 +1,137 @@
+/* product-detail-cta.css — плавающий CTA (сердце + цена + «в корзину»). */
+
+/* ---- Плавающий CTA: без фоновой полосы, отдельные элементы ---- */
+.pd-cta {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 0 var(--spacing-4) calc(16px + var(--safe-bottom));
+  background: transparent;
+  pointer-events: none;
+}
+
+.pd-cta__fav {
+  pointer-events: auto;
+  flex: 0 0 auto;
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-full);
+  background: #fff;
+  color: var(--color-text-primary);
+  box-shadow: 0 6px 18px rgba(26, 26, 46, 0.14);
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    transform 0.12s;
+}
+
+.pd-cta__fav:active {
+  transform: scale(0.94);
+}
+
+.pd-cta__fav--active {
+  color: var(--color-danger);
+}
+
+/* Обёртка для «pop»-анимации сердца (transform нужен не-inline элементу). */
+.pd-cta__fav-icon {
+  display: inline-flex;
+  line-height: 0;
+}
+
+.pd-cta__buy {
+  pointer-events: auto;
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 6px 6px 6px 18px;
+  border-radius: var(--radius-full);
+  background: #fff;
+  box-shadow: 0 6px 18px rgba(26, 26, 46, 0.14);
+}
+
+/* Цена прижата вправо, ближе к кнопке (как «Total» в эскизе). */
+.pd-cta__price {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: flex-end;
+  min-width: 0;
+  text-align: right;
+}
+
+.pd-cta__price-label {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+.pd-cta__price-current {
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 1.15;
+  color: var(--color-text-primary);
+}
+
+.pd-cta__price-old {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+.pd-cta__add {
+  flex: 0 0 auto;
+  padding: 13px 18px;
+  border: none;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+/* Морф «Добавить в корзину» → «✓ Добавлено» без сдвига цены. */
+.pd-cta__add--added {
+  background: #1a7f4b;
+}
+
+.pd-cta__add-inner {
+  display: grid;
+  place-items: center;
+}
+
+.pd-cta__add-inner > * {
+  grid-area: 1 / 1;
+  transition: opacity 0.18s ease;
+}
+
+.pd-cta__add-inner .is-hidden {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.pd-cta__add-added {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pd-cta__add:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+

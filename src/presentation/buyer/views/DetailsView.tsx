@@ -1,14 +1,7 @@
-import { useState } from 'react';
 import { Share2, Star } from 'lucide-react';
 import { NavLink, Outlet, useLocation, useParams } from 'react-router';
 import { useStore } from '../../../application/store';
 import { useStorefrontProduct } from '../../../application/hooks/useStorefrontProduct';
-import { useStorefrontLink } from '../../../application/hooks/useStorefrontLink';
-import { useOpenTelegramLink } from '../../../application/hooks/useOpenTelegramLink';
-import { useHaptic } from '../../../application/hooks/useHaptic';
-import { useFavorites } from '../../../application/hooks/useFavorites';
-import { useCart } from '../../../application/hooks/useCart';
-import { formatMoneyMinor } from '../../../domain/rules/product-rules';
 import BackButton from '../../shared/components/BackButton';
 import StoreStatusView from '../components/StoreStatusView';
 import ProductGallery from '../components/product/ProductGallery';
@@ -16,6 +9,8 @@ import VariantSelector from '../components/product/VariantSelector';
 import DetailsCtaBar from '../components/product/DetailsCtaBar';
 import ProductDetailSkeleton from '../components/product/ProductDetailSkeleton';
 import ProductAbout from './product/ProductAbout';
+import { useProductSelection } from '../hooks/useProductSelection';
+import { useProductActions } from '../hooks/useProductActions';
 import '../product-detail.css';
 
 const TABS = [
@@ -27,11 +22,11 @@ const TABS = [
 
 /**
  * Product Detail shell (layout). Загружает публичную карточку
- * (`storefront_product_detail_read`) и держит каркас под эскиз: фото (полэкрана)
- * с кнопками в углах, белый лист (миниатюры, название + рейтинг, варианты),
- * голубая панель вкладок и плавающий CTA. Интерактив галереи — PD-06; выбор
- * варианта/цены/наличия — PD-07 (здесь): `selectedVariantId`, sold-out disabled,
- * цена в CTA меняется по варианту. docs/14 §2-3, §5, §15.
+ * (`storefront_product_detail_read`) и рендерит каркас: фото (полэкрана) с
+ * кнопками в углах, белый лист (миниатюры, название + рейтинг, варианты),
+ * голубая панель вкладок и плавающий CTA. Оркестрация вынесена в
+ * `useProductSelection` (вариант/цена/наличие) и `useProductActions`
+ * (избранное/корзина/share) — docs/18 PD-H-15. docs/14 §2-3, §5, §15.
  */
 export default function DetailsView() {
   const { id } = useParams<{ id: string }>();
@@ -42,28 +37,8 @@ export default function DetailsView() {
   const publicId = viewedStore?.publicId ?? null;
   const { detail, loading, error, notFound, refresh } = useStorefrontProduct(publicId, id ?? null);
 
-  const storefrontUrl = useStorefrontLink(publicId ?? '');
-  const openTelegramLink = useOpenTelegramLink();
-  const { selectTick, notifySuccess } = useHaptic();
-  const showToast = useStore((s) => s.showToast);
-  const { isFavorite, toggleFavorite } = useFavorites();
-  const { addToCart } = useCart();
-
-  // Выбор варианта привязан к товару: при переходе на другой товар сбрасывается
-  // во время рендера (сравнение productId), без setState в эффекте.
-  const productId = detail?.product.id ?? null;
-  const [variantChoice, setVariantChoice] = useState<{
-    productId: string | null;
-    variantId: string;
-  } | null>(null);
-
-  const handleShare = () => {
-    if (!detail) return;
-    const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(
-      storefrontUrl,
-    )}&text=${encodeURIComponent(detail.product.title)}`;
-    openTelegramLink(shareUrl);
-  };
+  const selection = useProductSelection(detail);
+  const actions = useProductActions(detail, selection.selectedVariant);
 
   if (authLoading || loading) {
     return <ProductDetailSkeleton />;
@@ -111,53 +86,11 @@ export default function DetailsView() {
     );
   }
 
-  const symbol = detail.store.currencySymbol;
-  // Дефолт — первый доступный вариант; выбор пользователя имеет приоритет.
-  const defaultVariant = detail.variants.find((v) => v.available) ?? detail.variants[0] ?? null;
-  const selectedVariantId =
-    variantChoice && variantChoice.productId === productId ? variantChoice.variantId : null;
-  const selectedVariant = detail.variants.find((v) => v.id === selectedVariantId) ?? defaultVariant;
-  const priceLabel = selectedVariant ? formatMoneyMinor(selectedVariant.price, symbol) : '';
-  const originalPriceLabel =
-    selectedVariant?.originalPrice != null
-      ? formatMoneyMinor(selectedVariant.originalPrice, symbol)
-      : null;
-  const soldOut = detail.variants.length > 0 && detail.variants.every((v) => !v.available);
-  const canAdd = Boolean(selectedVariant?.available);
-  const favorite = isFavorite(detail.product.id);
   // Слой Отзывов/Вопросов — оверлей поверх shell; «О товаре» остаётся под ним,
   // поэтому позиция скролла карточки сохраняется (docs/14 §3.3).
   const isLayer = /^\/product\/[^/]+\/(reviews|questions)\/?$/.test(pathname);
   // CTA (избранное + цена + «в корзину») — только на корневом экране товара.
-  // На вложенных разделах (Отзывы/Вопросы/Похожее) его нет; слой закрывается
-  // анимацией, и CTA появляется ровно в момент перехода на «О товаре».
   const showCta = pathname === `/product/${id}`;
-
-  const handleSelectVariant = (variantId: string) => {
-    selectTick();
-    setVariantChoice({ productId, variantId });
-  };
-
-  const handleToggleFavorite = () => {
-    selectTick();
-    toggleFavorite(detail.product.id);
-  };
-
-  const handleAddToCart = () => {
-    if (!selectedVariant?.available) return;
-    // Cart ничего не резервирует; финальная проверка — на checkout.
-    addToCart({
-      productId: detail.product.id,
-      productVariantId: selectedVariant.id,
-      quantity: 1,
-      price: selectedVariant.price,
-    });
-    notifySuccess();
-    showToast({
-      text: 'Добавлено в корзину',
-      imageUrl: detail.images[0]?.thumbUrl ?? detail.images[0]?.url ?? null,
-    });
-  };
 
   return (
     <div className="pd-root">
@@ -169,7 +102,7 @@ export default function DetailsView() {
               type="button"
               className="pd-icon-btn"
               aria-label="Поделиться"
-              onClick={handleShare}
+              onClick={actions.share}
             >
               <Share2 size={20} />
             </button>
@@ -204,8 +137,8 @@ export default function DetailsView() {
 
           <VariantSelector
             variants={detail.variants}
-            selectedId={selectedVariant?.id ?? null}
-            onSelect={handleSelectVariant}
+            selectedId={selection.selectedVariantId}
+            onSelect={selection.selectVariant}
           />
         </div>
 
@@ -233,13 +166,13 @@ export default function DetailsView() {
 
         {showCta ? (
           <DetailsCtaBar
-            priceLabel={priceLabel || '—'}
-            originalPriceLabel={originalPriceLabel}
-            soldOut={soldOut}
-            canAdd={canAdd}
-            isFavorite={favorite}
-            onToggleFavorite={handleToggleFavorite}
-            onAddToCart={handleAddToCart}
+            priceLabel={selection.priceLabel || '—'}
+            originalPriceLabel={selection.originalPriceLabel}
+            soldOut={selection.soldOut}
+            canAdd={selection.canAdd}
+            isFavorite={actions.isFavorite}
+            onToggleFavorite={actions.toggleFavorite}
+            onAddToCart={actions.addToCart}
           />
         ) : null}
       </div>
