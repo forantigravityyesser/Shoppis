@@ -112,6 +112,18 @@ describe('validateProduct', () => {
     ).toContain('Цена должна быть больше нуля');
   });
 
+  it('allows zero price when archiving without variants', () => {
+    expect(
+      validateProduct({
+        title: 'A',
+        originalAmountMinor: 0,
+        discountPercent: 0,
+        imageCount: 0,
+        status: 'ARCHIVED',
+      }),
+    ).toEqual([]);
+  });
+
   it('validates discount range', () => {
     expect(
       validateProduct({ title: 'A', originalAmountMinor: 1, discountPercent: 101, imageCount: 0 }),

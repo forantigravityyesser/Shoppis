@@ -50,8 +50,9 @@ interface CatalogFields {
 }
 
 /**
- * Форма → поля каталога. Первый вариант задаёт базовую цену/скидку товара;
- * остальные с иной ценой становятся CUSTOM_PRICE. Пустая категория → null.
+ * Форма → поля каталога. Первый (заполненный) вариант задаёт базовую цену/скидку товара;
+ * вариант с явным режимом CUSTOM по цене или скидке становится CUSTOM_PRICE.
+ * Пустая категория → null.
  */
 function toCatalogFields(payload: ProductFormPayload): CatalogFields {
   const filled = payload.variants.filter((v) => v.value.trim());
@@ -60,15 +61,15 @@ function toCatalogFields(payload: ProductFormPayload): CatalogFields {
   const baseDiscount = base?.discountPercent ?? 0;
 
   const variants = filled.map((v) => {
-    const useCustom = v.priceMinor !== basePrice || v.discountPercent !== baseDiscount;
+    const custom = v.priceMode === 'CUSTOM' || v.discountMode === 'CUSTOM';
     return {
       id: v.id,
       name: v.name.trim() || 'Вариант',
       value: v.value.trim(),
       availableQuantity: Math.max(0, Math.round(Number.isFinite(v.quantity) ? v.quantity : 0)),
-      priceMode: useCustom ? ('CUSTOM_PRICE' as const) : ('USE_PRODUCT_PRICE' as const),
-      customOriginalAmountMinor: useCustom ? v.priceMinor : null,
-      customDiscountPercent: useCustom ? v.discountPercent : null,
+      priceMode: custom ? ('CUSTOM_PRICE' as const) : ('USE_PRODUCT_PRICE' as const),
+      customOriginalAmountMinor: custom ? v.priceMinor : null,
+      customDiscountPercent: custom ? v.discountPercent : null,
     };
   });
 
@@ -92,28 +93,23 @@ function toCatalogFields(payload: ProductFormPayload): CatalogFields {
 /**
  * Create/Edit-сценарии Inventory. Все мутации идут через Zustand-слайсы,
  * которые пишут в InsForge и обновляют локальный стейт.
+ *
+ * Ошибки пользовательских мутаций НЕ проглатываются: они бросаются дальше,
+ * чтобы Presentation мог показать ошибку и не терять форму (docs/19 §13).
  */
 export function useInventoryActions() {
   const navigate = useNavigate();
 
   const createCategory = useCallback(
     async (input: CreateCategoryInput) => {
-      try {
-        await useStore.getState().addCategory(input);
-        navigate('/seller/inventory');
-      } catch (e) {
-        console.error('[inventory] createCategory failed', e);
-      }
+      await useStore.getState().addCategory(input);
+      navigate('/seller/inventory');
     },
     [navigate],
   );
 
   const updateCategory = useCallback(async (id: string, patch: UpdateCategoryInput) => {
-    try {
-      await useStore.getState().updateCategory(id, patch);
-    } catch (e) {
-      console.error('[inventory] updateCategory failed', e);
-    }
+    await useStore.getState().updateCategory(id, patch);
   }, []);
 
   /** Удаляет категорию (товары → «Без категории», обложка → из Storage). true — успех. */
@@ -140,27 +136,29 @@ export function useInventoryActions() {
 
   const createProduct = useCallback(
     async (payload: ProductFormPayload) => {
-      try {
-        const { storeId } = useStore.getState();
-        if (!storeId) throw new Error('No store selected');
-        const input: NewProductInput = { storeId, ...toCatalogFields(payload) };
-        await useStore.getState().saveProduct(input);
-        navigate('/seller/inventory');
-      } catch (e) {
-        console.error('[inventory] createProduct failed', e);
-      }
+      const { storeId } = useStore.getState();
+      if (!storeId) throw new Error('Магазин не выбран');
+      const input: NewProductInput = { storeId, ...toCatalogFields(payload) };
+      await useStore.getState().saveProduct(input);
+      navigate('/seller/inventory');
     },
     [navigate],
   );
 
   const updateProduct = useCallback(async (id: string, payload: ProductFormPayload) => {
-    try {
-      const patch: UpdateProductPatch = toCatalogFields(payload);
-      await useStore.getState().saveProduct({ id, ...patch });
-    } catch (e) {
-      console.error('[inventory] updateProduct failed', e);
-    }
+    const patch: UpdateProductPatch = toCatalogFields(payload);
+    await useStore.getState().saveProduct({ id, ...patch });
   }, []);
+
+  /** Массово добавить/перенести товары в категорию (кнопка «+» в блоке категории). */
+  const assignProductsToCategory = useCallback(
+    async (categoryId: string, productIds: string[]) => {
+      await useStore
+        .getState()
+        .assignProductsCategory(productIds, resolveCategoryId(categoryId));
+    },
+    [],
+  );
 
   const setProductStatus = useCallback(
     async (id: string, status: ProductStatus): Promise<ProductStatusResult> => {
@@ -177,60 +175,44 @@ export function useInventoryActions() {
   );
 
   const deleteProduct = useCallback(async (id: string) => {
-    try {
-      await useStore.getState().deleteProduct(id);
-    } catch (e) {
-      console.error('[inventory] deleteProduct failed', e);
-    }
+    await useStore.getState().deleteProduct(id);
   }, []);
 
   const updateVariantStock = useCallback(
     async (variantId: string, patch: UpdateVariantStockPatch) => {
-      try {
-        await useStore.getState().updateVariantStock(variantId, patch);
-      } catch (e) {
-        console.error('[inventory] updateVariantStock failed', e);
-      }
+      await useStore.getState().updateVariantStock(variantId, patch);
     },
     [],
   );
 
   const addVariant = useCallback(async (productId: string, input: NewInventoryVariant) => {
-    try {
-      const state = useStore.getState();
-      const product = state.products.find((p) => p.id === productId) ?? null;
-      const isFirst = !state.variants.some((v) => v.productId === productId);
-      const basePrice = product?.originalAmountMinor ?? input.priceMinor;
-      const baseDiscount = product?.discountPercent ?? input.discountPercent;
-      const useCustom =
-        !isFirst && (input.priceMinor !== basePrice || input.discountPercent !== baseDiscount);
+    const state = useStore.getState();
+    const product = state.products.find((p) => p.id === productId) ?? null;
+    const isFirst = !state.variants.some((v) => v.productId === productId);
+    const basePrice = product?.originalAmountMinor ?? input.priceMinor;
+    const baseDiscount = product?.discountPercent ?? input.discountPercent;
+    const useCustom =
+      !isFirst && (input.priceMinor !== basePrice || input.discountPercent !== baseDiscount);
 
-      const variant: AddVariantInput = {
-        name: input.name.trim() || 'Вариант',
-        value: input.value.trim(),
-        availableQuantity: Math.max(
-          0,
-          Math.round(Number.isFinite(input.quantity) ? input.quantity : 0),
-        ),
-        priceMode: useCustom ? 'CUSTOM_PRICE' : 'USE_PRODUCT_PRICE',
-        customOriginalAmountMinor: useCustom ? input.priceMinor : null,
-        customDiscountPercent: useCustom ? input.discountPercent : null,
-        baseOriginalAmountMinor: isFirst ? input.priceMinor : undefined,
-        baseDiscountPercent: isFirst ? input.discountPercent : undefined,
-      };
+    const variant: AddVariantInput = {
+      name: input.name.trim() || 'Вариант',
+      value: input.value.trim(),
+      availableQuantity: Math.max(
+        0,
+        Math.round(Number.isFinite(input.quantity) ? input.quantity : 0),
+      ),
+      priceMode: useCustom ? 'CUSTOM_PRICE' : 'USE_PRODUCT_PRICE',
+      customOriginalAmountMinor: useCustom ? input.priceMinor : null,
+      customDiscountPercent: useCustom ? input.discountPercent : null,
+      baseOriginalAmountMinor: isFirst ? input.priceMinor : undefined,
+      baseDiscountPercent: isFirst ? input.discountPercent : undefined,
+    };
 
-      await state.addVariant(productId, variant);
-    } catch (e) {
-      console.error('[inventory] addVariant failed', e);
-    }
+    await state.addVariant(productId, variant);
   }, []);
 
   const moveHeldToAvailable = useCallback(async (variantId: string, quantity?: number) => {
-    try {
-      await useStore.getState().moveHeldToAvailable(variantId, quantity);
-    } catch (e) {
-      console.error('[inventory] moveHeldToAvailable failed', e);
-    }
+    await useStore.getState().moveHeldToAvailable(variantId, quantity);
   }, []);
 
   return {
@@ -240,6 +222,7 @@ export function useInventoryActions() {
     deleteCategory,
     reorderCategory,
     updateProduct,
+    assignProductsToCategory,
     setProductStatus,
     deleteProduct,
     updateVariantStock,

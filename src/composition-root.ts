@@ -14,6 +14,7 @@ import * as storefrontRepository from './infrastructure/repositories/storefront-
 import * as storefrontProductRepository from './infrastructure/repositories/storefront-product-repository';
 import * as sellerProductSocialRepository from './infrastructure/repositories/seller-product-social-repository';
 import * as storefrontCatalogRepository from './infrastructure/repositories/storefront-catalog-repository';
+import * as cartRepository from './infrastructure/repositories/cart-repository';
 import {
   checkOwnershipByUser,
   createStore,
@@ -48,6 +49,7 @@ const container: AppContainer = {
   storefrontProductRepository,
   sellerProductSocialRepository,
   storefrontCatalogRepository,
+  cartRepository,
   storage,
   imageUpload,
   authApi,

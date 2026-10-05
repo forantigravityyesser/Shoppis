@@ -7,7 +7,10 @@ export function useCart() {
   const addToCart = useStore((s) => s.addToCart);
   const updateQty = useStore((s) => s.updateQty);
   const toggleSelected = useStore((s) => s.toggleSelected);
+  const setAllSelected = useStore((s) => s.setAllSelected);
+  const setSelectedByKeys = useStore((s) => s.setSelectedByKeys);
   const removeFromCart = useStore((s) => s.removeFromCart);
+  const removeByKeys = useStore((s) => s.removeByKeys);
   const clearCart = useStore((s) => s.clearCart);
 
   const items = (storeId && cartByStore[storeId]) || [];
@@ -19,7 +22,10 @@ export function useCart() {
     addToCart,
     updateQty,
     toggleSelected,
+    setAllSelected,
+    setSelectedByKeys,
     removeFromCart,
+    removeByKeys,
     clearCart,
   };
 }

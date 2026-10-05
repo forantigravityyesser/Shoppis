@@ -42,6 +42,8 @@ export interface ProductSlice {
   ensureCatalog: (storeId: string) => Promise<void>;
   resetCatalog: () => void;
   saveProduct: (input: NewProductInput | ({ id: string } & UpdateProductPatch)) => Promise<void>;
+  /** Массово назначить категорию товарам (быстрый перенос между категориями). */
+  assignProductsCategory: (productIds: string[], categoryId: string | null) => Promise<void>;
   archiveProduct: (id: string) => Promise<ProductStatusResult>;
   restoreProduct: (id: string) => Promise<ProductStatusResult>;
   deleteProduct: (id: string) => Promise<void>;
@@ -107,6 +109,7 @@ export const createProductSlice: StateCreator<RootStore, [], [], ProductSlice> =
           originalAmountMinor: patch.originalAmountMinor ?? probe?.originalAmountMinor ?? 1,
           discountPercent: patch.discountPercent ?? probe?.discountPercent ?? 0,
           imageCount: patch.images?.length ?? get().images.filter((i) => i.productId === id).length,
+          status: patch.status ?? probe?.status,
         });
         if (errors.length) throw new Error(errors.join('; '));
 
@@ -134,6 +137,7 @@ export const createProductSlice: StateCreator<RootStore, [], [], ProductSlice> =
           originalAmountMinor: input.originalAmountMinor,
           discountPercent: input.discountPercent,
           imageCount: input.images.length,
+          status: input.status,
         });
         if (errors.length) throw new Error(errors.join('; '));
         await deps().productRepository.addProduct(input, sessionToken);
@@ -141,6 +145,33 @@ export const createProductSlice: StateCreator<RootStore, [], [], ProductSlice> =
       await get().fetchCatalog(storeId);
     } catch (e) {
       set({ catalogLoading: false, catalogError: (e as Error).message });
+      throw e;
+    }
+  },
+
+  assignProductsCategory: async (productIds: string[], categoryId: string | null) => {
+    const { storeId, sessionToken } = get();
+    if (!storeId) throw new Error('No store selected');
+    if (productIds.length === 0) return;
+
+    const ids = new Set(productIds);
+    const previous = get().products;
+    set({
+      products: previous.map((product) =>
+        ids.has(product.id) ? { ...product, categoryId } : product,
+      ),
+      catalogError: null,
+    });
+
+    try {
+      await Promise.all(
+        productIds.map((id) =>
+          deps().productRepository.updateProduct(id, { categoryId }, sessionToken),
+        ),
+      );
+      await get().fetchCatalog(storeId);
+    } catch (e) {
+      set({ products: previous, catalogError: (e as Error).message });
       throw e;
     }
   },

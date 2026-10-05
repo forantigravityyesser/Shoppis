@@ -86,11 +86,14 @@ export default function DetailsView() {
     );
   }
 
+  // Нормализуем путь (снимаем trailing slash) — единообразно для CTA и слоя:
+  // `/product/123/` ведёт себя как `/product/123` (PD-R-03).
+  const path = pathname.replace(/\/+$/, '') || '/';
   // Слой Отзывов/Вопросов — оверлей поверх shell; «О товаре» остаётся под ним,
   // поэтому позиция скролла карточки сохраняется (docs/14 §3.3).
-  const isLayer = /^\/product\/[^/]+\/(reviews|questions)\/?$/.test(pathname);
+  const isLayer = /^\/product\/[^/]+\/(reviews|questions)$/.test(path);
   // CTA (избранное + цена + «в корзину») — только на корневом экране товара.
-  const showCta = pathname === `/product/${id}`;
+  const showCta = path === `/product/${id}`;
 
   return (
     <div className="pd-root">

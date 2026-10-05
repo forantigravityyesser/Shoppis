@@ -3,11 +3,17 @@
 **Version:** 0.1
 **Дата:** 2026-09-24
 **Роль:** порядок кодирования Inventory и статус этапов.
-**Ссылки:** `06 … INVENTORY_SPEC` (данные/БД/релизы), `07 … INVENTORY_UX_SPEC` (UX).
+**Ссылки:** `06 … INVENTORY_SPEC` (данные/БД/релизы), `07 … INVENTORY_UX_SPEC` (UX), `19` (реконструкция).
 
 > **Обновление (2026-09-29):** инвентарь полностью переведён с in-memory мока на реальный
 > InsForge (PostgreSQL + PostgREST + Storage `shoppis-media`), мок-слой `src/mock` удалён.
 > Детали, этапы 1–10 и отклонения — `inventory_real_backend_migration_plan.md`.
+
+> **Обновление (2026-10-05):** Inventory **реконструирован** — `19_SHOPPIS_SELLER_INVENTORY_RECONSTRUCTION_SPEC_v0.1.md`
+> (authoritative для реконструкции). Секции «Товары» (по умолчанию) / «Категории»; explicit
+> variant inheritance; mutation lifecycle (submitting/error/retry); категории — полноширинные
+> строки; per-product индикаторы непросмотренного. Из Phase 3-структуры удалены `InventorySearchState`
+> и `AddInventorySheet`; `CategoryGrid`/`CategoryCard` сохранены без wide/pair-композиции.
 
 Легенда статуса: `[x]` готово · `[~]` в работе · `[ ]` не начато.
 Каждый этап закрывается дважды: **LOCAL VERIFIED** (браузер) и **TELEGRAM VERIFIED** (Mini App).

@@ -8,6 +8,7 @@ import type {
   ShopApi,
   StoreSettingsApi,
 } from '../ports/apis';
+import type { CartRepository } from '../ports/cart-repository';
 import type { CategoryRepository } from '../ports/category-repository';
 import type { I18nPort } from '../ports/i18n';
 import type { IdentityProvider } from '../ports/identity';
@@ -35,6 +36,7 @@ export interface AppContainer {
   storefrontProductRepository: StorefrontProductRepository;
   sellerProductSocialRepository: SellerProductSocialRepository;
   storefrontCatalogRepository: StorefrontCatalogRepository;
+  cartRepository: CartRepository;
   orderRepository: OrderRepository;
   storage: StoragePort;
   imageUpload: ImageUploadPort;

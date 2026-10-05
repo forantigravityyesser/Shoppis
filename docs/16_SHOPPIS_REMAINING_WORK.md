@@ -30,10 +30,16 @@
 - **Сделать:** встроить read-only рендер карточки (можно переиспользовать buyer-компоненты с
   публичной проекцией `storefront_product_detail_read`).
 
-### FD-3. Экраны Cart / Favorites / Orders (buyer) — `TODO`
-- **Сейчас:** `CartView`, `FavoritesView`, `OrdersView` возвращают `null` (плейсхолдеры).
-- **Следствие:** добавление в корзину/избранное проверяется только через стор и тост.
-- **Док:** `08 §2.11`, `11` S3 «Placeholder-экраны покупателя».
+### FD-3. Экраны Cart / Favorites / Orders (buyer) — `TODO` (частично)
+- **Cart:** ✅ реализован — `18_SHOPPIS_CART_PLAN.md`, этапы `CART-01…CART-06`: read-model `CartItemView`
+  (RPC `storefront_cart_items_read`, `0036`), реконсиляция, selection/select-all, inline-удаление,
+  один итог в CTA, checkout-форма (ФИО / телефон / **адрес доставки**), экран успеха, серверный гейт
+  уведомлений (`notifications_enabled`). Осталось: ручная проверка в Telegram.
+- **Favorites:** ✅ реализован (`FavoritesView`, storefront-hydration по id).
+- **Orders:** остаётся заглушкой (`OrdersView` → `null`). Фундамент готов: `fetchBuyerOrders` заполняет
+  `ordersByStore`, заказ создаётся атомарно, `lastOrder` доступен после оформления. Нужен экран
+  списка/деталей заказа.
+- **Док:** `08 §2.11`, `11` S3 «Placeholder-экраны покупателя», `18`.
 
 ### FD-4. Social follow-ups — `DEFERRED`
 - Пагинация / фильтры / сортировка лент отзывов и вопросов.

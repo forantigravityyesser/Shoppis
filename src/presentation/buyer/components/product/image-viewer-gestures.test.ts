@@ -8,6 +8,7 @@ import {
   clampScale,
   doubleTapTarget,
   pinchScale,
+  zoomToPoint,
 } from './image-viewer-gestures';
 
 describe('clamp / clampScale', () => {
@@ -51,5 +52,48 @@ describe('pinchScale', () => {
 
   it('нулевая стартовая дистанция не делит на ноль', () => {
     expect(pinchScale(1, 0, 50)).toBe(MAX_SCALE);
+  });
+});
+
+describe('zoomToPoint', () => {
+  const center = { x: 0, y: 0 };
+
+  it('зум ровно в центре — позиция не смещается', () => {
+    expect(
+      zoomToPoint({
+        startScale: 1,
+        startPos: { x: 0, y: 0 },
+        startMid: { x: 0, y: 0 },
+        mid: { x: 0, y: 0 },
+        center,
+        scale: 2,
+      }),
+    ).toEqual({ x: 0, y: 0 });
+  });
+
+  it('зум в точке между пальцами: точка остаётся на месте (×2, палец +100px → translate −100)', () => {
+    expect(
+      zoomToPoint({
+        startScale: 1,
+        startPos: { x: 0, y: 0 },
+        startMid: { x: 100, y: 0 },
+        mid: { x: 100, y: 0 },
+        center,
+        scale: 2,
+      }),
+    ).toEqual({ x: -100, y: 0 });
+  });
+
+  it('без смены масштаба — это панорамирование по delta центра пальцев', () => {
+    expect(
+      zoomToPoint({
+        startScale: 2,
+        startPos: { x: 5, y: 5 },
+        startMid: { x: 10, y: 0 },
+        mid: { x: 40, y: 20 },
+        center,
+        scale: 2,
+      }),
+    ).toEqual({ x: 35, y: 25 });
   });
 });

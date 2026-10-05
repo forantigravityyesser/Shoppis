@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus } from 'lucide-react';
+import { ChevronDown, Plus } from 'lucide-react';
 import BottomSheet from '../../../shared/components/BottomSheet';
 import type { InventoryVariantItem } from '../../../../application/hooks/useProduct';
 import type { UpdateVariantStockPatch } from '../../../../application/hooks/useInventoryActions';
@@ -48,6 +48,7 @@ export default function StockControlSheet({
 }: StockControlSheetProps) {
   const updateVariantStock = useStore((s) => s.updateVariantStock);
   const [rows, setRows] = useState<StockRow[]>(() => toRows(variants));
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -55,6 +56,7 @@ export default function StockControlSheet({
   useEffect(() => {
     if (open) {
       setRows(toRows(variants));
+      setExpandedId(null);
       setSaveError(null);
     }
   }, [open, variants]);
@@ -103,44 +105,80 @@ export default function StockControlSheet({
         <div className="card__muted">Нет вариантов для управления остатками.</div>
       ) : (
         <div className="stock-list">
-          {rows.map((row, index) => (
-            <div className="stock-row" key={row.id}>
-              <div className="stock-row__head">
-                <span className="stock-row__name">
-                  {row.name}: {row.value}
-                </span>
-                {toInt(row.held) > 0 ? (
-                  <button type="button" className="stock-row__move" onClick={() => moveAll(index)}>
-                    Всё в наличии
-                  </button>
+          {rows.map((row, index) => {
+            const expanded = expandedId === row.id;
+            const held = toInt(row.held);
+            return (
+              <div className={`stock-item${expanded ? ' stock-item--open' : ''}`} key={row.id}>
+                <button
+                  type="button"
+                  className="stock-item__row"
+                  aria-expanded={expanded}
+                  onClick={() => setExpandedId(expanded ? null : row.id)}
+                >
+                  <span className="stock-item__name">
+                    <span className="stock-item__type">{row.name}</span>
+                    <span className="stock-item__value">{row.value}</span>
+                  </span>
+                  <span className="stock-item__counts">
+                    <span className="stock-item__count">
+                      <span className="stock-item__count-num">{toInt(row.available)}</span>
+                      <span className="stock-item__count-label">в наличии</span>
+                    </span>
+                    <span
+                      className={`stock-item__count${held > 0 ? ' stock-item__count--held' : ''}`}
+                    >
+                      <span className="stock-item__count-num">{held}</span>
+                      <span className="stock-item__count-label">в ожидании</span>
+                    </span>
+                  </span>
+                  <ChevronDown
+                    className="stock-item__chevron"
+                    size={18}
+                    aria-hidden
+                  />
+                </button>
+
+                {expanded ? (
+                  <div className="stock-item__editor">
+                    <div className="field__row">
+                      <label className="field">
+                        <span className="field__label">В наличии</span>
+                        <input
+                          className="field__input"
+                          type="number"
+                          inputMode="numeric"
+                          min={0}
+                          value={row.available}
+                          onChange={(e) => setRow(index, { available: e.target.value })}
+                        />
+                      </label>
+                      <label className="field">
+                        <span className="field__label">В ожидании</span>
+                        <input
+                          className="field__input"
+                          type="number"
+                          inputMode="numeric"
+                          min={0}
+                          value={row.held}
+                          onChange={(e) => setRow(index, { held: e.target.value })}
+                        />
+                      </label>
+                    </div>
+                    {held > 0 ? (
+                      <button
+                        type="button"
+                        className="stock-row__move"
+                        onClick={() => moveAll(index)}
+                      >
+                        Всё в наличии
+                      </button>
+                    ) : null}
+                  </div>
                 ) : null}
               </div>
-              <div className="field__row">
-                <label className="field">
-                  <span className="field__label">В наличии</span>
-                  <input
-                    className="field__input"
-                    type="number"
-                    inputMode="numeric"
-                    min={0}
-                    value={row.available}
-                    onChange={(e) => setRow(index, { available: e.target.value })}
-                  />
-                </label>
-                <label className="field">
-                  <span className="field__label">В ожидании</span>
-                  <input
-                    className="field__input"
-                    type="number"
-                    inputMode="numeric"
-                    min={0}
-                    value={row.held}
-                    onChange={(e) => setRow(index, { held: e.target.value })}
-                  />
-                </label>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

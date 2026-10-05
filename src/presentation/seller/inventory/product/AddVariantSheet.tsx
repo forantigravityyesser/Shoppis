@@ -1,22 +1,15 @@
 import { useEffect, useState } from 'react';
 import BottomSheet from '../../../shared/components/BottomSheet';
 import { useInventoryActions } from '../../../../application/hooks/useInventoryActions';
+import {
+  parseDiscountPercent,
+  parsePriceMinor,
+} from '../../../../application/rules/variant-form';
 
 interface AddVariantSheetProps {
   open: boolean;
   productId: string;
   onClose: () => void;
-}
-
-function parsePriceMinor(value: string): number {
-  const n = Number(value.replace(',', '.'));
-  return Number.isFinite(n) && n > 0 ? Math.round(n * 100) : 0;
-}
-
-function parseDiscountPercent(value: string): number {
-  const n = Number(value.replace(',', '.'));
-  if (!Number.isFinite(n)) return 0;
-  return Math.min(100, Math.max(0, Math.round(n)));
 }
 
 /**
@@ -32,6 +25,8 @@ export default function AddVariantSheet({ open, productId, onClose }: AddVariant
   const [quantity, setQuantity] = useState('0');
   const [price, setPrice] = useState('');
   const [discount, setDiscount] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -40,21 +35,31 @@ export default function AddVariantSheet({ open, productId, onClose }: AddVariant
       setQuantity('0');
       setPrice('');
       setDiscount('');
+      setSaveError(null);
     }
   }, [open]);
 
   const canSave = value.trim().length > 0 && parsePriceMinor(price) > 0;
 
-  const save = () => {
-    if (!canSave) return;
-    addVariant(productId, {
-      name,
-      value,
-      quantity: Number(quantity) || 0,
-      priceMinor: parsePriceMinor(price),
-      discountPercent: parseDiscountPercent(discount),
-    });
-    onClose();
+  const save = async () => {
+    if (!canSave || saving) return;
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await addVariant(productId, {
+        name,
+        value,
+        quantity: Number(quantity) || 0,
+        priceMinor: parsePriceMinor(price),
+        discountPercent: parseDiscountPercent(discount),
+      });
+      onClose();
+    } catch (e) {
+      console.error('[inventory] addVariant failed', e);
+      setSaveError('Не удалось добавить вариант. Попробуйте ещё раз.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -116,14 +121,18 @@ export default function AddVariantSheet({ open, productId, onClose }: AddVariant
         </label>
       </div>
 
+      {saveError ? (
+        <div style={{ marginTop: 8, color: '#FF3B30', fontSize: 13 }}>{saveError}</div>
+      ) : null}
+
       <div className="form-actions">
         <button
           type="button"
           className="btn-primary btn-primary--wide"
-          disabled={!canSave}
-          onClick={save}
+          disabled={!canSave || saving}
+          onClick={() => void save()}
         >
-          Сохранить
+          {saving ? 'Сохранение…' : 'Сохранить'}
         </button>
       </div>
     </BottomSheet>

@@ -7,6 +7,20 @@ import type {
   InventoryImageItem,
   ProductFormPayload,
 } from '../../../application/read-models/inventory-view';
+import {
+  emptyVariant,
+  inheritVariantField,
+  parseDiscountPercent,
+  parsePriceMinor,
+  setVariantDiscount,
+  setVariantName,
+  setVariantPrice,
+  syncInherited,
+  updateVariantField,
+  validateVariantsForPublish,
+  variantFromBase,
+  type VariantForm,
+} from '../../../application/rules/variant-form';
 import { UNCATEGORIZED_ID } from '../../../domain/constants/categories';
 import { MAX_IMAGES, MAX_VARIANTS } from '../../../domain/constants/limits';
 import type { ProductStatus } from '../../../domain/models/product';
@@ -14,20 +28,6 @@ import type { ProductStatus } from '../../../domain/models/product';
 export interface Characteristic {
   name: string;
   value: string;
-}
-
-export interface VariantForm {
-  /** id существующего варианта (при редактировании); новые варианты его не имеют. */
-  id?: string;
-  name: string;
-  value: string;
-  quantity: string;
-  price: string;
-  discount: string;
-  /** name/price/discount заданы вручную (уникальны для варианта), иначе наследуют вариант 1. */
-  customName: boolean;
-  customPrice: boolean;
-  customDiscount: boolean;
 }
 
 export interface ProductFormValues {
@@ -44,55 +44,11 @@ export type { ProductFormPayload };
 interface ProductFormProps {
   categories: InventoryCategoryItem[];
   initial?: Partial<ProductFormValues>;
-  onSubmit: (payload: ProductFormPayload) => void;
-}
-
-export function emptyVariant(): VariantForm {
-  return {
-    name: '',
-    value: '',
-    quantity: '0',
-    price: '',
-    discount: '',
-    customName: false,
-    customPrice: false,
-    customDiscount: false,
-  };
-}
-
-/**
- * Размерность/цена/скидка наследуются от варианта 1, если не переопределены (не custom).
- * Единственное место, где это применяется — избегаем рассинхрона по вариантам.
- */
-function syncInherited(list: VariantForm[]): VariantForm[] {
-  const base = list[0];
-  if (!base) return list;
-  return list.map((v, index) =>
-    index === 0
-      ? v
-      : {
-          ...v,
-          name: v.customName ? v.name : base.name,
-          price: v.customPrice ? v.price : base.price,
-          discount: v.customDiscount ? v.discount : base.discount,
-        },
-  );
-}
-
-function parsePriceMinor(value: string): number {
-  const n = Number(value.replace(',', '.'));
-  return Number.isFinite(n) && n > 0 ? Math.round(n * 100) : 0;
-}
-
-function parseDiscountPercent(value: string): number {
-  const n = Number(value.replace(',', '.'));
-  if (!Number.isFinite(n)) return 0;
-  return Math.min(100, Math.max(0, Math.round(n)));
+  onSubmit: (payload: ProductFormPayload) => Promise<void> | void;
 }
 
 /** Плоские данные товара → значения формы (для режима редактирования). */
 export function detailToFormValues(detail: InventoryProductDetail): ProductFormValues {
-  const baseName = detail.variants[0]?.name ?? '';
   const variants: VariantForm[] = detail.variants.map((v, index) => ({
     id: v.id,
     name: v.name,
@@ -100,9 +56,14 @@ export function detailToFormValues(detail: InventoryProductDetail): ProductFormV
     quantity: String(v.availableQuantity),
     price: (v.originalAmountMinor / 100).toFixed(2),
     discount: String(v.discountPercent),
-    customName: index > 0 && v.name !== baseName,
-    customPrice: index > 0 && v.originalAmountMinor !== detail.originalAmountMinor,
-    customDiscount: index > 0 && v.discountPercent !== detail.discountPercent,
+    priceMode:
+      index > 0 && v.priceMode === 'CUSTOM_PRICE' && v.customOriginalAmountMinor != null
+        ? 'CUSTOM'
+        : 'INHERITED',
+    discountMode:
+      index > 0 && v.priceMode === 'CUSTOM_PRICE' && v.customDiscountPercent != null
+        ? 'CUSTOM'
+        : 'INHERITED',
   }));
 
   return {
@@ -136,9 +97,13 @@ export default function ProductForm({ categories, initial, onSubmit }: ProductFo
   const [variants, setVariants] = useState<VariantForm[]>(initial?.variants ?? [emptyVariant()]);
   const [expandedVariant, setExpandedVariant] = useState(0);
 
+  const submittingRef = useRef(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState<ProductStatus | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
   const canArchive = title.trim().length > 0;
-  const canPublish =
-    canArchive && variants.some((v) => v.value.trim().length > 0 && parsePriceMinor(v.price) > 0);
+  const canPublish = canArchive && validateVariantsForPublish(variants).length === 0;
 
   const addFiles = async (files: FileList | null) => {
     if (!files) return;
@@ -173,23 +138,9 @@ export default function ProductForm({ categories, initial, onSubmit }: ProductFo
 
   const addVariant = () => {
     if (variants.length >= MAX_VARIANTS) return;
-    const base = variants[0];
     setExpandedVariant(variants.length);
-    setVariants((prev) => [
-      ...prev,
-      {
-        ...emptyVariant(),
-        name: base?.name ?? emptyVariant().name,
-        price: base?.price ?? '',
-        discount: base?.discount ?? '',
-      },
-    ]);
+    setVariants((prev) => [...prev, variantFromBase(prev[0])]);
   };
-
-  const updateVariant = (index: number, patch: Partial<VariantForm>) =>
-    setVariants((prev) =>
-      syncInherited(prev.map((v, i) => (i === index ? { ...v, ...patch } : v))),
-    );
 
   const removeVariant = (index: number) => {
     setVariants((prev) =>
@@ -202,25 +153,61 @@ export default function ProductForm({ categories, initial, onSubmit }: ProductFo
     });
   };
 
-  const submit = (status: ProductStatus) => {
-    onSubmit({
-      title,
-      description,
-      categoryId,
-      status,
-      images: photos,
-      attributes: characteristics.filter((c) => c.name.trim() || c.value.trim()),
-      variants: variants
-        .filter((v) => v.value.trim())
-        .map((v) => ({
-          id: v.id,
-          name: v.name,
-          value: v.value,
-          quantity: Number(v.quantity) || 0,
-          priceMinor: parsePriceMinor(v.price),
-          discountPercent: parseDiscountPercent(v.discount),
-        })),
-    });
+  const setNameAt = (index: number, value: string) =>
+    setVariants((prev) => setVariantName(prev, index, value));
+  const setValueAt = (index: number, value: string) =>
+    setVariants((prev) => updateVariantField(prev, index, { value }));
+  const setQuantityAt = (index: number, value: string) =>
+    setVariants((prev) => updateVariantField(prev, index, { quantity: value }));
+  const setPriceAt = (index: number, value: string) =>
+    setVariants((prev) => setVariantPrice(prev, index, value));
+  const setDiscountAt = (index: number, value: string) =>
+    setVariants((prev) => setVariantDiscount(prev, index, value));
+  const inheritPrice = (index: number) =>
+    setVariants((prev) => inheritVariantField(prev, index, 'price'));
+  const inheritDiscount = (index: number) =>
+    setVariants((prev) => inheritVariantField(prev, index, 'discount'));
+
+  const buildPayload = (status: ProductStatus): ProductFormPayload => ({
+    title,
+    description,
+    categoryId,
+    status,
+    images: photos,
+    attributes: characteristics.filter((c) => c.name.trim() || c.value.trim()),
+    variants: variants
+      .filter((v) => v.value.trim())
+      .map((v) => ({
+        id: v.id,
+        name: v.name,
+        value: v.value,
+        quantity: Number(v.quantity) || 0,
+        priceMinor: parsePriceMinor(v.price),
+        discountPercent: parseDiscountPercent(v.discount),
+        priceMode: v.priceMode,
+        discountMode: v.discountMode,
+      })),
+  });
+
+  const submit = async (status: ProductStatus) => {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    setSubmitting(true);
+    setPendingStatus(status);
+    setSubmitError(null);
+    try {
+      await onSubmit(buildPayload(status));
+    } catch (e) {
+      setSubmitError(
+        e instanceof Error && e.message
+          ? e.message
+          : 'Не удалось сохранить товар. Попробуйте ещё раз.',
+      );
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
+      setPendingStatus(null);
+    }
   };
 
   return (
@@ -392,14 +379,7 @@ export default function ProductForm({ categories, initial, onSubmit }: ProductFo
                       <input
                         className="field__input"
                         value={v.name}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          const base = variants[0]?.name ?? '';
-                          updateVariant(index, {
-                            name: value,
-                            customName: index !== 0 && value.trim() !== '' && value !== base,
-                          });
-                        }}
+                        onChange={(e) => setNameAt(index, e.target.value)}
                         placeholder="размер / объём / память"
                       />
                     </label>
@@ -408,7 +388,7 @@ export default function ProductForm({ categories, initial, onSubmit }: ProductFo
                       <input
                         className="field__input"
                         value={v.value}
-                        onChange={(e) => updateVariant(index, { value: e.target.value })}
+                        onChange={(e) => setValueAt(index, e.target.value)}
                         placeholder="42 / XL / 500 мл / 128 GB"
                       />
                     </label>
@@ -420,7 +400,7 @@ export default function ProductForm({ categories, initial, onSubmit }: ProductFo
                       type="number"
                       inputMode="numeric"
                       value={v.quantity}
-                      onChange={(e) => updateVariant(index, { quantity: e.target.value })}
+                      onChange={(e) => setQuantityAt(index, e.target.value)}
                     />
                   </label>
                   <div className="field__row">
@@ -430,14 +410,7 @@ export default function ProductForm({ categories, initial, onSubmit }: ProductFo
                         className="field__input"
                         inputMode="decimal"
                         value={v.price}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          const base = variants[0]?.price ?? '';
-                          updateVariant(index, {
-                            price: value,
-                            customPrice: index !== 0 && value.trim() !== '' && value !== base,
-                          });
-                        }}
+                        onChange={(e) => setPriceAt(index, e.target.value)}
                         placeholder="0.00"
                       />
                     </label>
@@ -447,20 +420,41 @@ export default function ProductForm({ categories, initial, onSubmit }: ProductFo
                         className="field__input"
                         inputMode="numeric"
                         value={v.discount}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          const base = variants[0]?.discount ?? '';
-                          updateVariant(index, {
-                            discount: value,
-                            customDiscount: index !== 0 && value.trim() !== '' && value !== base,
-                          });
-                        }}
+                        onChange={(e) => setDiscountAt(index, e.target.value)}
                         placeholder="0"
                       />
                     </label>
                   </div>
-                  {index > 0 && (v.customPrice || v.customDiscount) ? (
-                    <div className="variant-block__custom">Уникальная цена для этого варианта</div>
+                  {index > 0 ? (
+                    <div className="variant-block__custom">
+                      {v.priceMode === 'CUSTOM' || v.discountMode === 'CUSTOM' ? (
+                        <>
+                          <span>Свои значения для этого варианта</span>
+                          <div className="variant-block__inherit">
+                            {v.priceMode === 'CUSTOM' ? (
+                              <button
+                                type="button"
+                                className="variant-inherit"
+                                onClick={() => inheritPrice(index)}
+                              >
+                                Цена как у товара
+                              </button>
+                            ) : null}
+                            {v.discountMode === 'CUSTOM' ? (
+                              <button
+                                type="button"
+                                className="variant-inherit"
+                                onClick={() => inheritDiscount(index)}
+                              >
+                                Скидка как у товара
+                              </button>
+                            ) : null}
+                          </div>
+                        </>
+                      ) : (
+                        <span>Наследует цену и скидку варианта 1</span>
+                      )}
+                    </div>
                   ) : null}
                 </>
               ) : null}
@@ -484,20 +478,25 @@ export default function ProductForm({ categories, initial, onSubmit }: ProductFo
         <button
           type="button"
           className="btn-ghost"
-          disabled={!canArchive}
-          onClick={() => submit('ARCHIVED')}
+          disabled={!canArchive || submitting}
+          onClick={() => void submit('ARCHIVED')}
         >
-          В архив
+          {pendingStatus === 'ARCHIVED' ? 'Сохранение…' : 'В архив'}
         </button>
         <button
           type="button"
           className="btn-primary"
-          disabled={!canPublish}
-          onClick={() => submit('ACTIVE')}
+          disabled={!canPublish || submitting}
+          onClick={() => void submit('ACTIVE')}
         >
-          На витрину
+          {pendingStatus === 'ACTIVE' ? 'Публикация…' : 'На витрину'}
         </button>
       </div>
+      {submitError ? (
+        <p className="prod-hint prod-hint--error" role="alert">
+          {submitError}
+        </p>
+      ) : null}
     </>
   );
 }

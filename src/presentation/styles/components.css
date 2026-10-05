@@ -206,44 +206,8 @@
   }
 }
 
-/* ---- CartItemCard ---- */
-.cart-item {
-  display: flex;
-  align-items: flex-start;
-  background: var(--color-bg-card);
-  border-radius: var(--radius-lg);
-  padding: var(--spacing-3);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-  gap: var(--spacing-3);
-}
-
-.cart-item .image {
-  width: 80px;
-  height: 80px;
-  border-radius: var(--radius-sm);
-  flex-shrink: 0;
-  object-fit: cover;
-}
-
-.cart-item .details {
-  flex: 1;
-}
-
-.cart-item .name {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-primary);
-}
-
-.cart-item .variant {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
-}
-
-.cart-item .price {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-badge-discount);
-}
+/* CartItemCard стилизуется в presentation/buyer/cart.css (docs/18);
+   прежний generic `.cart-item` здесь конфликтовал по имени и удалён. */
 
 /* ---- OrderStatusBadge ---- */
 .status-badge {

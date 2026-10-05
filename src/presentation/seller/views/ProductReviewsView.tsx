@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useParams } from 'react-router';
 import { useStore } from '../../../application/store';
 import { useSellerProductReviews } from '../../../application/hooks/useSellerProductSocial';
+import { useMarkReviewsSeen } from '../../../application/hooks/useSellerSocialSeen';
 import { useReviewActions } from '../../../application/hooks/useReviewActions';
 import { useHaptic } from '../../../application/hooks/useHaptic';
 import ReviewsHistogram from '../../shared/product-social/ReviewsHistogram';
@@ -22,6 +23,10 @@ export default function ProductReviewsView() {
 
   const { summary, distribution, reviews, loading, error, refresh } = useSellerProductReviews(
     productId || null,
+  );
+  useMarkReviewsSeen(
+    productId || null,
+    reviews.map((review) => review.id),
   );
   const actions = useReviewActions(publicId, productId || null);
   const { notifySuccess, selectTick } = useHaptic();

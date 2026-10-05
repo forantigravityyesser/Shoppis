@@ -5,8 +5,12 @@ export interface TelegramPort {
   getBuyerBotUsername(): string;
   /** Короткое имя buyer Mini App; при наличии даёт прямую ссылку на приложение. */
   getBuyerAppShortname(): string;
-  /** Открыть telegram-ссылку (t.me) внутри Telegram; вне Telegram — безопасный fallback. */
-  openTelegramLink(url: string): void;
+  /**
+   * Открыть telegram-ссылку (t.me) внутри Telegram; вне Telegram — безопасный
+   * fallback в новую вкладку. Возвращает `false`, если открыть не удалось —
+   * вызывающий слой может показать понятную ошибку (docs/18 §26).
+   */
+  openTelegramLink(url: string): boolean;
   /**
    * Официальный запрос «Разрешить боту отправлять сообщения?».
    *

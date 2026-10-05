@@ -153,14 +153,24 @@ MVP:
 
 No write permission: order still succeeds, notifications simply do not send.
 
-Client-side, the write-access prompt is **not** part of checkout. It is offered *after* a
-successful order, on the «Заказ оформлен» screen (`order-slice.requestNotifications()`):
-the buyer taps «Получать уведомления в Telegram», Telegram asks for write access, and on
-consent the fact is persisted server-side (`notifications-actions` → `notifications_enabled`).
+Client-side, the write-access prompt is triggered **at the checkout submit**, on the first
+order only (`useCheckout.submit()` → `order-slice.requestNotifications()`), *before*
+`invokeCheckout` — so the first «Заказ принят» notification has the best chance to be delivered.
+The prompt is called synchronously inside the submit gesture; the order itself never depends on
+the result. On consent the fact is persisted server-side (`notifications-actions` →
+`telegram_identities.notifications_enabled`); the client remembers «already asked»
+(`userSettings.notificationsPrompted`) and does not re-prompt.
+
 The call is bounded by a short deadline (currently **1200 ms**) and never throws or hangs:
 a denial or timeout does not affect the order — it only means notifications are not delivered.
-See `src/infrastructure/telegram/telegram-share.ts` (`MESSAGES_ACCESS_TIMEOUT_MS`) and the
-`TelegramPort.requestMessagesAccess` contract.
+The buyer notification in `process-checkout` is sent **only when** `notifications_enabled = true`
+(server-side gate); the seller notification is always sent. See
+`src/infrastructure/telegram/telegram-share.ts` (`MESSAGES_ACCESS_TIMEOUT_MS`),
+`useCheckout`, and the `TelegramPort.requestMessagesAccess` contract.
+
+> **Superseded (2026-10-05, docs/18 CART-05):** earlier this section required the prompt to be
+> offered *after* a successful order, on the «Заказ оформлен» screen. The agreed flow now asks at
+> checkout (first order), with the success screen only reporting whether notifications were granted.
 
 Notification retries/logging are independent of order transaction.
 

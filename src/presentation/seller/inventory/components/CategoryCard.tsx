@@ -1,4 +1,4 @@
-import { MoreHorizontal, Shapes } from 'lucide-react';
+import { Shapes } from 'lucide-react';
 import type {
   InventoryCategoryItem,
   InventoryProductItem,
@@ -9,11 +9,9 @@ import ProductPreviewRow from './ProductPreviewRow';
 interface CategoryCardProps {
   category: InventoryCategoryItem;
   previewProducts: InventoryProductItem[];
-  variant: 'wide' | 'compact';
   onOpen: () => void;
   onOpenProduct: (productId: string) => void;
   onAddProduct: () => void;
-  onMore?: () => void;
   /** 1-based позиция категории в каталоге покупателя; undefined — бейдж не показывается. */
   position?: number;
   /** Открыть выбор позиции в каталоге. */
@@ -24,18 +22,14 @@ interface CategoryCardProps {
 export default function CategoryCard({
   category,
   previewProducts,
-  variant,
   onOpen,
   onOpenProduct,
   onAddProduct,
-  onMore,
   position,
   onReorder,
 }: CategoryCardProps) {
-  const visible = variant === 'wide' ? PREVIEW_VISIBLE.wide : PREVIEW_VISIBLE.compact;
-
   return (
-    <article className={`inv-cat inv-cat--${variant}`} onClick={onOpen}>
+    <article className="inv-cat" onClick={onOpen}>
       <div className="inv-cat__head">
         <span className="inv-cat__avatar" aria-hidden>
           {category.imageUrl ? (
@@ -73,19 +67,6 @@ export default function CategoryCard({
             </span>
           ) : null}
         </span>
-        {onMore ? (
-          <button
-            type="button"
-            className="inv-cat__more"
-            onClick={(e) => {
-              e.stopPropagation();
-              onMore();
-            }}
-            aria-label={`Действия категории «${category.name}»`}
-          >
-            <MoreHorizontal size={18} />
-          </button>
-        ) : null}
       </div>
 
       {previewProducts.length === 0 ? (
@@ -105,7 +86,7 @@ export default function CategoryCard({
       ) : (
         <ProductPreviewRow
           products={previewProducts}
-          visible={visible}
+          visible={PREVIEW_VISIBLE}
           onOpenProduct={onOpenProduct}
           onAddProduct={onAddProduct}
         />

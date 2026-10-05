@@ -47,6 +47,7 @@ vi.mock('../../../application/hooks/useHaptic', () => ({
 }));
 
 import ProductReviewsView from './ProductReviewsView';
+import { seenReviewIds } from '../../../application/hooks/useSellerSocialSeen';
 
 const EMPTY_DIST = [5, 4, 3, 2, 1].map((rating) => ({ rating, count: 0 }));
 
@@ -165,5 +166,11 @@ describe('seller ProductReviewsView', () => {
     expect(screen.getByText('Не удалось загрузить отзывы.')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Повторить' }));
     expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('открытие вкладки помечает отзывы просмотренными', () => {
+    reviewsState.current = { ...reviewsState.current, reviews: [review] };
+    renderTab();
+    expect(seenReviewIds('p1').has('r1')).toBe(true);
   });
 });

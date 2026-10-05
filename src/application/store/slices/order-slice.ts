@@ -9,6 +9,7 @@ import type {
   RefusalReasonCode,
 } from '../../../domain/models/order';
 import type { RecipientInfo } from '../../../domain/models/customer';
+import type { CheckoutResult } from '../../contracts/checkout';
 import { deps } from '../../composition/container';
 import type { RootStore } from '../index';
 
@@ -18,6 +19,8 @@ export interface OrderSlice {
   ordersLoading: boolean;
   ordersError: string | null;
   lastOrderId: string | null;
+  /** Результат последнего успешного оформления (номер/сумма) — для экрана успеха. */
+  lastOrder: CheckoutResult | null;
   fetchBuyerOrders: () => Promise<void>;
   fetchStoreOrders: () => Promise<void>;
   fetchItems: (orderId: string) => Promise<OrderItem[]>;
@@ -37,6 +40,8 @@ export interface OrderSlice {
    */
   requestNotifications: () => Promise<boolean>;
   resetOrders: () => void;
+  /** Сбросить результат последнего заказа (после показа экрана успеха). */
+  resetCheckout: () => void;
 }
 
 export const createOrderSlice: StateCreator<RootStore, [], [], OrderSlice> = (set, get) => {
@@ -54,6 +59,7 @@ export const createOrderSlice: StateCreator<RootStore, [], [], OrderSlice> = (se
     ordersLoading: false,
     ordersError: null,
     lastOrderId: null,
+    lastOrder: null,
 
     fetchBuyerOrders: async () => {
       const { storeId, serverUser } = get();
@@ -163,10 +169,10 @@ export const createOrderSlice: StateCreator<RootStore, [], [], OrderSlice> = (se
 
       set({ ordersLoading: true, ordersError: null });
       try {
-        // Разрешение на уведомления НЕ запрашивается здесь: это отдельный
-        // opt-in после успешного заказа (requestNotifications), чтобы не
-        // блокировать checkout Telegram-промптом. 04 §11.
-        const { orderId } = await deps().checkoutApi.invokeCheckout({
+        // Разрешение на уведомления запрашивает вызывающий слой (`useCheckout`)
+        // в жесте клика, ДО checkout: это повышает шанс доставки первого
+        // уведомления «Заказ принят». Сам заказ от разрешения не зависит (04 §11).
+        const result = await deps().checkoutApi.invokeCheckout({
           items,
           recipientInfo: recipient,
           storeId,
@@ -174,9 +180,15 @@ export const createOrderSlice: StateCreator<RootStore, [], [], OrderSlice> = (se
           idempotencyKey: crypto.randomUUID(),
         });
         get().clearCart();
-        set({ lastOrderId: orderId, ordersLoading: false });
-        await get().fetchBuyerOrders();
-        return orderId;
+        set({ lastOrderId: result.orderId, lastOrder: result, ordersLoading: false });
+        // Заказ уже создан: сбой обновления списка заказов — не ошибка оформления
+        // (иначе пользователь увидит «ошибку» на успешный заказ и может повторить).
+        try {
+          await get().fetchBuyerOrders();
+        } catch (refreshError) {
+          console.error('[orders] post-checkout refresh failed:', refreshError);
+        }
+        return result.orderId;
       } catch (e) {
         set({ ordersLoading: false, ordersError: (e as Error).message });
         throw e;
@@ -203,6 +215,14 @@ export const createOrderSlice: StateCreator<RootStore, [], [], OrderSlice> = (se
     },
 
     resetOrders: () =>
-      set({ ordersByStore: {}, orderItemsByOrder: {}, lastOrderId: null, ordersError: null }),
+      set({
+        ordersByStore: {},
+        orderItemsByOrder: {},
+        lastOrderId: null,
+        lastOrder: null,
+        ordersError: null,
+      }),
+
+    resetCheckout: () => set({ lastOrder: null, lastOrderId: null, ordersError: null }),
   };
 };

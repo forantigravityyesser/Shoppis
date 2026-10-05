@@ -39,6 +39,39 @@ Severity: **S1** критично · **S2** высоко · **S3** средне 
 
 ---
 
+## PD-R — Product Detail residual hardening (post-audit)
+
+Точечный остаток по Product Detail после PD-H pass. Приоритеты: **P1** · **P2** · **P3**.
+Связано: `14` (Product Detail), `16` (remaining work).
+
+- **PD-R-01 (#11) — P1 (blocker) — DONE.** Галерея: `.pd-gallery__main img` в
+  `src/presentation/buyer/product-detail-gallery.css` переведён на `object-fit: contain`
+  (фото целиком, без обрезки; full = 4:5). Проблема: PD-H-04 был откатан (`git checkout`
+  при починке кодировки в PD-H-05), затем сплит CSS «заморозил» `cover`. Добавлен
+  regression-guard `product-detail-gallery.test.ts` (читает CSS-инвариант). Осталось —
+  визуальная проверка владельцем на desktop/mobile.
+- **PD-R-02 (#12) — P2 — DONE.** `useImageViewerGestures.resetGesture()` сбрасывает
+  `pointers`/`pinch`/`pan`/`multiTouch`, но не сбрасывал `lastTap.current`: при быстром
+  «tap A → смена фото → tap B» первый тап на новом фото мог попасть в старое окно
+  `DOUBLE_TAP_MS` и дать ложный зум. Фикс: `lastTap.current = 0` в `resetGesture()` +
+  regression-тест хука (`useImageViewerGestures.test.tsx`).
+- **PD-R-03 (#14) — P2 — DONE.** `DetailsView.showCta = pathname === '/product/${id}'` не
+  учитывал trailing slash (`/product/123/`), тогда как `isLayer` учитывал (`\/?$`). Фикс:
+  единая нормализация пути (`pathname.replace(/\/+$/, '') || '/'`) на оба флага + тесты
+  роутинга на trailing slash (`DetailsView.test.tsx`).
+- **PD-R-04 (#13) — P3 — DONE.** Пинч зумил относительно центра изображения, а не точки
+  между пальцами. Добавлена чистая `zoomToPoint()` (`image-viewer-gestures.ts`): точка под
+  стартовым центром пальцев остаётся под текущим (центр считается от `getBoundingClientRect`
+  медиа-контейнера). Использована в `useImageViewerGestures`; при `scale = startScale`
+  сводится к прежнему панорамированию. Тесты: `image-viewer-gestures.test.ts`.
+- **PD-R-05 (#15) — P3 — DEFERRED (закрывается вместе с S1/RLS, не отдельным шагом).**
+  `p_viewer_user_id` всё ещё приходит с
+  клиента, но только для UI-подсказок (`isOwn` / `viewerReview` / `canReview` / `canAsk`),
+  **не** для авторизации (архитектурная security-проблема закрыта в PD-H-01). Целевое —
+  actor из серверной сессии; делать вместе с RLS.
+
+---
+
 ## S1 — RLS и backend-границы (этап 6, отложен)
 
 - **Док:** `08 §1.9`, `04 §3`, `04 §12`, release gate `01 §9`.

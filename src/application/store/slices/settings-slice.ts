@@ -6,7 +6,10 @@ import type { RootStore } from '../index';
 
 export interface UserSettings {
   language: AppLanguage;
+  /** Последнее известное согласие на сообщения бота (Telegram write access). */
   notifications: boolean;
+  /** Запрашивали ли уже разрешение на сообщения бота (чтобы не спрашивать повторно). */
+  notificationsPrompted: boolean;
 }
 
 export interface SettingsSlice {
@@ -20,7 +23,11 @@ export interface SettingsSlice {
 const EMPTY_RECIPIENT: RecipientInfo = { name: '', phone: '', address: '' };
 
 export const createSettingsSlice: StateCreator<RootStore, [], [], SettingsSlice> = (set) => ({
-  userSettings: { language: deps().i18n.getAppLanguage(), notifications: true },
+  userSettings: {
+    language: deps().i18n.getAppLanguage(),
+    notifications: false,
+    notificationsPrompted: false,
+  },
   defaultRecipient: EMPTY_RECIPIENT,
 
   setUserSettings: (patch) => {

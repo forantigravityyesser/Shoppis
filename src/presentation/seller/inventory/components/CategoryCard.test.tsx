@@ -22,7 +22,6 @@ function renderCard(overrides: Partial<ComponentProps<typeof CategoryCard>> = {}
   const props = {
     category: CATEGORY,
     previewProducts: [],
-    variant: 'wide' as const,
     onOpen: vi.fn(),
     onOpenProduct: vi.fn(),
     onAddProduct: vi.fn(),

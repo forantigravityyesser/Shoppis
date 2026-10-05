@@ -107,15 +107,32 @@ export default async function (request) {
     console.error('[checkout] public_id lookup failed:', e);
   }
 
+  // Уведомление покупателю — ТОЛЬКО при явном согласии (Telegram write access,
+  // флаг notifications_enabled). Нет разрешения/бота — не отправляем (docs/18 §25-26).
+  let buyerNotify = false;
+  try {
+    const client = createClient({ baseUrl, anonKey });
+    const { data: identity } = await client.database
+      .from('telegram_identities')
+      .select('notifications_enabled')
+      .eq('user_id', session.uid)
+      .maybeSingle();
+    buyerNotify = identity?.notifications_enabled === true;
+  } catch (e) {
+    console.error('[checkout] notifications lookup failed:', e);
+  }
+
   const symbol = result.currencySymbol || '';
   const orderNumber = String(result.orderNumber || result.orderId).slice(0, 12);
-  notify({
-    bot: 'buyer',
-    chatId: session.tg,
-    publicId: storePublicId,
-    logPrefix: 'checkout',
-    text: `🧾 <b>Заказ принят!</b>\n\nНомер: <code>${orderNumber}</code>\nСумма: <b>${result.totalMinor} ${symbol}</b>\nСтатус: Новый`,
-  }).catch((e) => console.error('[checkout] buyer notify error:', e));
+  if (buyerNotify) {
+    notify({
+      bot: 'buyer',
+      chatId: session.tg,
+      publicId: storePublicId,
+      logPrefix: 'checkout',
+      text: `🧾 <b>Заказ принят!</b>\n\nНомер: <code>${orderNumber}</code>\nСумма: <b>${result.totalMinor} ${symbol}</b>\nСтатус: Новый`,
+    }).catch((e) => console.error('[checkout] buyer notify error:', e));
+  }
 
   if (result.sellerTelegramId) {
     notify({

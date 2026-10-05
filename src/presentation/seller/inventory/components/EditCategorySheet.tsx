@@ -3,25 +3,39 @@ import { Plus, X } from 'lucide-react';
 import BottomSheet from '../../../shared/components/BottomSheet';
 import type { InventoryCategoryItem } from '../../../../application/hooks/useInventory';
 import { useInventoryActions } from '../../../../application/hooks/useInventoryActions';
+import { useCategoryReorder } from '../../../../application/hooks/useCategoryReorder';
 import { uploadCategoryCoverImage } from '../../../../application/services/image-service';
 import { isSystemCategory } from '../../../../domain/rules/category-rules';
+import ReorderCategorySheet from './ReorderCategorySheet';
 
 interface EditCategorySheetProps {
   open: boolean;
   category: InventoryCategoryItem;
+  /** Позиция категории на витрине (1-based) среди несистемных; null — не применимо. */
+  orderPosition?: number | null;
+  /** Общее число несистемных категорий (для «N из M»). */
+  orderTotal?: number;
   onClose: () => void;
   /** Вызывается после успешного удаления категории (для навигации). */
   onDeleted?: () => void;
 }
 
-/** Редактирование категории: название, «Уведомлять об окончании», замена фото, удаление. */
+/** Редактирование категории: название, «Уведомлять об окончании», порядок, замена фото, удаление. */
 export default function EditCategorySheet({
   open,
   category,
+  orderPosition = null,
+  orderTotal = 0,
   onClose,
   onDeleted,
 }: EditCategorySheetProps) {
   const { updateCategory, deleteCategory } = useInventoryActions();
+  const {
+    pending: reorderPending,
+    error: reorderError,
+    reset: resetReorder,
+    reorder,
+  } = useCategoryReorder();
   const [name, setName] = useState(category.name);
   const [threshold, setThreshold] = useState(
     category.lowStockThreshold ? String(category.lowStockThreshold) : '',
@@ -29,6 +43,9 @@ export default function EditCategorySheet({
   const [photo, setPhoto] = useState<string | null>(category.imageUrl);
   const [processing, setProcessing] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [reorderOpen, setReorderOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -40,9 +57,12 @@ export default function EditCategorySheet({
     setThreshold(category.lowStockThreshold ? String(category.lowStockThreshold) : '');
     setPhoto(category.imageUrl);
     setUploadError(null);
+    setSaveError(null);
+    setReorderOpen(false);
+    resetReorder();
     setConfirmDelete(false);
     setDeleteError(null);
-  }, [open, category]);
+  }, [open, category, resetReorder]);
 
   const canSave = name.trim().length > 0;
   const canDelete = !isSystemCategory(category.id);
@@ -64,14 +84,23 @@ export default function EditCategorySheet({
 
   const removePhoto = () => setPhoto(null);
 
-  const save = () => {
-    if (!canSave) return;
-    updateCategory(category.id, {
-      name,
-      lowStockThreshold: threshold.trim() ? Number(threshold) : null,
-      imageStorageKey: photo,
-    });
-    onClose();
+  const save = async () => {
+    if (!canSave || saving) return;
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await updateCategory(category.id, {
+        name,
+        lowStockThreshold: threshold.trim() ? Number(threshold) : null,
+        imageStorageKey: photo,
+      });
+      onClose();
+    } catch (e) {
+      console.error('[inventory] updateCategory failed', e);
+      setSaveError('Не удалось сохранить категорию. Попробуйте ещё раз.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const remove = async () => {
@@ -147,14 +176,41 @@ export default function EditCategorySheet({
         />
       </label>
 
+      {orderPosition != null ? (
+        <div className="field">
+          <span className="field__label">Порядок на витрине</span>
+          <div className="cat-order">
+            <span className="cat-order__value">
+              {orderPosition} из {orderTotal || orderPosition}
+            </span>
+            <button
+              type="button"
+              className="variant-inherit"
+              onClick={() => {
+                resetReorder();
+                setReorderOpen(true);
+              }}
+            >
+              Изменить порядок
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {saveError ? (
+        <div style={{ marginTop: 8, color: '#FF3B30', fontSize: 13 }} role="alert">
+          {saveError}
+        </div>
+      ) : null}
+
       <div className="form-actions">
         <button
           type="button"
           className="btn-primary btn-primary--wide"
-          disabled={!canSave}
-          onClick={save}
+          disabled={!canSave || saving}
+          onClick={() => void save()}
         >
-          Сохранить
+          {saving ? 'Сохранение…' : 'Сохранить'}
         </button>
       </div>
 
@@ -195,6 +251,30 @@ export default function EditCategorySheet({
             Удалить категорию
           </button>
         )
+      ) : null}
+
+      {orderPosition != null ? (
+        <ReorderCategorySheet
+          open={reorderOpen}
+          nested
+          categoryName={category.name}
+          total={orderTotal || orderPosition}
+          currentPosition={orderPosition}
+          pending={reorderPending}
+          error={reorderError}
+          onClose={() => {
+            setReorderOpen(false);
+            resetReorder();
+          }}
+          onSelect={(position) => {
+            void reorder(category.id, position).then((ok) => {
+              if (ok) {
+                setReorderOpen(false);
+                resetReorder();
+              }
+            });
+          }}
+        />
       ) : null}
     </BottomSheet>
   );

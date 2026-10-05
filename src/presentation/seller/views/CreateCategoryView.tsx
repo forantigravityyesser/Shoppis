@@ -14,6 +14,8 @@ export default function CreateCategoryView() {
   const [photo, setPhoto] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const canSubmit = name.trim().length > 0;
@@ -35,9 +37,18 @@ export default function CreateCategoryView() {
 
   const removePhoto = () => setPhoto(null);
 
-  const submit = () => {
-    if (!canSubmit) return;
-    createCategory({ name, imageStorageKey: photo });
+  const submit = async () => {
+    if (!canSubmit || submitting) return;
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      await createCategory({ name, imageStorageKey: photo });
+    } catch (e) {
+      console.error('[inventory] createCategory failed', e);
+      setSubmitError('Не удалось создать категорию. Попробуйте ещё раз.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -114,14 +125,20 @@ export default function CreateCategoryView() {
         </label>
       </section>
 
+      {submitError ? (
+        <p className="prod-hint prod-hint--error" role="alert">
+          {submitError}
+        </p>
+      ) : null}
+
       <div className="form-actions">
         <button
           type="button"
           className="btn-primary btn-primary--wide"
-          disabled={!canSubmit}
-          onClick={submit}
+          disabled={!canSubmit || submitting}
+          onClick={() => void submit()}
         >
-          Создать категорию
+          {submitting ? 'Создание…' : 'Создать категорию'}
         </button>
       </div>
     </div>

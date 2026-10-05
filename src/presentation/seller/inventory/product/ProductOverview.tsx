@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
-import { HelpCircle, PackagePlus, Star } from 'lucide-react';
+import { useNavigate, useParams } from 'react-router';
+import { PackagePlus } from 'lucide-react';
 import { useInventoryActions } from '../../../../application/hooks/useInventoryActions';
 import { useProductDetail } from '../../../../application/hooks/useProduct';
 import { currencySymbol } from '../../../../domain/constants/currencies';
@@ -22,6 +22,8 @@ export default function ProductOverview() {
     code: ProductStatusErrorCode;
     message: string;
   } | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   if (!product) return null;
 
@@ -42,9 +44,18 @@ export default function ProductOverview() {
 
   const archive = () => void changeStatus('ARCHIVED');
   const publish = () => void changeStatus('ACTIVE');
-  const remove = () => {
-    deleteProduct(product.id);
-    navigate('/seller/inventory');
+  const remove = async () => {
+    if (deleting) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await deleteProduct(product.id);
+      navigate('/seller/inventory');
+    } catch (e) {
+      console.error('[inventory] deleteProduct failed', e);
+      setDeleteError('Не удалось удалить товар. Попробуйте ещё раз.');
+      setDeleting(false);
+    }
   };
 
   return (
@@ -110,20 +121,6 @@ export default function ProductOverview() {
         </section>
       ) : null}
 
-      <div className="prod-signals">
-        <Link to={`${base}/reviews`} className="glass prod-signal">
-          <Star size={16} />
-          <span>
-            {product.reviewsCount} отзывов
-            {product.rating > 0 ? ` · ★ ${product.rating.toFixed(1)}` : ''}
-          </span>
-        </Link>
-        <Link to={`${base}/questions`} className="glass prod-signal">
-          <HelpCircle size={16} />
-          <span>{product.questionsCount} вопросов</span>
-        </Link>
-      </div>
-
       <section className="glass prod-panel prod-actions">
         {statusError ? (
           <p className="prod-hint prod-hint--error" role="alert">
@@ -169,9 +166,14 @@ export default function ProductOverview() {
           </button>
         </div>
         {archived ? (
-          <button type="button" className="prod-remove" onClick={remove}>
-            Удалить из архива
+          <button type="button" className="prod-remove" disabled={deleting} onClick={() => void remove()}>
+            {deleting ? 'Удаление…' : 'Удалить из архива'}
           </button>
+        ) : null}
+        {deleteError ? (
+          <p className="prod-hint prod-hint--error" role="alert">
+            {deleteError}
+          </p>
         ) : null}
         {!canPublish ? (
           <p className="prod-hint">

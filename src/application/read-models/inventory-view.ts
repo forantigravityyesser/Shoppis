@@ -1,5 +1,6 @@
 import type { StockState } from '../../domain/rules/inventory-rules';
-import type { ProductStatus } from '../../domain/models/product';
+import type { ProductStatus, VariantPriceMode } from '../../domain/models/product';
+import type { InheritanceMode } from '../rules/variant-form';
 
 /** Изображение товара: полный URL (+ лёгкая миниатюра для списков). */
 export interface InventoryImageItem {
@@ -50,6 +51,10 @@ export interface InventoryVariantItem {
   discountPercent: number;
   availableQuantity: number;
   heldQuantity: number;
+  /** Режим цены варианта (для точного предзаполнения формы). */
+  priceMode: VariantPriceMode;
+  customOriginalAmountMinor: number | null;
+  customDiscountPercent: number | null;
 }
 
 /** Детальная вью-модель товара для ProductView. */
@@ -92,6 +97,9 @@ export interface ProductFormPayload {
     quantity: number;
     priceMinor: number;
     discountPercent: number;
+    /** Явный режим наследования цены/скидки от первого варианта. docs/19 §15. */
+    priceMode: InheritanceMode;
+    discountMode: InheritanceMode;
   }>;
 }
 

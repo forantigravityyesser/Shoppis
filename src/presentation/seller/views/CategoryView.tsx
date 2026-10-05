@@ -14,7 +14,7 @@ import '../inventory/inventory.css';
 export default function CategoryView() {
   const { categoryId = '' } = useParams();
   const navigate = useNavigate();
-  const { category, products, loading } = useCategoryPage(categoryId);
+  const { category, products, orderPosition, orderTotal, loading } = useCategoryPage(categoryId);
   const [query, setQuery] = useState('');
   const [editOpen, setEditOpen] = useState(false);
   /** Системную «Без категории» нельзя редактировать. */
@@ -141,6 +141,8 @@ export default function CategoryView() {
         <EditCategorySheet
           open={editOpen}
           category={category}
+          orderPosition={orderPosition}
+          orderTotal={orderTotal}
           onClose={() => setEditOpen(false)}
           onDeleted={() => navigate('/seller/inventory')}
         />

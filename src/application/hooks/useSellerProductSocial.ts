@@ -30,6 +30,17 @@ export interface SellerProductQuestionsState {
   refresh: () => void;
 }
 
+/** Сводка для индикаторов в списке Inventory (Phase D). */
+export interface SellerProductSocialSummary {
+  /** id отзывов товара — непросмотренные считаются на клиенте по seen-store. */
+  reviewIds: string[];
+  /** Число вопросов без ответа продавца («просмотрен» = отвечен, docs/19 §25). */
+  unansweredQuestions: number;
+  loading: boolean;
+  error: string | null;
+  refresh: () => void;
+}
+
 /**
  * Seller-ленты отзывов/вопросов через edge (actor из серверной сессии),
  * owner-only RPC `seller_product_*_read` (миграция 0028). Работают и для
@@ -75,6 +86,44 @@ export function useSellerProductQuestions(productId: string | null): SellerProdu
 
   return {
     questions: query.data?.questions ?? [],
+    loading: enabled && query.isLoading,
+    error: query.error ? (query.error as Error).message : null,
+    refresh: () => {
+      void query.refetch();
+    },
+  };
+}
+
+/**
+ * Компактная сводка отзывов/вопросов товара для индикаторов в списке Inventory:
+ * одна React Query-запись, внутри — параллельные seller-чтения вместо полных проекций
+ * в UI. React Query кэширует (staleTime), поэтому список не перезапрашивает при ре-рендере.
+ * docs/19 §6.2 (Phase D). При росте каталога точку можно заменить одним bulk-RPC.
+ */
+export function useSellerProductSocialSummary(productId: string | null): SellerProductSocialSummary {
+  const sessionToken = useStore((s) => s.sessionToken);
+  const enabled = Boolean(productId && sessionToken);
+  const query = useQuery({
+    queryKey: ['seller-product-social-summary', productId],
+    queryFn: async () => {
+      const repo = deps().sellerProductSocialRepository;
+      const [reviews, questions] = await Promise.all([
+        repo.loadProductReviews(productId as string, sessionToken as string),
+        repo.loadProductQuestions(productId as string, sessionToken as string),
+      ]);
+      return {
+        reviewIds: reviews.reviews.map((review) => review.id),
+        unansweredQuestions: questions.questions.filter((question) => question.answer === null)
+          .length,
+      };
+    },
+    enabled,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  return {
+    reviewIds: query.data?.reviewIds ?? [],
+    unansweredQuestions: query.data?.unansweredQuestions ?? 0,
     loading: enabled && query.isLoading,
     error: query.error ? (query.error as Error).message : null,
     refresh: () => {

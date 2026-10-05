@@ -16,6 +16,10 @@ export interface CategoryPageData {
   category: InventoryCategoryItem | null;
   /** Активные + архивные товары категории (активные первыми). */
   products: InventoryProductItem[];
+  /** Позиция категории на витрине (1-based) среди несистемных; null — не применимо. */
+  orderPosition: number | null;
+  /** Общее число несистемных категорий (для «N из M»). */
+  orderTotal: number;
   loading: boolean;
   error: string | null;
 }
@@ -67,9 +71,19 @@ export function useCategoryPage(categoryId: string): CategoryPageData {
 
     const threshold = category?.lowStockThreshold ?? DEFAULT_LOW_STOCK_THRESHOLD;
 
+    const userCategories = categories
+      .filter((c) => !isSystemCategory(c.id))
+      .slice()
+      .sort((a, b) => a.sortOrder - b.sortOrder);
+    const orderTotal = userCategories.length;
+    const orderIndex = entity ? userCategories.findIndex((c) => c.id === entity.id) : -1;
+    const orderPosition = orderIndex >= 0 ? orderIndex + 1 : null;
+
     return {
       category,
       products: categoryProducts.map((p) => buildProductItem(p, threshold, currency, source)),
+      orderPosition,
+      orderTotal,
       loading: catalogLoading || categoriesLoading,
       error: catalogError ?? categoriesError ?? null,
     };

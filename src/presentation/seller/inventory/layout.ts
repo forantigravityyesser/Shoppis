@@ -1,40 +1,9 @@
-import type { InventoryCategoryItem } from '../../../application/hooks/useInventory';
-
-/** Визуальный ряд сетки категорий: одна широкая или пара компактных. */
-export type CategoryRow =
-  | { type: 'wide'; key: string; category: InventoryCategoryItem }
-  | { type: 'pair'; key: string; items: InventoryCategoryItem[] };
-
 /**
  * Сколько карточек товара видно одновременно в строке превью категории.
- * Остальные доступны свайпом/стрелками (mobile-first, без видимого скроллбара).
+ * Остальные доступны стрелками (mobile-first, без видимого скроллбара).
+ * docs/19 Phase E: категории — полноширинные строки, единый размер превью.
  */
-export const PREVIEW_VISIBLE = { wide: 5, compact: 3 } as const;
-
-/**
- * Детерминированная композиция Home: wide → pair → wide → pair …
- * Без masonry и без хранения layout в БД (спека §15).
- */
-export function buildCategoryRows(categories: InventoryCategoryItem[]): CategoryRow[] {
-  const rows: CategoryRow[] = [];
-  let index = 0;
-  let wide = true;
-
-  while (index < categories.length) {
-    if (wide || categories.length - index === 1) {
-      const category = categories[index];
-      rows.push({ type: 'wide', key: category.id, category });
-      index += 1;
-    } else {
-      const items = categories.slice(index, index + 2);
-      rows.push({ type: 'pair', key: items.map((c) => c.id).join(':'), items });
-      index += 2;
-    }
-    wide = !wide;
-  }
-
-  return rows;
-}
+export const PREVIEW_VISIBLE = 5;
 
 /** Русская форма множественного числа: pluralRu(2, ['товар','товара','товаров']). */
 export function pluralRu(count: number, forms: [string, string, string]): string {

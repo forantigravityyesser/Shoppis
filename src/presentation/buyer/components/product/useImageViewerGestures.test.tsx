@@ -50,6 +50,17 @@ describe('useImageViewerGestures', () => {
     expect(result.current.scale).toBe(1);
   });
 
+  it('resetGesture сбрасывает окно двойного тапа (нет ложного зума после смены фото)', () => {
+    const { result } = renderHook(() => useImageViewerGestures({ current: null }, 'a'));
+
+    tap(result.current); // t=1000, окно двойного тапа «открыто»
+    act(() => result.current.resetGesture()); // смена фото из миниатюр
+    now += 50; // t=1050 — внутри окна, но оно уже сброшено
+    tap(result.current);
+
+    expect(result.current.scale).toBe(1);
+  });
+
   it('пинч увеличивает масштаб и клампится MAX_SCALE', () => {
     const { result } = renderHook(() => useImageViewerGestures({ current: null }, 'a'));
 

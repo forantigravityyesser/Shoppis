@@ -31,6 +31,41 @@ infinite loading, состояния. План/аудит — `17` (CAT-00…CAT
 `npm run migrations:check` / `migrations:record`, конвенция `migrations/README.md`. InsForge CLI
 `db migrations` не используется (timestamp-имена + нет backfill) — обоснование в README.
 
+**Актуализация (2026-10-05) — Cart реализован:** вкладка **Корзина** (`/cart`) и граница до checkout —
+`18_SHOPPIS_CART_PLAN.md`, этапы `CART-01…CART-06` **выполнены**. buy-side read-model `CartItemView`
+(RPC `storefront_cart_items_read`, миграция `0036`), реконсиляция, selection/select-all, inline-удаление,
+один итог в CTA, checkout-форма (ФИО / телефон / **адрес доставки**), экран успеха, Telegram-разрешение
+на первый заказ и **серверный гейт** уведомлений (`process-checkout` по `notifications_enabled`).
+**Правка относительно внешнего spec:** получатель — это **адрес доставки, а не email** (email не
+запрашиваем/не храним; snapshot `buyer_address_snapshot` уже существует в `0003`). Стоимость/опции
+доставки в MVP не считаем, но адрес доставки запрашиваем. Осталось: ручная проверка в Telegram;
+Orders-вкладка — всё ещё заглушка (фундамент `ordersByStore`/`lastOrder` готов).
+
+**Актуализация (2026-10-05) — реконструкция Seller Inventory:** зафиксированы спецификация и полный
+план исправлений/рефакторинга инвентаря — `19_SHOPPIS_SELLER_INVENTORY_RECONSTRUCTION_SPEC_v0.1.md`
+(этапы `INV-R-01…INV-R-37`). Ключевое: разделение Inventory на секции **Товары/Категории** (Товары —
+по умолчанию), явное наследование вариантов (`INHERITED/CUSTOM` вместо эвристики по пустому полю),
+mutation lifecycle (submitting / disable / error / retry) для всех seller-мутаций. По правке
+заказчика секции «Отзывы/Вопросы» **остаются** в навигации seller-карточки с индикаторами, а из
+`ProductOverview` убраны только действия; секция «Категории» — полноширинные строки (визуал блока
+сохранён).
+Приложение A содержит сверку спеки с фактическим кодом (файлы/строки); ADR-06.7 (`06`)
+переопределён — reorder реализован (`17`, `0027`); синхронизация `06/07/09` — фаза G.
+
+**Прогресс `19`:** Phase A `[x]` (явное наследование вариантов, submitting/error lifecycle,
+проброс ошибок мутаций), Phase B `[x]` (правка заказчика: секции «Отзывы/Вопросы» **остаются**
+в навигации seller-карточки с индикаторами непросмотренного/без ответа, из `ProductOverview`
+удалены действия; INV-R-08 переопределён), Phase C `[x]` (общий `useCategoryReorder`, lifecycle
+реордера с await/disable/error/retry, порядок «N из M» в `EditCategorySheet`), Phase D `[x]`
+(переключатель **Товары/Категории**, Товары по умолчанию, инлайн-поиск и список товаров,
+индикатор внимания на карточке товара) и Phase E `[x]` (категории — **полноширинные строки**,
+визуал блока сохранён, мёртвый wide/pair-код удалён; «+» разделены: в «Товарах» — сразу форма
+товара, в «Категориях» — сразу форма категории; «+» в блоке категории — выбор «Новый товар /
+Товар из магазина» с мультивыбором и быстрым переносом). Phase F `[x]` (`CategoryView`:
+список/редактирование/контекст; поиск в секции «Категории» убран — категорий немного) и
+Phase G `[x]` LOCAL (typecheck/тесты/build зелёные, мёртвый код удалён, `06/07/08/09`
+синхронизированы, аудит §45.1; ручная `LOCAL`/`TELEGRAM`-сверка — за человеком).
+
 **Актуализация (2026-10-03):** следующий блок buyer-части — карточка товара: экран, галерея,
 варианты/цена/наличие, избранное, корзина, «О товаре / Отзывы / Вопросы» (чтение), related
 (ProductGroup), публичный read layer `0015` и seller mini-stage для linking attributes/ProductGroup —
@@ -55,6 +90,8 @@ Spec §9.0.
 12. `15_SHOPPIS_BUYER_HOME_HARDENING_AUDIT.md` — hardening Главной покупателя: разбор аудита против кода, public store boundary, buyer avatar, progressive/cursor product loading, семантика `ProductCard`, image hardening, убрать `originalPrice` из Home; этапы HOME-HARDEN-01…11. Переопределяет `13` §3/§5/§9-10/§19/§28 — см. Приложение C.
 13. `16_SHOPPIS_REMAINING_WORK.md` — реестр незавершённого/отложенного (product follow-up'ы, roadmap, ссылки на hardening `11` и divergence `08`). Сюда перенесён редактор linking attributes (из `14` PD-14).
 14. `17_SHOPPIS_CATALOG_PLAN.md` — Каталог покупателя (server-driven): план реализации, единый контракт read-model/URL/React Query, переиспользование Home-фундамента; этапы CAT-00…CAT-16 (ЧТО+КАК).
+15. `18_SHOPPIS_CART_PLAN.md` — Корзина покупателя (`/cart`) + граница до checkout: единый источник истины (inventory), buy-side read-model `CartItemView`, реконсиляция, selection/select-all, inline-удаление, один итог, checkout-форма (ФИО / телефон / **адрес доставки**, не email); этапы CART-01…CART-06 (ЧТО+КАК).
+16. `19_SHOPPIS_SELLER_INVENTORY_RECONSTRUCTION_SPEC_v0.1.md` — реконструкция Seller Inventory: план исправлений и рефакторинга (секции Товары/Категории, explicit variant inheritance, mutation lifecycle, чистка ProductView, полноширинные строки категорий); этапы INV-R-01…INV-R-37, Приложение A — разбор относительно кода.
 
 ## Принцип двух сред проверки
 Telegram — не финальная интеграция, а целевая среда исполнения и проверки с первых этапов. Каждый глобальный этап имеет два состояния: `LOCAL VERIFIED` (браузер / локальный контур) и `TELEGRAM VERIFIED` (реальный Telegram Mini App на development-окружении). Этап не закрывается без обоих.

@@ -6,11 +6,14 @@ import { formatMoneyMinor } from '../../../../domain/rules/product-rules';
 interface ProductMiniCardProps {
   product: InventoryProductItem;
   onClick: () => void;
+  /** Непросмотренные отзывы / вопросы без ответа — индикатор внимания (Phase D). */
+  attention?: { reviews: number; questions: number } | null;
 }
 
 /** Компактная строка товара в CategoryView: фото, название, остаток, цена, сигналы. */
-export default function ProductMiniCard({ product, onClick }: ProductMiniCardProps) {
+export default function ProductMiniCard({ product, onClick, attention = null }: ProductMiniCardProps) {
   const hidden = product.stockState === 'hidden';
+  const attentionCount = attention ? attention.reviews + attention.questions : 0;
   return (
     <button
       type="button"
@@ -40,6 +43,14 @@ export default function ProductMiniCard({ product, onClick }: ProductMiniCardPro
           {formatMoneyMinor(product.priceMinor, currencySymbol(product.currency))}
         </span>
         <span className="mini-card__signals">
+          {attentionCount > 0 ? (
+            <span
+              className="mini-card__attention"
+              aria-label={`Требуют внимания: отзывов ${attention?.reviews ?? 0}, вопросов ${attention?.questions ?? 0}`}
+            >
+              {attentionCount > 99 ? '99+' : attentionCount}
+            </span>
+          ) : null}
           {product.rating > 0 ? (
             <span className="mini-card__signal">
               <Star size={13} /> {product.rating.toFixed(1)}

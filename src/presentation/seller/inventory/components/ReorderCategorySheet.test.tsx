@@ -43,4 +43,18 @@ describe('ReorderCategorySheet', () => {
     expect(screen.getByRole('button', { name: '3' }).className).toContain('reorder__num--3');
     expect(screen.getByRole('button', { name: '6' }).className).not.toContain('reorder__num--6');
   });
+
+  it('во время сохранения числа disabled и показано «Сохранение…»', () => {
+    renderSheet({ pending: true });
+    expect(screen.getByText('Сохранение…')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '2' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '6' })).toBeDisabled();
+  });
+
+  it('показывает ошибку и позволяет повторить выбор', async () => {
+    const props = renderSheet({ error: 'Не удалось изменить порядок. Попробуйте ещё раз.' });
+    expect(screen.getByRole('alert')).toHaveTextContent('Не удалось изменить порядок');
+    await userEvent.click(screen.getByRole('button', { name: '4' }));
+    expect(props.onSelect).toHaveBeenCalledWith(4);
+  });
 });

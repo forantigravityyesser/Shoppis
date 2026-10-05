@@ -129,6 +129,9 @@ export function buildProductDetail(
         discountPercent: price.discountPercent,
         availableQuantity: inventory?.availableQuantity ?? 0,
         heldQuantity: inventory?.heldQuantity ?? 0,
+        priceMode: v.priceMode,
+        customOriginalAmountMinor: v.customOriginalAmountMinor,
+        customDiscountPercent: v.customDiscountPercent,
       };
     });
 

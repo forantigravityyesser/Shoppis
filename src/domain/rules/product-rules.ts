@@ -57,10 +57,13 @@ export function validateProduct(input: {
   originalAmountMinor: number;
   discountPercent: number;
   imageCount: number;
+  status?: ProductStatus;
 }): string[] {
   const errors: string[] = [];
   if (!input.title.trim()) errors.push('Название товара обязательно');
-  if (!(input.originalAmountMinor > 0)) errors.push('Цена должна быть больше нуля');
+  // В архив товар можно отправить без вариантов и цены (docs/06 §469).
+  if (input.status !== 'ARCHIVED' && !(input.originalAmountMinor > 0))
+    errors.push('Цена должна быть больше нуля');
   if (input.discountPercent < 0 || input.discountPercent > 100)
     errors.push('Скидка должна быть от 0 до 100%');
   if (input.imageCount > MAX_IMAGES) errors.push(`Максимум ${MAX_IMAGES} изображений`);

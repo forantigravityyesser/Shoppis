@@ -1,6 +1,11 @@
 import { useState } from 'react';
 import { NavLink, Outlet, useParams } from 'react-router';
 import { useProductDetail } from '../../../application/hooks/useProduct';
+import {
+  useSellerProductQuestions,
+  useSellerProductReviews,
+} from '../../../application/hooks/useSellerProductSocial';
+import { useSeenReviewIds } from '../../../application/hooks/useSellerSocialSeen';
 import { currencySymbol } from '../../../domain/constants/currencies';
 import { formatMoneyMinor } from '../../../domain/rules/product-rules';
 import BackButton from '../../shared/components/BackButton';
@@ -16,11 +21,26 @@ const TABS = [
 /**
  * Карточка товара: стеклянная шапка (галерея, цена, статус) + таб-бар.
  * Контент вкладок рендерится через <Outlet/> (вложенные роуты /reviews, /questions, /preview).
+ *
+ * Индикаторы вкладок (правка заказчика, docs/19 §24–27):
+ * — «Отзывы»: число непросмотренных; при заходе на вкладку обнуляется.
+ * — «Вопросы»: число вопросов без ответа; просмотренным считается отвеченный.
  */
 export default function ProductView() {
   const { productId = '' } = useParams();
   const { product, loading } = useProductDetail(productId);
+  const productKey = productId || null;
+  const { reviews } = useSellerProductReviews(productKey);
+  const { questions } = useSellerProductQuestions(productKey);
+  const seenReviewIds = useSeenReviewIds(productKey);
   const [imageIndex, setImageIndex] = useState(0);
+
+  const unreadReviews = reviews.filter((review) => !seenReviewIds.has(review.id)).length;
+  const openQuestions = questions.filter((question) => question.answer === null).length;
+  const badges: Record<string, number> = {
+    reviews: unreadReviews,
+    questions: openQuestions,
+  };
 
   if (!product) {
     return (
@@ -93,16 +113,24 @@ export default function ProductView() {
       ) : null}
 
       <nav className="glass prod-tabs">
-        {TABS.map((tab) => (
-          <NavLink
-            key={tab.label}
-            to={tab.to ? `${base}/${tab.to}` : base}
-            end={tab.end}
-            className={({ isActive }) => `prod-tab${isActive ? ' prod-tab--active' : ''}`}
-          >
-            {tab.label}
-          </NavLink>
-        ))}
+        {TABS.map((tab) => {
+          const badge = badges[tab.to] ?? 0;
+          return (
+            <NavLink
+              key={tab.label}
+              to={tab.to ? `${base}/${tab.to}` : base}
+              end={tab.end}
+              className={({ isActive }) => `prod-tab${isActive ? ' prod-tab--active' : ''}`}
+            >
+              <span>{tab.label}</span>
+              {badge > 0 ? (
+                <span className="prod-tab__badge" aria-label={`${badge} новых`}>
+                  {badge > 99 ? '99+' : badge}
+                </span>
+              ) : null}
+            </NavLink>
+          );
+        })}
       </nav>
 
       <Outlet />

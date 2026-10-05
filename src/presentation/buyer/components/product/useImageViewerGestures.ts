@@ -5,6 +5,7 @@ import {
   clampPosition,
   doubleTapTarget,
   pinchScale,
+  zoomToPoint,
   type Point,
 } from './image-viewer-gestures';
 
@@ -28,13 +29,14 @@ export interface ImageViewerGestures {
   onPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onPointerMove: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onPointerUp: (event: ReactPointerEvent<HTMLDivElement>) => void;
-  /** Сброс внутренних буферов жестов (вызывать при смене фото из миниатюр). */
+  /** Сброс буферов жестов и окна двойного тапа (вызывать при смене фото из миниатюр). */
   resetGesture: () => void;
 }
 
 /**
- * Gesture state machine fullscreen-просмотра: пинч (2 пальца), двойной тап
- * (туда-обратно), панорамирование при увеличении с ограничением по границам.
+ * Gesture state machine fullscreen-просмотра: пинч (2 пальца, зум к точке между
+ * пальцами — zoom-to-point), двойной тап (туда-обратно), панорамирование при
+ * увеличении с ограничением по границам.
  * `mediaRef` (DOM-контейнер фото) создаётся вызывающим компонентом и нужен для
  * clamp по границам; сам хук ref не возвращает. При смене `resetKey` (фото)
  * масштаб/позиция сбрасываются прямо в рендере — без эффекта, чтобы не было
@@ -65,6 +67,9 @@ export function useImageViewerGestures(
     pinch.current = null;
     pan.current = null;
     multiTouch.current = false;
+    // Сброс окна двойного тапа: иначе быстрый «tap A → смена фото → tap B» может
+    // дать ложный зум на новом фото (PD-R-02).
+    lastTap.current = 0;
   };
 
   const clampPos = (x: number, y: number, s: number): Point => {
@@ -111,13 +116,30 @@ export function useImageViewerGestures(
       const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
       const nextScale = pinchScale(pinch.current.startScale, pinch.current.startDist, dist);
       setScale(nextScale);
-      setPosition(
-        clampPos(
-          pinch.current.startPos.x + (mid.x - pinch.current.startMid.x),
-          pinch.current.startPos.y + (mid.y - pinch.current.startMid.y),
-          nextScale,
-        ),
-      );
+
+      const el = mediaRef.current;
+      if (el) {
+        // Zoom-to-point: точка под стартовым центром пальцев остаётся на месте.
+        const rect = el.getBoundingClientRect();
+        const next = zoomToPoint({
+          startScale: pinch.current.startScale,
+          startPos: pinch.current.startPos,
+          startMid: pinch.current.startMid,
+          mid,
+          center: { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 },
+          scale: nextScale,
+        });
+        setPosition(clampPos(next.x, next.y, nextScale));
+      } else {
+        // Без DOM (напр. юнит-тесты хука) — прежнее поведение: сдвиг по центру пальцев.
+        setPosition(
+          clampPos(
+            pinch.current.startPos.x + (mid.x - pinch.current.startMid.x),
+            pinch.current.startPos.y + (mid.y - pinch.current.startMid.y),
+            nextScale,
+          ),
+        );
+      }
       return;
     }
 

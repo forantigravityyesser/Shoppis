@@ -2,7 +2,9 @@ import { insforge } from '../insforge/client';
 import {
   mapStorefrontCatalogPriceBounds,
   mapStorefrontCatalogProductPage,
+  mapStorefrontProductCardList,
 } from '../../application/mappers/storefront-mappers';
+import type { StorefrontProductCard } from '../../application/read-models/storefront';
 import type {
   StorefrontCatalogPriceBounds,
   StorefrontCatalogProductPage,
@@ -30,6 +32,24 @@ export async function loadCatalogProducts(
   });
   if (error) throw error;
   return mapStorefrontCatalogProductPage(data);
+}
+
+/**
+ * Товары избранного по списку id (`storefront_favorite_products_read`). RPC сам
+ * ограничивает выборку магазином/ACTIVE-товарами и отдаёт ту же карточку, что каталог.
+ * `publicId` не задан или список пуст → без запроса.
+ */
+export async function loadProductsByIds(
+  storePublicId: string,
+  ids: string[],
+): Promise<StorefrontProductCard[]> {
+  if (!storePublicId || ids.length === 0) return [];
+  const { data, error } = await insforge.database.rpc('storefront_favorite_products_read', {
+    p_public_id: storePublicId,
+    p_ids: ids,
+  });
+  if (error) throw error;
+  return mapStorefrontProductCardList(data);
 }
 
 export async function loadCatalogPriceBounds(

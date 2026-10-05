@@ -230,6 +230,33 @@ describe('DetailsView shell', () => {
     expect(screen.queryByRole('button', { name: 'В избранное' })).toBeNull();
   });
 
+  it('trailing slash: /product/p1/ → CTA показан (как /product/p1)', () => {
+    productState.current = { detail: DETAIL, loading: false, error: null, notFound: false, refresh };
+    render(
+      <MemoryRouter initialEntries={['/product/p1/']}>
+        <Routes>
+          <Route path="/product/:id" element={<DetailsView />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole('button', { name: 'Добавить в корзину' })).toBeInTheDocument();
+  });
+
+  it('trailing slash: /product/p1/reviews/ → слой показан, CTA скрыт', () => {
+    productState.current = { detail: DETAIL, loading: false, error: null, notFound: false, refresh };
+    render(
+      <MemoryRouter initialEntries={['/product/p1/reviews/']}>
+        <Routes>
+          <Route path="/product/:id" element={<DetailsView />}>
+            <Route path="reviews" element={<div>reviews-child</div>} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(screen.getByText('reviews-child')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Добавить в корзину' })).toBeNull();
+  });
+
   it('без отзывов рейтинг всё равно показан (0)', () => {
     productState.current = {
       detail: { ...DETAIL, rating: { average: 0, count: 0 } },

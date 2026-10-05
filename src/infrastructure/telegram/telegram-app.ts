@@ -128,20 +128,21 @@ export function getBuyerAppShortname(): string {
 /**
  * Открыть t.me-ссылку внутри Telegram (например, предпросмотр витрины).
  * Вне Telegram / при недоступности SDK — открываем в новой вкладке.
+ * `true`, если открытие инициировано; `false` — открыть не удалось.
  */
-export function openTelegramLink(url: string): void {
+export function openTelegramLink(url: string): boolean {
   try {
     if (sdkOpenTelegramLink.isAvailable()) {
       sdkOpenTelegramLink(url);
-      return;
+      return true;
     }
   } catch {
     // fallback ниже
   }
   try {
-    window.open(url, '_blank', 'noopener');
+    return Boolean(window.open(url, '_blank', 'noopener'));
   } catch {
-    // ignore
+    return false;
   }
 }
 

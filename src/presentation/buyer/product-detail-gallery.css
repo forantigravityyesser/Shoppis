@@ -57,12 +57,12 @@
   background: #eef1f6;
 }
 
-/* cover: фото заполняет ширину блока (боковых зазоров от аспекта нет),
-   верх/низ слегка подрезаются — как и раньше, обрезка минимальная. */
+/* contain: фото целиком, со всеми краями, без обрезки (full — 4:5).
+   docs/14 §4.2. Регрессионный guard — product-detail-gallery.test.ts. */
 .pd-gallery__main img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   object-position: center;
   display: block;
 }

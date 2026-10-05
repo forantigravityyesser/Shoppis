@@ -46,3 +46,32 @@ export function doubleTapTarget(scale: number): number {
 export function pinchScale(startScale: number, startDist: number, dist: number): number {
   return clampScale((startScale * dist) / (startDist || 1));
 }
+
+export interface ZoomToPointInput {
+  /** Масштаб на старте пинча. */
+  startScale: number;
+  /** Позиция (translate) на старте пинча. */
+  startPos: Point;
+  /** Центр между пальцами на старте пинча (client-координаты). */
+  startMid: Point;
+  /** Текущий центр между пальцами. */
+  mid: Point;
+  /** Центр контейнера изображения (= transform-origin) в client-координатах. */
+  center: Point;
+  /** Текущий масштаб. */
+  scale: number;
+}
+
+/**
+ * Позиция изображения при зуме так, чтобы точка под стартовым центром пальцев
+ * оставалась под текущим центром (zoom-to-point, а не зум относительно центра
+ * картинки). При `scale === startScale` формула сводится к панорамированию
+ * (сдвиг на delta центра пальцев).
+ */
+export function zoomToPoint(input: ZoomToPointInput): Point {
+  const k = input.scale / (input.startScale || 1);
+  return {
+    x: k * (input.startPos.x - (input.startMid.x - input.center.x)) + (input.mid.x - input.center.x),
+    y: k * (input.startPos.y - (input.startMid.y - input.center.y)) + (input.mid.y - input.center.y),
+  };
+}

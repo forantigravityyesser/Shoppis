@@ -19,6 +19,7 @@ pnpm-debug.log*
 
 .vscode/
 .idea/
+.playwright-mcp/
 
 # InsForge & AI agent skills
 .insforge

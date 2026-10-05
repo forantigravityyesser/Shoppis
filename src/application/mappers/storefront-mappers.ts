@@ -41,7 +41,7 @@ function asNullableNumber(value: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-function mapStore(raw: unknown): StorefrontStore | null {
+export function mapStore(raw: unknown): StorefrontStore | null {
   if (!isRecord(raw)) return null;
   const id = asString(raw.id);
   const publicId = asString(raw.publicId);
@@ -140,6 +140,18 @@ export function mapStorefrontCatalogProductPage(
       : [],
     nextCursor: asNullableString(raw.nextCursor),
   };
+}
+
+/**
+ * Список карточек избранного (`storefront_favorite_products_read`). Та же карточка,
+ * что у Home/Каталога; порядок сохраняет порядок запрошенных id. Невалидный ответ —
+ * пустой список (архивные/удалённые товары просто отсутствуют).
+ */
+export function mapStorefrontProductCardList(raw: unknown): StorefrontProductCard[] {
+  if (!isRecord(raw)) return [];
+  return Array.isArray(raw.products)
+    ? raw.products.map(mapProduct).filter((p): p is StorefrontProductCard => p !== null)
+    : [];
 }
 
 /** Границы актуальных цен магазина (`storefront_catalog_price_bounds_read`). */
