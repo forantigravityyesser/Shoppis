@@ -233,7 +233,7 @@
   }
 }
 
-/* ---- Экран успеха (полноэкранный оверлей) ---- */
+/* ---- Экран успеха (модалка по центру, корзина видна за ней) ---- */
 .checkout-success {
   position: fixed;
   inset: 0;
@@ -243,12 +243,9 @@
   justify-content: center;
   padding: calc(var(--spacing-6) + var(--safe-top, 0px)) var(--spacing-4)
     calc(var(--spacing-6) + var(--safe-bottom));
-  background: radial-gradient(
-    78% 130% at 50% 0%,
-    var(--color-bg-storefront-mint) 0%,
-    var(--color-bg-storefront-mint) 10%,
-    var(--color-bg-storefront-blue) 100%
-  );
+  background: rgba(18, 16, 35, 0.45);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
   animation: checkout-success-in 0.22s ease;
 }
 
@@ -302,6 +299,60 @@
   font-size: var(--font-size-sm);
   line-height: 1.4;
   color: var(--color-text-secondary);
+}
+
+.checkout-success__notify {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: var(--spacing-4);
+  padding: 14px 16px 16px;
+  border-radius: 18px;
+  background: rgba(108, 92, 231, 0.08);
+}
+
+.checkout-success__notify-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  background: rgba(108, 92, 231, 0.14);
+  color: var(--color-accent);
+}
+
+.checkout-success__notify .checkout-success__note {
+  margin: 0;
+}
+
+.checkout-success__allow {
+  width: 100%;
+  margin-top: var(--spacing-2);
+  padding: 13px;
+  border: none;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  color: var(--color-text-on-accent);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    transform 0.12s,
+    opacity 0.15s;
+}
+
+.checkout-success__allow:active {
+  transform: scale(0.98);
+}
+
+.checkout-success__allow:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 .checkout-success__btn {

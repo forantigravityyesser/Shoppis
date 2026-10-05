@@ -70,10 +70,16 @@ export default function CartView() {
     </div>
   );
 
-  const closeSuccess = () => {
+  // Таймаут просто скрывает модалку — остаёмся в корзине (ничего не перенаправляем).
+  const dismissSuccess = () => {
     checkout.reset();
     setCheckoutOpen(false);
-    navigate('/');
+  };
+
+  // Явная кнопка «Перейти к заказам» — единственный переход из окна успеха.
+  const goToOrders = () => {
+    dismissSuccess();
+    navigate('/orders');
   };
 
   const checkoutSheet = (
@@ -98,8 +104,14 @@ export default function CartView() {
       <CheckoutSuccess
         order={checkout.lastOrder}
         notificationsGranted={checkout.notificationsGranted}
+        notificationsPending={checkout.notificationsPending}
         currencySymbol={currencySymbol}
-        onClose={closeSuccess}
+        onClose={goToOrders}
+        onDismiss={dismissSuccess}
+        onEnableNotifications={() => {
+          void checkout.enableNotifications(checkout.lastOrder?.orderId);
+        }}
+        autoClose={checkout.notificationsGranted}
       />
     ) : null;
 

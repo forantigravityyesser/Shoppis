@@ -17,7 +17,7 @@ Severity: **S1** критично · **S2** высоко · **S3** средне 
 - Этап 5 — порты/DIP: `application/ports/*` + `application/contracts/*`; `application/composition/container.ts` (ручной DI); `src/composition-root.ts` собирает реализации и вызывается первым в `main.tsx`. `application` больше не импортирует `infrastructure` (проверено grep + tsc).
 - Этап 7 — тесты: Vitest; 55 тестов на domain (`product/inventory/order/cart/category-rules`), application (`inventory-mappers`) и infrastructure (`telegram-share`). `npm test` зелёный.
 - Этап 8 — **атомарный каталог**: миграция `0011_catalog_atomic.sql` (7 `security definer` функций: `product_create_atomic`, `product_update_atomic` с неразрушающим diff вариантов, `variant_create_atomic`, `product_set_status_atomic`, `product_delete_atomic`, `category_delete_atomic`, `catalog_assert_store_owner`); edge-диспетчер `catalog-actions` (session → RPC, `actor_user_id` только из сессии); фронт-мутации каталога переведены на него через `src/infrastructure/functions/catalog-api.ts` (порты/репозитории/слайсы прокидывают `sessionToken`, dev-fallback на прямой SDK сохранён). Тесты `catalog-api` (+7, всего 62).
-- Notifications/checkout: `requestMessagesAccess` — best-effort с дедлайном 1200 ms (никогда не бросает и не виснет). Разрешение на уведомления запрашивается **после** успешного заказа (`order-slice.requestNotifications()`), не во время checkout: отказ/таймаут не влияют на заказ. Согласие фиксируется на сервере (`notifications-actions` → `telegram_identities.notifications_enabled`). Контракт порта `TelegramPort.requestMessagesAccess` — совещательный. Тесты: `telegram-share.test.ts`, `notification-api.test.ts`.
+- Notifications/checkout (переделано 2026-10-05): `requestMessagesAccess` — best-effort с длинным safety-дедлайном 60 000 ms (никогда не бросает и не виснет; прежние 1200 ms не давали человеку нажать «Разрешить»). Разрешение запрашивается **на экране успеха по тапу** (`CheckoutSuccess` → `useCheckout.enableNotifications(orderId)`), после создания заказа: отказ/таймаут не влияют на заказ и не блокируют повторный запрос. Согласие фиксируется на сервере (`notifications-actions` → `telegram_identities.notifications_enabled`) с **досылом** «Заказ принят» по `orderId`; гейт в `process-checkout` и `order-actions`. Контракт порта `TelegramPort.requestMessagesAccess` — совещательный. Тесты: `telegram-share.test.ts`, `notification-api.test.ts`, `useCheckout.test.tsx`, `CheckoutSuccess.test.tsx`.
 
 ---
 
@@ -29,7 +29,7 @@ Severity: **S1** критично · **S2** высоко · **S3** средне 
    Сейчас риск низкий: данные тестовые, заказов 0, PII нет. Но anon-ключ публичен (в бандле), поэтому без RLS БД открыта на чтение и частично на запись. Это гейт перед продом, не срочно сегодня.
 2. **Дёшево — сделано в этом заходе:** проверка `DEV_AUTH_MODE` для прод-сборки; разбор `npm audit`. Результаты ниже.
 3. **Перед первыми реальными заказами:** критические SQL-тесты (идемпотентность checkout, гонка за последним стоком stock=1, RPC-переходы, инварианты инвентаря).
-4. **Потом / оппортунистически:** 5× `set-state-in-effect` (seller-inventory ×4 + `CatalogFilterSheet`), 3× `react-refresh`, DRY в ботах, `window.Telegram` в `useAppInit`, CSS-чистка, `toCatalogFields`.
+4. **Потом / оппортунистически:** 5× `set-state-in-effect` (seller-inventory ×4 + `CatalogFilterSheet`), 3× `react-refresh`, DRY в ботах, `window.Telegram` в `useAppInit`, CSS-чистка, `toCatalogFields`. _(Inventory-часть запланирована в `20`: `INV-HARDEN-01` — `toCatalogFields`, `INV-HARDEN-08` — lint; bulk social summary и split CSS — deferred с триггером.)_
 5. **Продуктовый пробел (не аудит):** экраны покупателя (`return null`) — это roadmap, а не hardening.
 
 ### Статус дешёвого захода (2026-09-29)
@@ -101,20 +101,22 @@ Severity: **S1** критично · **S2** высоко · **S3** средне 
 
 - **Сделано:** Vitest настроен (`vitest.config.ts`, node-env). Покрыты domain-правила (`product`, `inventory`, `order`, `cart`, `category`), application-mapper (`inventory-mappers`) и infrastructure (`telegram-share`: allowed/cancelled/таймаут/reject/sync-throw) — 55 тестов.
 - **Остаток (критический флоу, требует SQL/интеграции):** идемпотентность checkout, гонка за последним стоком (stock=1, 2 запроса → ровно один успех), переходы заказов на уровне RPC, инварианты инвентаря. `04 §15`.
-- **Остаток (UI/слайсы):** `toCatalogFields`/`resolveCategoryId` не экспортированы — протестировать через извлечение чистой функции.
+- **Остаток (UI/слайсы):** `toCatalogFields`/`resolveCategoryId` не экспортированы — протестировать через извлечение чистой функции. _(Запланировано в `20` `INV-HARDEN-01`: перенос в `application/rules/product-mapping.ts` + тесты 4 комбинаций.)_
 
 ---
 
-## S3 — react-hooks/set-state-in-effect (4 предупреждения)
+## S3 — react-hooks/set-state-in-effect (Inventory ×5)
 
 Сброс состояния формы/индекса в `useEffect` — потенциально каскадные рендеры. Правило включено как `warn`.
-Файлы:
-- `src/presentation/seller/inventory/components/EditCategorySheet.tsx:39`
+Файлы (срез `npm run lint`, 2026-10-05):
+- `src/presentation/seller/inventory/components/CategoryAddSheet.tsx:48`
+- `src/presentation/seller/inventory/components/EditCategorySheet.tsx:56`
 - `src/presentation/seller/inventory/components/ProductPreviewRow.tsx:38`
-- `src/presentation/seller/inventory/product/AddVariantSheet.tsx:38`
-- `src/presentation/seller/inventory/product/StockControlSheet.tsx:52`
+- `src/presentation/seller/inventory/product/AddVariantSheet.tsx:33`
+- `src/presentation/seller/inventory/product/StockControlSheet.tsx:58`
 
 **Задача:** перейти на `key`-remount или производное состояние (`useMemo`/derived) вместо setState в effect.
+_(Запланировано в `20` `INV-HARDEN-08`; `CatalogFilterSheet` — вне Inventory, не входит.)_
 
 ## S3 — Проверка безопасности dev-пути — проверено
 

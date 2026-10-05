@@ -90,48 +90,73 @@ describe('useCheckout', () => {
     expect(h.state.requestNotifications).not.toHaveBeenCalled();
   });
 
-  it('успешный заказ: разрешение → placeOrder → success + сохранение получателя', async () => {
-    h.state.requestNotifications.mockResolvedValue(true);
+  it('успешный заказ: placeOrder → success, согласие НЕ спрашиваем во время submit', async () => {
     h.state.placeOrder.mockResolvedValue('order-1');
-    h.state.lastOrder = { orderId: 'order-1', orderNumber: 'SH-1', totalMinor: 1000, currencyCode: 'USD' };
+    h.state.lastOrder = {
+      orderId: 'order-1',
+      orderNumber: 'SH-1',
+      totalMinor: 1000,
+      currencyCode: 'USD',
+    };
 
     const { result } = renderHook(() => useCheckout());
     act(() => result.current.setField(VALID));
 
-    await act(async () => {
-      await result.current.submit();
-    });
-
-    expect(h.state.requestNotifications).toHaveBeenCalledTimes(1);
-    expect(h.state.setUserSettings).toHaveBeenCalledWith({
-      notifications: true,
-      notificationsPrompted: true,
-    });
-    expect(h.state.placeOrder).toHaveBeenCalledWith(VALID);
-    expect(h.state.setDefaultRecipient).toHaveBeenCalledWith(VALID);
-    expect(result.current.status).toBe('success');
-    expect(result.current.error).toBeNull();
-    expect(result.current.notificationsGranted).toBe(true);
-    expect(result.current.lastOrder?.orderNumber).toBe('SH-1');
-  });
-
-  it('повторный заказ: разрешение повторно не запрашиваем', async () => {
-    h.state.userSettings = { language: 'ru', notifications: true, notificationsPrompted: true };
-    h.state.placeOrder.mockResolvedValue('order-x');
-
-    const { result } = renderHook(() => useCheckout());
-    act(() => result.current.setField(VALID));
     await act(async () => {
       await result.current.submit();
     });
 
     expect(h.state.requestNotifications).not.toHaveBeenCalled();
+    expect(h.state.placeOrder).toHaveBeenCalledWith(VALID);
+    expect(h.state.setDefaultRecipient).toHaveBeenCalledWith(VALID);
     expect(result.current.status).toBe('success');
+    expect(result.current.error).toBeNull();
+    expect(result.current.notificationsGranted).toBe(false);
+    expect(result.current.lastOrder?.orderNumber).toBe('SH-1');
+  });
+
+  it('enableNotifications: согласие → granted + фиксация + orderId для досыла', async () => {
+    h.state.requestNotifications.mockResolvedValue(true);
+    const { result } = renderHook(() => useCheckout());
+
+    await act(async () => {
+      await result.current.enableNotifications('order-1');
+    });
+
+    expect(h.state.requestNotifications).toHaveBeenCalledWith('order-1');
     expect(result.current.notificationsGranted).toBe(true);
+    expect(result.current.notificationsPending).toBe(false);
+    expect(h.state.setUserSettings).toHaveBeenCalledWith({
+      notifications: true,
+      notificationsPrompted: true,
+    });
+  });
+
+  it('enableNotifications: отказ → не granted, без записи настроек', async () => {
+    h.state.requestNotifications.mockResolvedValue(false);
+    const { result } = renderHook(() => useCheckout());
+
+    await act(async () => {
+      await result.current.enableNotifications();
+    });
+
+    expect(result.current.notificationsGranted).toBe(false);
+    expect(h.state.setUserSettings).not.toHaveBeenCalled();
+  });
+
+  it('enableNotifications: сбой запроса не бросает и не включает granted', async () => {
+    h.state.requestNotifications.mockRejectedValue(new Error('nope'));
+    const { result } = renderHook(() => useCheckout());
+
+    await act(async () => {
+      await result.current.enableNotifications('order-2');
+    });
+
+    expect(result.current.notificationsGranted).toBe(false);
+    expect(result.current.notificationsPending).toBe(false);
   });
 
   it('ошибка checkout → локализованное сообщение (код маппится)', async () => {
-    h.state.requestNotifications.mockResolvedValue(false);
     h.state.placeOrder.mockRejectedValue(new Error('INSUFFICIENT_STOCK'));
 
     const { result } = renderHook(() => useCheckout());
@@ -145,22 +170,7 @@ describe('useCheckout', () => {
     expect(result.current.notificationsGranted).toBe(false);
   });
 
-  it('отказ/сбой запроса разрешения не мешает заказу', async () => {
-    h.state.requestNotifications.mockRejectedValue(new Error('nope'));
-    h.state.placeOrder.mockResolvedValue('order-2');
-
-    const { result } = renderHook(() => useCheckout());
-    act(() => result.current.setField(VALID));
-    await act(async () => {
-      await result.current.submit();
-    });
-
-    expect(result.current.status).toBe('success');
-    expect(result.current.notificationsGranted).toBe(false);
-  });
-
   it('reset сбрасывает форму/статус и чистит результат заказа', async () => {
-    h.state.requestNotifications.mockResolvedValue(true);
     h.state.placeOrder.mockResolvedValue('order-3');
 
     const { result } = renderHook(() => useCheckout());

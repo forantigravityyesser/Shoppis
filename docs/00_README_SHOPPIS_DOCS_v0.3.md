@@ -66,6 +66,15 @@ mutation lifecycle (submitting / disable / error / retry) для всех seller
 Phase G `[x]` LOCAL (typecheck/тесты/build зелёные, мёртвый код удалён, `06/07/08/09`
 синхронизированы, аудит §45.1; ручная `LOCAL`/`TELEGRAM`-сверка — за человеком).
 
+**Актуализация (2026-10-05) — hardening Seller Inventory:** повторный аудит после `19` перенесён в
+`20_SHOPPIS_SELLER_INVENTORY_HARDENING_AUDIT.md` (этапы `INV-HARDEN-01…09`). Ключевое: P0 — независимые
+оси custom-цены и custom-скидки варианта, причём **шире внешнего аудита** (не только seller-маппинг и
+`effectivePrice`, но и 8 живых SQL-функций buyer/checkout). Далее: единый mutation API (`throw`),
+тесты категорий/responsive, переименование `CategoryGrid/CategoryCard` (+ CSS-классы), вынос derived
+data из `InventoryView`, lint-гигиена. Пункты, уже закрытые в `19` (Reviews/Questions, submit-tests,
+AddVariantSheet fire-and-forget), в аудите помечены устаревшими. Производительность 100+ товаров
+(N+1 social summary) — deferred с триггером.
+
 **Актуализация (2026-10-03):** следующий блок buyer-части — карточка товара: экран, галерея,
 варианты/цена/наличие, избранное, корзина, «О товаре / Отзывы / Вопросы» (чтение), related
 (ProductGroup), публичный read layer `0015` и seller mini-stage для linking attributes/ProductGroup —
@@ -92,6 +101,7 @@ Spec §9.0.
 14. `17_SHOPPIS_CATALOG_PLAN.md` — Каталог покупателя (server-driven): план реализации, единый контракт read-model/URL/React Query, переиспользование Home-фундамента; этапы CAT-00…CAT-16 (ЧТО+КАК).
 15. `18_SHOPPIS_CART_PLAN.md` — Корзина покупателя (`/cart`) + граница до checkout: единый источник истины (inventory), buy-side read-model `CartItemView`, реконсиляция, selection/select-all, inline-удаление, один итог, checkout-форма (ФИО / телефон / **адрес доставки**, не email); этапы CART-01…CART-06 (ЧТО+КАК).
 16. `19_SHOPPIS_SELLER_INVENTORY_RECONSTRUCTION_SPEC_v0.1.md` — реконструкция Seller Inventory: план исправлений и рефакторинга (секции Товары/Категории, explicit variant inheritance, mutation lifecycle, чистка ProductView, полноширинные строки категорий); этапы INV-R-01…INV-R-37, Приложение A — разбор относительно кода.
+17. `20_SHOPPIS_SELLER_INVENTORY_HARDENING_AUDIT.md` — повторный hardening-audit Seller Inventory после `19`: независимые оси custom-цены/скидки (JS + 8 живых SQL-функций + checkout), единый mutation API (throw), тесты категорий/responsive, переименование `CategoryGrid/CategoryCard`, derived data, lint-гигиена; этапы INV-HARDEN-01…09, deferred-производительность 100+ с триггером.
 
 ## Принцип двух сред проверки
 Telegram — не финальная интеграция, а целевая среда исполнения и проверки с первых этапов. Каждый глобальный этап имеет два состояния: `LOCAL VERIFIED` (браузер / локальный контур) и `TELEGRAM VERIFIED` (реальный Telegram Mini App на development-окружении). Этап не закрывается без обоих.

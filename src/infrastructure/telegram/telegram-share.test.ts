@@ -26,8 +26,8 @@ describe('requestMessagesAccess', () => {
     vi.useRealTimers();
   });
 
-  it('keeps a short deadline', () => {
-    expect(MESSAGES_ACCESS_TIMEOUT_MS).toBe(1200);
+  it('keeps a long safety deadline for the native popup', () => {
+    expect(MESSAGES_ACCESS_TIMEOUT_MS).toBe(60_000);
   });
 
   it('returns true when Telegram allows messages', async () => {

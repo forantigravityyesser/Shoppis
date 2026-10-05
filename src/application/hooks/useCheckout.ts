@@ -36,10 +36,14 @@ export interface CheckoutState {
   error: string | null;
   /** Результат последнего успешного заказа — для экрана успеха. */
   lastOrder: CheckoutResult | null;
-  /** Разрешение на сообщения бота получено в этом заказе (best-effort). */
+  /** Разрешение на сообщения бота получено (best-effort). */
   notificationsGranted: boolean;
+  /** Идёт запрос write-access у Telegram (кнопка «Разрешить»). */
+  notificationsPending: boolean;
   setField: (patch: CheckoutFieldPatch) => void;
   submit: () => Promise<void>;
+  /** Запросить разрешение уведомлений и дослать «Заказ принят» (по `orderId`). */
+  enableNotifications: (orderId?: string) => Promise<void>;
   /** Сбросить форму и результат (например, после закрытия экрана успеха). */
   reset: () => void;
 }
@@ -88,14 +92,15 @@ export function useCheckout(): CheckoutState {
   const userSettings = useStore((s) => s.userSettings);
   const setUserSettings = useStore((s) => s.setUserSettings);
   const lastOrder = useStore((s) => s.lastOrder);
-  const { notifications: notificationsEnabled, notificationsPrompted } = userSettings;
+  const { notifications: notificationsEnabled } = userSettings;
 
   const [recipient, setRecipient] = useState<RecipientInfo>(() =>
     initialRecipient(defaultRecipient, serverUser),
   );
   const [status, setStatus] = useState<CheckoutStatus>('idle');
   const [error, setError] = useState<string | null>(null);
-  const [notificationsGranted, setNotificationsGranted] = useState(false);
+  const [notificationsGranted, setNotificationsGranted] = useState(notificationsEnabled);
+  const [notificationsPending, setNotificationsPending] = useState(false);
 
   const validation = validateRecipient(recipient);
 
@@ -119,23 +124,10 @@ export function useCheckout(): CheckoutState {
     setStatus('submitting');
     setError(null);
 
-    // 1. Разрешение на уведомления спрашиваем ТОЛЬКО один раз (первый заказ) —
-    //    синхронно в жесте, best-effort. На заказ не влияет: отказ = нет уведомлений.
-    //    Результат запоминаем локально, чтобы не показывать промпт повторно.
-    let granted: boolean;
-    if (!notificationsPrompted) {
-      try {
-        granted = await requestNotifications();
-      } catch {
-        granted = false;
-      }
-      setUserSettings({ notifications: granted, notificationsPrompted: true });
-    } else {
-      granted = notificationsEnabled;
-    }
-    setNotificationsGranted(granted);
-
-    // 2. Заказ (сервер сам перепроверяет цену/остаток и создаёт атомарно).
+    // Заказ (сервер сам перепроверяет цену/остаток и создаёт атомарно).
+    // Разрешение на уведомления здесь НЕ спрашиваем: его берём на экране успеха
+    // по тапу, там же досылаем «Заказ принят» (Telegram-попап требует решения
+    // человека и не должен блокировать оформление).
     try {
       await placeOrder(recipient);
       setDefaultRecipient(recipient);
@@ -144,24 +136,34 @@ export function useCheckout(): CheckoutState {
       setStatus('error');
       setError(mapCheckoutError((e as Error).message));
     }
-  }, [
-    status,
-    recipient,
-    requestNotifications,
-    placeOrder,
-    setDefaultRecipient,
-    setUserSettings,
-    notificationsEnabled,
-    notificationsPrompted,
-  ]);
+  }, [status, recipient, placeOrder, setDefaultRecipient]);
+
+  const enableNotifications = useCallback(
+    async (orderId?: string) => {
+      if (notificationsPending) return;
+      setNotificationsPending(true);
+      try {
+        const granted = await requestNotifications(orderId);
+        setNotificationsGranted(granted);
+        if (granted) {
+          setUserSettings({ notifications: true, notificationsPrompted: true });
+        }
+      } catch {
+        // write-access — best-effort, на заказ не влияет.
+      } finally {
+        setNotificationsPending(false);
+      }
+    },
+    [notificationsPending, requestNotifications, setUserSettings],
+  );
 
   const reset = useCallback(() => {
     setStatus('idle');
     setError(null);
-    setNotificationsGranted(false);
+    setNotificationsGranted(notificationsEnabled);
     setRecipient(initialRecipient(defaultRecipient, serverUser));
     useStore.getState().resetCheckout();
-  }, [defaultRecipient, serverUser]);
+  }, [defaultRecipient, serverUser, notificationsEnabled]);
 
   return {
     recipient,
@@ -170,8 +172,10 @@ export function useCheckout(): CheckoutState {
     error,
     lastOrder,
     notificationsGranted,
+    notificationsPending,
     setField,
     submit,
+    enableNotifications,
     reset,
   };
 }

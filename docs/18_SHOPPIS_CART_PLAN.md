@@ -1061,28 +1061,39 @@ CartEmptyState
 - ✅ `StoreContactLink`: контакт из БД (`support_handle`) → `https://t.me/<username>`; нет/некорректный
   контакт → сообщение; порт `openTelegramLink` теперь возвращает `boolean` (обновлены `telegram.ts`,
   `telegram-app.ts`, `useOpenTelegramLink`), сбой открытия → inline-ошибка.
-- ✅ `CheckoutSuccess`: полноэкранный оверлей (портал) — галочка, «Заказ принят!», номер, сумма,
-  note по уведомлениям (отправлено/отключены), «Вернуться в магазин».
+- ✅ `CheckoutSuccess`: оверлей (портал) поверх корзины — галочка, «Заказ принят!», номер, сумма,
+  opt-in-карточка уведомлений («Разрешить уведомления»), «Перейти к заказам».
+  Модалка по центру поверх корзины (корзина видна за полупрозрачным фоном); авто-скрытие
+  через 5 с (остаёмся в корзине, без перехода); кнопка «Перейти к заказам» → `/orders`.
 - ✅ `presentation/buyer/checkout.css`. Тесты: `CheckoutFormSheet` (6), `StoreContactLink` (4),
   `CheckoutSuccess` (3). Гейты зелёные — **751/751**, `build` ✅.
 **CART-05c — Проводка cart → checkout → success ✅ выполнено (2026-10-05).**
 - ✅ `CartView`: нижний CTA (с суммой) открывает `CheckoutFormSheet`; `useCheckout` подключён; успех
-  показывает `CheckoutSuccess` оверлеем (живёт и в пустой ветке, т.к. заказ очищает корзину);
-  «Вернуться в магазин» → `checkout.reset()` + переход на `/`. Убран прежний CTA-тост-заглушка.
+  показывает `CheckoutSuccess` модалкой по центру поверх корзины (живёт и в пустой ветке);
+  таймаут просто скрывает её (остаёмся в корзине), кнопка «Перейти к заказам» — `checkout.reset()`
+  + переход на `/orders`. Убран прежний CTA-тост-заглушка.
+- ✅ Успешный заказ удаляет из корзины **только оформленные** (выбранные) позиции, невыбранные
+  остаются (`cart-rules.checkedOutItemKeys` + `order-slice.placeOrder` → `removeByKeys`).
 - ✅ Импортирован `../checkout.css` (стили формы/успеха попадают в бандл `CartView`).
 - ✅ Тесты `CartView` (12): CTA открывает форму, успех → оверлей + возврат/сброс, сохранены прежние сценарии.
   Гейты зелёные — **752/752**, `build` ✅.
-**CART-05d — Telegram-разрешение + серверный гейт уведомления ✅ выполнено (2026-10-05).**
-- ✅ Первый заказ: `useCheckout.submit` **один раз** запрашивает разрешение в жесте клика
-  (`requestNotifications`) и запоминает результат в персистентных настройках
-  (`userSettings.notifications` + `notificationsPrompted`); повторно не спрашиваем.
-- ✅ Серверный гейт: `process-checkout` читает `telegram_identities.notifications_enabled` по
-  `session.uid` и отправляет buyer-notify **только при `true`**; seller-notify — всегда.
-  Edge пересобран (`npm run build:edge`) и **задеплоен** (deployment `29kxjsd5k4xk`, active).
-- ✅ `04 §11` переписан: prompt — на checkout (первый заказ), помечено как supersede старого
-  порядка «после заказа»; success-экран лишь сообщает, дано ли разрешение.
-- ✅ Тесты `useCheckout` (9): сохранение флага, повторный заказ без prompt'а, отказ не мешает заказу.
-  Гейты зелёные — **754/754**, `build` ✅, edge задеплоен.
+**CART-05d — Telegram-разрешение + серверный гейт уведомления (переделано 2026-10-05).**
+- ✅ Проблема прежнего варианта: `requestMessagesAccess` обрывался на 1200 ms — пользователь не
+  успевал нажать «Разрешить», `notifications_enabled` оставался `false` и повторно не спрашивали
+  (покупателю уведомления не приходили; подтверждено в БД).
+- ✅ Новый порядок: заказ создаётся сразу; согласие спрашивается **на экране успеха по тапу**
+  (`CheckoutSuccess` → `useCheckout.enableNotifications(orderId)` → `requestNotifications(orderId)`).
+- ✅ `MESSAGES_ACCESS_TIMEOUT_MS` = 60 000 (страховка, не гонка). На таймауте/отказе opt-in
+  остаётся доступен, `notificationsPrompted` больше не блокирует повторный запрос.
+- ✅ Досыл: `notifications-actions` принимает `orderId`, после записи согласия проверяет владение
+  заказом (`orders.buyer_user_id = session.uid`) и отправляет «Заказ принят» боту покупателя
+  (`session.tg`, кнопка витрины по `public_id`).
+- ✅ Серверный гейт `process-checkout` (`notifications_enabled`) и тот же гейт в `order-actions`
+  (buyer-status notify); seller-notify — всегда. `notifications-actions`/`order-actions` edge
+  пересобраны (`npm run build:edge`) и **задеплоены**.
+- ✅ `04 §11` переписан под новый порядок. Тесты: `useCheckout` (10), `CheckoutSuccess` (6),
+  `notification-api` (4), `telegram-share` (6), `order-slice` (9), `CartView` (12). Гейты зелёные —
+  **768/768**, `build`/`build:edge` ✅.
 **CART-05e — Финальная QA + документация ✅ выполнено (2026-10-05).**
 - ✅ Найден и исправлен интеграционный баг: если заказ создан, но `fetchBuyerOrders` упал,
   `placeOrder` бросал → пользователь видел «ошибку» на уже созданный заказ (риск дубля). Теперь
@@ -1091,7 +1102,9 @@ CartEmptyState
 - ✅ Edge `process-checkout` пересобран и задеплоен (deployment `29kxjsd5k4xk`), гейт по
   `notifications_enabled` в бандле.
 - ✅ Документы: `04 §11` (prompt на checkout, supersede), `18`.
-- ⬜ Ручная проверка в Telegram (форма → разрешение → успех → сообщение бота) — за владельцем.
+- ⬜ Ручная проверка в Telegram (форма → успех → «Разрешить уведомления» → «Заказ принят» боту
+  покупателя; повторный заказ без повторного согласия) — за владельцем. Требует `BUYER_BOT_TOKEN`
+  и запущенного бота покупателя.
 
 ### CART-06 — Полная интеграционная QA `H1`
 Проверить взаимодействие buyer/seller inventory и гонки (см. §29, §36).

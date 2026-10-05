@@ -2,7 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router';
+import { MemoryRouter, Route, Routes } from 'react-router';
 
 const { useBuyerCart, useCheckout, state } = vi.hoisted(() => ({
   useBuyerCart: vi.fn(),
@@ -126,8 +126,10 @@ function checkoutState(overrides: Partial<CheckoutState> = {}): CheckoutState {
     error: null,
     lastOrder: null,
     notificationsGranted: false,
+    notificationsPending: false,
     setField: vi.fn(),
     submit: vi.fn(),
+    enableNotifications: vi.fn(),
     reset: vi.fn(),
     ...overrides,
   };
@@ -197,7 +199,7 @@ describe('CartView', () => {
     expect(screen.getByTestId('checkout-form')).toBeInTheDocument();
   });
 
-  it('успех → оверлей поверх, возврат в магазин сбрасывает checkout', async () => {
+  it('успех → оверлей поверх, переход к заказам сбрасывает checkout', async () => {
     const reset = vi.fn();
     useCheckout.mockReturnValue(
       checkoutState({
@@ -208,13 +210,21 @@ describe('CartView', () => {
       }),
     );
     useBuyerCart.mockReturnValue(cartState({ isEmpty: false, items: [entry()] }));
-    renderCart();
+    render(
+      <MemoryRouter initialEntries={['/cart']}>
+        <Routes>
+          <Route path="/cart" element={<CartView />} />
+          <Route path="/orders" element={<div>orders-stub</div>} />
+        </Routes>
+      </MemoryRouter>,
+    );
 
     expect(screen.getByTestId('checkout-success')).toBeInTheDocument();
     expect(screen.queryByTestId('checkout-form')).not.toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Вернуться в магазин' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Перейти к заказам' }));
     expect(reset).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('orders-stub')).toBeInTheDocument();
   });
 
   it('CTA disabled, когда оформление запрещено', () => {

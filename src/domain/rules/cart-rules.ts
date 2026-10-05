@@ -47,6 +47,17 @@ export function hasSelectedItems(items: CartItem[]): boolean {
   return items.some(isSelectedForCheckout);
 }
 
+/**
+ * Ключи позиций, которые реально уходят на сервер при оформлении (выбраны и
+ * имеют вариант). Зеркалит фильтр `checkout-api`, чтобы после успешного заказа
+ * из корзины удалялись ровно оформленные позиции, а невыбранные оставались.
+ */
+export function checkedOutItemKeys(items: CartItem[]): string[] {
+  return activeItems(items)
+    .filter((i) => i.productVariantId !== null)
+    .map((i) => cartItemKey(i.productId, i.productVariantId));
+}
+
 /** Выбраны все позиции (и список не пуст). */
 export function isAllSelected(items: CartItem[]): boolean {
   return items.length > 0 && items.every((i) => i.selected);

@@ -1,5 +1,5 @@
 import type { StateCreator } from 'zustand';
-import { canCheckout } from '../../../domain/rules/cart-rules';
+import { canCheckout, checkedOutItemKeys } from '../../../domain/rules/cart-rules';
 import { canTransition, type OrderActor } from '../../../domain/rules/order-rules';
 import type {
   DeliveryOutcome,
@@ -35,10 +35,11 @@ export interface OrderSlice {
   placeOrder: (recipient: RecipientInfo) => Promise<string>;
   /**
    * Opt-in Telegram-уведомлений — ОТДЕЛЬНО и ПОСЛЕ успешного заказа.
-   * Запрашивает write access и, при согласии, фиксирует его на сервере.
+   * Запрашивает write access и, при согласии, фиксирует его на сервере и шлёт
+   * «Заказ принят» покупателю (досыл для только что созданного `orderId`).
    * Никогда не влияет на заказ: отказ просто означает отсутствие уведомлений.
    */
-  requestNotifications: () => Promise<boolean>;
+  requestNotifications: (orderId?: string) => Promise<boolean>;
   resetOrders: () => void;
   /** Сбросить результат последнего заказа (после показа экрана успеха). */
   resetCheckout: () => void;
@@ -166,6 +167,9 @@ export const createOrderSlice: StateCreator<RootStore, [], [], OrderSlice> = (se
       if (!sessionToken) throw new Error('Not authenticated');
       const items = cartByStore[storeId] ?? [];
       if (!canCheckout(items, recipient)) throw new Error('Cart or recipient is invalid');
+      // Позиции, которые реально уходят на сервер (выбранные с вариантом): после
+      // успеха удаляем из корзины только их, невыбранные остаются (docs/18 §16).
+      const orderedKeys = checkedOutItemKeys(items);
 
       set({ ordersLoading: true, ordersError: null });
       try {
@@ -179,7 +183,7 @@ export const createOrderSlice: StateCreator<RootStore, [], [], OrderSlice> = (se
           sessionToken,
           idempotencyKey: crypto.randomUUID(),
         });
-        get().clearCart();
+        get().removeByKeys(orderedKeys);
         set({ lastOrderId: result.orderId, lastOrder: result, ordersLoading: false });
         // Заказ уже создан: сбой обновления списка заказов — не ошибка оформления
         // (иначе пользователь увидит «ошибку» на успешный заказ и может повторить).
@@ -195,7 +199,7 @@ export const createOrderSlice: StateCreator<RootStore, [], [], OrderSlice> = (se
       }
     },
 
-    requestNotifications: async () => {
+    requestNotifications: async (orderId?: string) => {
       const { sessionToken } = get();
       let allowed: boolean;
       try {
@@ -205,7 +209,9 @@ export const createOrderSlice: StateCreator<RootStore, [], [], OrderSlice> = (se
       }
       if (allowed && sessionToken) {
         try {
-          await deps().notificationApi.enableTelegramNotifications(sessionToken);
+          // Сервер фиксирует согласие и, если передан `orderId`, досылает
+          // «Заказ принят» покупателю (первый заказ был создан без согласия).
+          await deps().notificationApi.enableTelegramNotifications(sessionToken, orderId);
         } catch (e) {
           // Согласие есть, но зафиксировать не удалось — не критично для UX.
           console.warn('[notifications] persist failed:', e);

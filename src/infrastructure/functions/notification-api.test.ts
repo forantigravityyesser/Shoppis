@@ -19,6 +19,17 @@ describe('notification-api', () => {
     });
   });
 
+  it('передаёт orderId для досыла «Заказ принят»', async () => {
+    invokeFunction.mockResolvedValue({ data: { success: true }, error: null });
+
+    await enableTelegramNotifications('tok', 'o1');
+
+    expect(invokeFunction).toHaveBeenCalledWith('notifications-actions', {
+      body: { action: 'enable', orderId: 'o1' },
+      token: 'tok',
+    });
+  });
+
   it('бросает серверную ошибку', async () => {
     invokeFunction.mockResolvedValue({
       data: { success: false, error: 'Unauthorized' },

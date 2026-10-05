@@ -81,10 +81,12 @@ function dispatch(client, action, session, body) {
 async function notifyBuyerStatus(client, body, result) {
   const { data: ids } = await client.database
     .from('telegram_identities')
-    .select('telegram_user_id')
+    .select('telegram_user_id, notifications_enabled')
     .eq('user_id', result.buyerUserId)
     .limit(1);
-  const chatId = ids?.[0]?.telegram_user_id;
+  // Без согласия (write access) бот покупателя написать не сможет — не шлём.
+  if (ids?.[0]?.notifications_enabled !== true) return;
+  const chatId = ids[0].telegram_user_id;
   if (!chatId) return;
 
   let orderNumber = result.orderId;

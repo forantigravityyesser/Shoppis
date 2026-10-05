@@ -153,24 +153,27 @@ MVP:
 
 No write permission: order still succeeds, notifications simply do not send.
 
-Client-side, the write-access prompt is triggered **at the checkout submit**, on the first
-order only (`useCheckout.submit()` → `order-slice.requestNotifications()`), *before*
-`invokeCheckout` — so the first «Заказ принят» notification has the best chance to be delivered.
-The prompt is called synchronously inside the submit gesture; the order itself never depends on
-the result. On consent the fact is persisted server-side (`notifications-actions` →
-`telegram_identities.notifications_enabled`); the client remembers «already asked»
-(`userSettings.notificationsPrompted`) and does not re-prompt.
+Client-side, the write-access prompt is triggered **on the success screen** by an explicit
+tap (`CheckoutSuccess` → `useCheckout.enableNotifications(orderId)` →
+`order-slice.requestNotifications(orderId)`) — the native popup requires a human decision, so
+it must not block or race the order. The order is created first; the success modal shows a
+custom opt-in card and only then asks Telegram. On consent the fact is persisted server-side
+(`notifications-actions` → `telegram_identities.notifications_enabled`) and the same call
+**досылает** «Заказ принят» для только что созданного заказа (первый заказ создан без
+согласия). This fixes the previous flow where a **1200 ms** deadline expired before the user
+could tap, leaving `notifications_enabled = false` forever.
 
-The call is bounded by a short deadline (currently **1200 ms**) and never throws or hangs:
-a denial or timeout does not affect the order — it only means notifications are not delivered.
-The buyer notification in `process-checkout` is sent **only when** `notifications_enabled = true`
-(server-side gate); the seller notification is always sent. See
-`src/infrastructure/telegram/telegram-share.ts` (`MESSAGES_ACCESS_TIMEOUT_MS`),
-`useCheckout`, and the `TelegramPort.requestMessagesAccess` contract.
+The call is bounded by a long safety deadline (`MESSAGES_ACCESS_TIMEOUT_MS`, now 60 s) and
+never throws or hangs: a denial or timeout does not affect the order — it only means
+notifications are not delivered, and the opt-in stays available. The buyer notification in
+`process-checkout` is sent **only when** `notifications_enabled = true` (server-side gate);
+the seller notification is always sent. Buyer status notifications in `order-actions` use the
+same gate. See `src/infrastructure/telegram/telegram-share.ts`, `useCheckout` (`enableNotifications`),
+and the `TelegramPort.requestMessagesAccess` contract.
 
-> **Superseded (2026-10-05, docs/18 CART-05):** earlier this section required the prompt to be
-> offered *after* a successful order, on the «Заказ оформлен» screen. The agreed flow now asks at
-> checkout (first order), with the success screen only reporting whether notifications were granted.
+> **Updated (2026-10-05):** superseded the «prompt at checkout submit, 1200 ms, ask once»
+> order (docs/18 CART-05d). The prompt now lives on the success screen and is re-askable until
+> consent is granted.
 
 Notification retries/logging are independent of order transaction.
 

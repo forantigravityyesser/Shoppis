@@ -28,9 +28,9 @@ export interface CheckoutApi {
   invokeCheckout(payload: CheckoutPayload): Promise<CheckoutResult>;
 }
 
-/** notifications-actions: opt-in Telegram-уведомлений покупателя. */
+/** notifications-actions: opt-in Telegram-уведомлений покупателя (+ досыл заказа). */
 export interface NotificationApi {
-  enableTelegramNotifications(token: string): Promise<void>;
+  enableTelegramNotifications(token: string, orderId?: string): Promise<void>;
 }
 
 /** review-actions: запись отзывов/ответов по валидной сессии (actor из сессии). */

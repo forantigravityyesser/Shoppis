@@ -47,6 +47,7 @@ function seedCart(): void {
     cartByStore: {
       'store-a': [
         { productId: 'p1', productVariantId: 'v1', quantity: 2, price: 1000, selected: true },
+        { productId: 'p2', productVariantId: 'v2', quantity: 1, price: 500, selected: false },
       ],
     },
     lastOrder: null,
@@ -65,7 +66,7 @@ beforeEach(() => {
 });
 
 describe('order-slice — checkout foundation', () => {
-  it('placeOrder: сохраняет lastOrder, очищает корзину, обновляет заказы', async () => {
+  it('placeOrder: сохраняет lastOrder, удаляет только оформленные позиции, обновляет заказы', async () => {
     invokeCheckout.mockResolvedValue({
       orderId: 'o1',
       orderNumber: 'SH-251005-ABC',
@@ -84,7 +85,10 @@ describe('order-slice — checkout foundation', () => {
       currencyCode: 'USD',
     });
     expect(s.lastOrderId).toBe('o1');
-    expect(s.cartByStore['store-a']).toEqual([]);
+    // Невыбранная позиция (p2/v2) остаётся в корзине, оформленная (p1/v1) удалена.
+    expect(s.cartByStore['store-a']).toEqual([
+      { productId: 'p2', productVariantId: 'v2', quantity: 1, price: 500, selected: false },
+    ]);
     expect(fetchBuyerOrders).toHaveBeenCalledTimes(1);
   });
 
@@ -100,7 +104,8 @@ describe('order-slice — checkout foundation', () => {
     await expect(useStore.getState().placeOrder(RECIPIENT)).resolves.toBe('o2');
     const s = useStore.getState();
     expect(s.lastOrder?.orderId).toBe('o2');
-    expect(s.cartByStore['store-a']).toEqual([]);
+    expect(s.cartByStore['store-a']).toHaveLength(1);
+    expect(s.cartByStore['store-a'][0].productId).toBe('p2');
   });
 
   it('placeOrder: ошибка → корзина сохраняется, ошибка зафиксирована, lastOrder пуст', async () => {
@@ -109,7 +114,7 @@ describe('order-slice — checkout foundation', () => {
     await expect(useStore.getState().placeOrder(RECIPIENT)).rejects.toThrow('INSUFFICIENT_STOCK');
 
     const s = useStore.getState();
-    expect(s.cartByStore['store-a']).toHaveLength(1);
+    expect(s.cartByStore['store-a']).toHaveLength(2);
     expect(s.lastOrder).toBeNull();
     expect(s.ordersError).toBe('INSUFFICIENT_STOCK');
   });
@@ -124,7 +129,13 @@ describe('order-slice — checkout foundation', () => {
   it('requestNotifications: согласие → фиксируется на сервере', async () => {
     requestMessagesAccess.mockResolvedValue(true);
     expect(await useStore.getState().requestNotifications()).toBe(true);
-    expect(enableTelegramNotifications).toHaveBeenCalledWith('tok');
+    expect(enableTelegramNotifications).toHaveBeenCalledWith('tok', undefined);
+  });
+
+  it('requestNotifications: orderId уходит для досыла заказа', async () => {
+    requestMessagesAccess.mockResolvedValue(true);
+    expect(await useStore.getState().requestNotifications('o1')).toBe(true);
+    expect(enableTelegramNotifications).toHaveBeenCalledWith('tok', 'o1');
   });
 
   it('requestNotifications: отказ → не фиксируется, возвращает false', async () => {
