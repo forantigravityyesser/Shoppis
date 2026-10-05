@@ -10,6 +10,7 @@ import {
   setStatus,
   deleteProduct,
   deleteCategory,
+  reorderCategory,
   linkProduct,
   unlinkProduct,
 } from './catalog-api';
@@ -142,6 +143,17 @@ describe('catalog-api', () => {
   it('deleteCategory возвращает ключ обложки', async () => {
     invokeFunction.mockResolvedValue(ok({ imageStorageKey: 'cover' }));
     await expect(deleteCategory('tok', 'c1')).resolves.toBe('cover');
+  });
+
+  it('reorderCategory → category-reorder с categoryId и position', async () => {
+    invokeFunction.mockResolvedValue(ok({ success: true }));
+
+    await reorderCategory('tok', 'c1', 3);
+
+    expect(invokeFunction).toHaveBeenCalledWith('catalog-actions', {
+      token: 'tok',
+      body: { action: 'category-reorder', categoryId: 'c1', position: 3 },
+    });
   });
 
   it('linkProduct / unlinkProduct → product-link-add/remove с productId и targetId', async () => {

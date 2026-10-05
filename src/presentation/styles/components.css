@@ -695,3 +695,101 @@ button.settings-row:disabled {
     background-position: 0 0;
   }
 }
+
+/* ============================================================
+   Shared BottomSheet primitives (общие для buyer и seller)
+   Перенесено из seller/inventory.css, чтобы шиты работали вне кабинета.
+   ============================================================ */
+.sheet__overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 41;
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 10px var(--spacing-4) calc(var(--spacing-6) + var(--safe-bottom));
+  border-radius: 24px 24px 0 0;
+  background: var(--color-bg-modal);
+  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.16);
+}
+
+.sheet__handle {
+  width: 36px;
+  height: 4px;
+  margin: 0 auto var(--spacing-3);
+  border-radius: 2px;
+  background: var(--color-input-border);
+}
+
+/* Вложенный sheet (поверх открытого): чуть выше по слою */
+.sheet__overlay--nested {
+  z-index: 50;
+}
+
+.sheet--nested {
+  z-index: 51;
+}
+
+.sheet__title {
+  margin: 0 0 var(--spacing-3);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  text-align: center;
+}
+
+/* ============================================================
+   Shared primary/ghost buttons (общие для buyer и seller)
+   ============================================================ */
+.btn-primary,
+.btn-ghost {
+  flex: 1 1 auto;
+  padding: 13px 16px;
+  border: none;
+  border-radius: var(--radius-full);
+  font-family: inherit;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    transform 0.12s,
+    opacity 0.15s;
+}
+
+.btn-primary {
+  background: var(--color-accent);
+  color: var(--color-text-on-accent);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+}
+
+.btn-primary:disabled,
+.btn-ghost:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn-ghost {
+  background: var(--color-input-bg);
+  color: var(--color-text-primary);
+}
+
+.btn-primary:active:not(:disabled),
+.btn-ghost:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.btn-primary--wide {
+  width: 100%;
+}

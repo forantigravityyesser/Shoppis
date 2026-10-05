@@ -12,6 +12,9 @@ interface CategoryGridProps {
   onOpenProduct: (productId: string) => void;
   onAddProduct: (categoryId: string) => void;
   onMoreCategory?: (categoryId: string) => void;
+  /** 1-based позиции категорий в каталоге покупателя (по id). */
+  positionsByCategory?: Record<string, number>;
+  onReorderCategory?: (categoryId: string) => void;
 }
 
 /** Контролируемая композиция рядов: wide / pair. Порядок задаёт buildCategoryRows. */
@@ -22,6 +25,8 @@ export default function CategoryGrid({
   onOpenProduct,
   onAddProduct,
   onMoreCategory,
+  positionsByCategory,
+  onReorderCategory,
 }: CategoryGridProps) {
   const renderCard = (category: InventoryCategoryItem, variant: 'wide' | 'compact') => (
     <CategoryCard
@@ -29,10 +34,12 @@ export default function CategoryGrid({
       category={category}
       previewProducts={productsByCategory[category.id] ?? []}
       variant={variant}
+      position={positionsByCategory?.[category.id]}
       onOpen={() => onOpenCategory(category.id)}
       onOpenProduct={onOpenProduct}
       onAddProduct={() => onAddProduct(category.id)}
       onMore={onMoreCategory ? () => onMoreCategory(category.id) : undefined}
+      onReorder={onReorderCategory ? () => onReorderCategory(category.id) : undefined}
     />
   );
 

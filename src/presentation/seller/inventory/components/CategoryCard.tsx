@@ -14,6 +14,10 @@ interface CategoryCardProps {
   onOpenProduct: (productId: string) => void;
   onAddProduct: () => void;
   onMore?: () => void;
+  /** 1-based позиция категории в каталоге покупателя; undefined — бейдж не показывается. */
+  position?: number;
+  /** Открыть выбор позиции в каталоге. */
+  onReorder?: () => void;
 }
 
 /** Крупный контейнер каталога: заголовок + строка превью товаров + «+». Спека §18–29. */
@@ -25,6 +29,8 @@ export default function CategoryCard({
   onOpenProduct,
   onAddProduct,
   onMore,
+  position,
+  onReorder,
 }: CategoryCardProps) {
   const visible = variant === 'wide' ? PREVIEW_VISIBLE.wide : PREVIEW_VISIBLE.compact;
 
@@ -45,6 +51,19 @@ export default function CategoryCard({
           )}
         </span>
         <span className="inv-cat__name">{category.name}</span>
+        {position && onReorder ? (
+          <button
+            type="button"
+            className={`inv-cat__rank${position <= 4 ? ` inv-cat__rank--${position}` : ' inv-cat__rank--n'}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onReorder();
+            }}
+            aria-label={`Позиция ${position} в каталоге. Изменить`}
+          >
+            {position}
+          </button>
+        ) : null}
         <span className="inv-cat__count">
           {category.productCount}
           {category.archivedCount > 0 ? (

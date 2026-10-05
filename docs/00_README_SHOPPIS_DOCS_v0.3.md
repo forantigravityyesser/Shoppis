@@ -16,6 +16,14 @@ progressive/cursor product loading вместо `slice(0,6)`, семантика
 финальный аудит — `15`; `13` приведён в соответствие (v0.5). Home считается hardened; следующий
 крупный блок — Catalog (server-side) и Product Detail (`14`).
 
+**Актуализация (2026-10-04):** вкладка **Каталог** покупателя **реализована** (server-driven): RPC
+`storefront_catalog_products_read` + `storefront_catalog_price_bounds_read` (миграция `0026`),
+продавец управляет порядком категорий (`category_reorder_atomic`, миграция `0027`, edge
+`catalog-actions`), application-контур `StorefrontCatalogRepository`/`useStorefrontCatalog`
+(`useInfiniteQuery` + `keepPreviousData`), URL-состояние (`category`/`q`/`minPrice`/`maxPrice`),
+поиск с debounce, фильтр цены, чипсы, infinite loading, состояния. План/аудит — `17` (CAT-00…CAT-15).
+Осталось: ручная визуальная проверка в Telegram; RLS — вне scope.
+
 **Актуализация (2026-10-03):** следующий блок buyer-части — карточка товара: экран, галерея,
 варианты/цена/наличие, избранное, корзина, «О товаре / Отзывы / Вопросы» (чтение), related
 (ProductGroup), публичный read layer `0015` и seller mini-stage для linking attributes/ProductGroup —

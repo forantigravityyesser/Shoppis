@@ -16,6 +16,7 @@ import type { ProductRepository } from '../ports/product-repository';
 import type { ImageUploadPort, StoragePort } from '../ports/storage';
 import type { StoreRepository } from '../ports/store-repository';
 import type { StorefrontProductRepository } from '../ports/storefront-product-repository';
+import type { StorefrontCatalogRepository } from '../ports/storefront-catalog-repository';
 import type { StorefrontRepository } from '../ports/storefront-repository';
 import type { HapticsPort, TelegramPort } from '../ports/telegram';
 
@@ -31,6 +32,7 @@ export interface AppContainer {
   storeRepository: StoreRepository;
   storefrontRepository: StorefrontRepository;
   storefrontProductRepository: StorefrontProductRepository;
+  storefrontCatalogRepository: StorefrontCatalogRepository;
   orderRepository: OrderRepository;
   storage: StoragePort;
   imageUpload: ImageUploadPort;

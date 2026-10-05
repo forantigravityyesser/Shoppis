@@ -1,14 +1,15 @@
 import { useMemo, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { useNavigate } from 'react-router';
-import { useInventoryHome } from '../../../application/hooks/useInventory';
-import { createProductPath } from '../../../application/hooks/useInventoryActions';
+import { useInventoryHome, UNCATEGORIZED_ID } from '../../../application/hooks/useInventory';
+import { createProductPath, useInventoryActions } from '../../../application/hooks/useInventoryActions';
 import { buildCategoryRows } from '../inventory/layout';
 import InventoryHeader from '../inventory/components/InventoryHeader';
 import CategoryGrid from '../inventory/components/CategoryGrid';
 import InventorySearchState from '../inventory/components/InventorySearchState';
 import InventorySkeleton from '../inventory/components/InventorySkeleton';
 import AddInventorySheet from '../inventory/components/AddInventorySheet';
+import ReorderCategorySheet from '../inventory/components/ReorderCategorySheet';
 import '../inventory/inventory.css';
 
 /**
@@ -18,11 +19,29 @@ import '../inventory/inventory.css';
 export default function InventoryView() {
   const navigate = useNavigate();
   const { categories, productsByCategory, allProducts, loading, error } = useInventoryHome();
+  const { reorderCategory } = useInventoryActions();
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [addOpen, setAddOpen] = useState(false);
+  const [reorderId, setReorderId] = useState<string | null>(null);
 
   const rows = useMemo(() => buildCategoryRows(categories), [categories]);
+
+  // Позиции для витрины: 1-based среди пользовательских (несистемных) категорий.
+  const reorderable = useMemo(
+    () => categories.filter((c) => c.id !== UNCATEGORIZED_ID),
+    [categories],
+  );
+  const positionsByCategory = useMemo(() => {
+    const map: Record<string, number> = {};
+    reorderable.forEach((category, index) => {
+      map[category.id] = index + 1;
+    });
+    return map;
+  }, [reorderable]);
+  const reorderTarget = reorderId
+    ? (reorderable.find((c) => c.id === reorderId) ?? null)
+    : null;
 
   const search = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -96,6 +115,8 @@ export default function InventoryView() {
             onOpenCategory={openCategory}
             onOpenProduct={openProduct}
             onAddProduct={addProduct}
+            positionsByCategory={positionsByCategory}
+            onReorderCategory={setReorderId}
           />
         </section>
       )}
@@ -112,6 +133,20 @@ export default function InventoryView() {
           navigate('/seller/inventory/category/new');
         }}
       />
+
+      {reorderTarget ? (
+        <ReorderCategorySheet
+          open
+          categoryName={reorderTarget.name}
+          total={reorderable.length}
+          currentPosition={positionsByCategory[reorderTarget.id] ?? 1}
+          onClose={() => setReorderId(null)}
+          onSelect={(position) => {
+            void reorderCategory(reorderTarget.id, position);
+            setReorderId(null);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

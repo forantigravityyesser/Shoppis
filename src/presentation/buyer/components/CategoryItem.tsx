@@ -7,13 +7,23 @@ interface Props {
   imageUrl: string | null;
   active?: boolean;
   onSelect: (id: string) => void;
+  /** Цвет-заглушка по позиции (1..8), когда нет обложки; иначе — базовый. */
+  variant?: number;
 }
 
 /**
  * Карточка категории с обложкой (для Home и Каталога): фото + название под ним.
- * Без обложки — заглушка с первой буквой. docs/13 §7, docs/15 §7.3.
+ * Без обложки — заглушка с первой буквой; в каталоге заглушка красится по позиции
+ * слота (`variant`, 1..8). docs/13 §7, docs/15 §7.3, docs/17 §4.
  */
-export default function CategoryItem({ id, name, imageUrl, active = false, onSelect }: Props) {
+export default function CategoryItem({
+  id,
+  name,
+  imageUrl,
+  active = false,
+  onSelect,
+  variant,
+}: Props) {
   return (
     <button
       type="button"
@@ -27,7 +37,12 @@ export default function CategoryItem({ id, name, imageUrl, active = false, onSel
         alt=""
         className="category-item__img"
         fallback={
-          <span className="category-item__placeholder" aria-hidden>
+          <span
+            className={`category-item__placeholder${
+              variant ? ` category-item__placeholder--${((variant - 1) % 8) + 1}` : ''
+            }`}
+            aria-hidden
+          >
             {getInitial(name)}
           </span>
         }

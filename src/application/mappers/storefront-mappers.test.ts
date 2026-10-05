@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   mapPublicStoreContext,
+  mapStorefrontCatalogPriceBounds,
+  mapStorefrontCatalogProductPage,
   mapStorefrontHome,
   mapStorefrontHomeProductPage,
 } from './storefront-mappers';
@@ -198,6 +200,83 @@ describe('mapPublicStoreContext', () => {
       status: 'ACTIVE',
       supportHandle: null,
       logoUrl: null,
+    });
+  });
+});
+
+describe('mapStorefrontCatalogProductPage', () => {
+  it('возвращает null на некорректный ответ', () => {
+    expect(mapStorefrontCatalogProductPage(null)).toBeNull();
+    expect(mapStorefrontCatalogProductPage(undefined)).toBeNull();
+    expect(mapStorefrontCatalogProductPage('nope')).toBeNull();
+  });
+
+  it('маппит products + nextCursor (та же карточка, что на Home)', () => {
+    const page = mapStorefrontCatalogProductPage({
+      products: [
+        {
+          id: 'p-1',
+          title: 'Nike T-Shirt',
+          categoryId: 'cat-1',
+          imageUrl: 'https://cdn/thumb.jpg',
+          price: 249000,
+          available: true,
+        },
+      ],
+      nextCursor: '1790797824125169:f2dbdb71-a1c7-4c49-8164-75f6a3fd73dc',
+    });
+    expect(page).toEqual({
+      products: [
+        {
+          id: 'p-1',
+          title: 'Nike T-Shirt',
+          categoryId: 'cat-1',
+          imageUrl: 'https://cdn/thumb.jpg',
+          price: 249000,
+          available: true,
+        },
+      ],
+      nextCursor: '1790797824125169:f2dbdb71-a1c7-4c49-8164-75f6a3fd73dc',
+    });
+  });
+
+  it('пустой ответ → products [], nextCursor null; некорректные карточки отбрасываются', () => {
+    expect(mapStorefrontCatalogProductPage({})).toEqual({ products: [], nextCursor: null });
+    const page = mapStorefrontCatalogProductPage({
+      products: ['bad', { title: 'без id' }, { id: 'p-1', title: 'X' }],
+      nextCursor: '',
+    });
+    expect(page?.products.map((p) => p.id)).toEqual(['p-1']);
+    expect(page?.nextCursor).toBeNull();
+  });
+});
+
+describe('mapStorefrontCatalogPriceBounds', () => {
+  it('возвращает null на некорректный ответ', () => {
+    expect(mapStorefrontCatalogPriceBounds(null)).toBeNull();
+    expect(mapStorefrontCatalogPriceBounds(undefined)).toBeNull();
+    expect(mapStorefrontCatalogPriceBounds('nope')).toBeNull();
+  });
+
+  it('маппит minPrice/maxPrice; строки приводятся к number', () => {
+    expect(mapStorefrontCatalogPriceBounds({ minPrice: 8000, maxPrice: 320000 })).toEqual({
+      minPrice: 8000,
+      maxPrice: 320000,
+    });
+    expect(mapStorefrontCatalogPriceBounds({ minPrice: '8000', maxPrice: '320000' })).toEqual({
+      minPrice: 8000,
+      maxPrice: 320000,
+    });
+  });
+
+  it('пустой магазин (null-границы) сохраняется; битые значения → null', () => {
+    expect(mapStorefrontCatalogPriceBounds({ minPrice: null, maxPrice: null })).toEqual({
+      minPrice: null,
+      maxPrice: null,
+    });
+    expect(mapStorefrontCatalogPriceBounds({ minPrice: 'oops' })).toEqual({
+      minPrice: null,
+      maxPrice: null,
     });
   });
 });

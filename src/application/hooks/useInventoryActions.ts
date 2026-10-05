@@ -127,6 +127,17 @@ export function useInventoryActions() {
     }
   }, []);
 
+  /** Переставляет категорию на позицию 1..N (порядок витрины покупателя). true — успех. */
+  const reorderCategory = useCallback(async (id: string, position: number): Promise<boolean> => {
+    try {
+      await useStore.getState().reorderCategory(id, position);
+      return true;
+    } catch (e) {
+      console.error('[inventory] reorderCategory failed', e);
+      return false;
+    }
+  }, []);
+
   const createProduct = useCallback(
     async (payload: ProductFormPayload) => {
       try {
@@ -227,6 +238,7 @@ export function useInventoryActions() {
     createProduct,
     updateCategory,
     deleteCategory,
+    reorderCategory,
     updateProduct,
     setProductStatus,
     deleteProduct,

@@ -1,6 +1,6 @@
 import type { StateCreator } from 'zustand';
 import type { Category } from '../../../domain/models/category';
-import { isSystemCategory } from '../../../domain/rules/category-rules';
+import { isSystemCategory, reorderCategories } from '../../../domain/rules/category-rules';
 import type { AddCategoryInput, UpdateCategoryPatch } from '../../contracts/category';
 import { deps } from '../../composition/container';
 import type { RootStore } from '../index';
@@ -17,6 +17,8 @@ export interface CategorySlice {
   updateCategory: (id: string, patch: UpdateCategoryPatch) => Promise<void>;
   deleteCategory: (id: string) => Promise<void>;
   archiveCategory: (id: string) => Promise<void>;
+  /** Переставить категорию на позицию 1..N (порядок витрины покупателя). */
+  reorderCategory: (id: string, position: number) => Promise<void>;
 }
 
 export const createCategorySlice: StateCreator<RootStore, [], [], CategorySlice> = (set, get) => ({
@@ -110,5 +112,18 @@ export const createCategorySlice: StateCreator<RootStore, [], [], CategorySlice>
   archiveCategory: async (id: string) => {
     await deps().categoryRepository.setCategoryStatus(id, 'ARCHIVED');
     set((s) => ({ categories: s.categories.filter((c) => c.id !== id) }));
+  },
+
+  reorderCategory: async (id: string, position: number) => {
+    const { sessionToken } = get();
+    const previous = get().categories;
+    // Оптимистично применяем порядок; при ошибке сервера откатываем.
+    set({ categories: reorderCategories(previous, id, position) });
+    try {
+      await deps().categoryRepository.setCategoryOrder(id, position, sessionToken);
+    } catch (e) {
+      set({ categories: previous });
+      throw e;
+    }
   },
 });

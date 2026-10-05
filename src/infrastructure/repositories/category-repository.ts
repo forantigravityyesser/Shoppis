@@ -1,7 +1,10 @@
 import { insforge } from '../insforge/client';
 import type { Category, CategoryStatus } from '../../domain/models/category';
 import type { AddCategoryInput, UpdateCategoryPatch } from '../../application/contracts/category';
-import { deleteCategory as deleteCategoryViaApi } from '../functions/catalog-api';
+import {
+  deleteCategory as deleteCategoryViaApi,
+  reorderCategory as reorderCategoryViaApi,
+} from '../functions/catalog-api';
 
 interface CategoryRow {
   id: string;
@@ -112,6 +115,18 @@ export async function deleteCategory(id: string, token: string | null): Promise<
   if (error) throw error;
 
   return imageKey;
+}
+
+/**
+ * Перестановка категории на позицию 1..N. Идёт через edge-диспетчер
+ * (атомарный `category_reorder_atomic`), т.к. меняет несколько строк сразу.
+ */
+export async function setCategoryOrder(
+  id: string,
+  position: number,
+  token: string | null,
+): Promise<void> {
+  await reorderCategoryViaApi(token ?? '', id, position);
 }
 
 /** Архив категории: товары сохраняют привязку, категория скрывается. 02 §13 */

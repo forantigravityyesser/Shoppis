@@ -6,5 +6,7 @@ export interface CategoryRepository {
   addCategory(storeId: string, input: AddCategoryInput): Promise<Category>;
   updateCategory(id: string, patch: UpdateCategoryPatch): Promise<void>;
   deleteCategory(id: string, token: string | null): Promise<string | null>;
+  /** Переставить категорию на позицию 1..N (порядок витрины); атомарно на сервере. */
+  setCategoryOrder(id: string, position: number, token: string | null): Promise<void>;
   setCategoryStatus(id: string, status: CategoryStatus): Promise<void>;
 }

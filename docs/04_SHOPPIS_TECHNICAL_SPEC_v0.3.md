@@ -131,7 +131,10 @@ Security, money, inventory and state transitions are not React-only logic.
   последний блок не перекрывается навбаром.
 - Нижний safe-area: `--safe-bottom = max(env(safe-area-inset-bottom), var(--tg-safe-area-bottom, 0px))`,
   применяется к обёртке `.bottom-nav`. `useAppInit` выставляет `--tg-safe-area-bottom` из `tg.safeAreaInset.bottom`.
-- При открытой клавиатуре `body.keyboard-is-open .bottom-nav { display: none }` (см. `useKeyboardFix`).
+- При открытой клавиатуре (или выбранном текстовом поле) `body.keyboard-is-open .bottom-nav { display: none }`,
+  а контент теряет резерв под навбар; активное поле ввода центрируется в видимой области
+  (`useKeyboardFix`, глобально для всех страниц). Детект — по `visualViewport` **и** фокусу ввода
+  (в Telegram WebView ресайз visual viewport ненадёжен).
 - Нижняя навигация — router-agnostic `BottomNavBar` (`presentation/shared/components`): активная
   вкладка и `onTabChange` передаются адаптерами (`SellerNavBar`; у покупателя — `FloatingNavBar`).
   Buyer-вариант: 5 равнозначных вкладок (`/`, `/catalog`, `/favorites`, `/orders`, `/cart`) на общем

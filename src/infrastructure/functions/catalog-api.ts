@@ -136,6 +136,18 @@ export async function deleteCategory(token: string, categoryId: string): Promise
   return result.imageStorageKey ?? null;
 }
 
+/**
+ * Перестановка категории на позицию 1..N (порядок отображения у покупателя).
+ * Атомарно на сервере (`category_reorder_atomic`), владение магазином — по сессии.
+ */
+export async function reorderCategory(
+  token: string,
+  categoryId: string,
+  position: number,
+): Promise<void> {
+  await callCatalog(token, { action: 'category-reorder', categoryId, position });
+}
+
 /** Связать два товара («Похожее»); связь двусторонняя, без транзитивности. */
 export async function linkProduct(
   token: string,

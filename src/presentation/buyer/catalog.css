@@ -1,38 +1,85 @@
 /* ============================================================
-   Buyer Catalog — docs/13 §8
+   Buyer Catalog — визуал от Home, серверный контент (docs/17 CAT-07c)
    ============================================================ */
 
-.catalog {
-  padding: calc(var(--spacing-3) + var(--safe-top, 0px)) var(--spacing-4) var(--spacing-6);
+/* ---- Header: назад слева / название по центру / действия справа ---- */
+.catalog-header {
+  display: grid;
+  grid-template-columns: 40px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: calc(var(--spacing-3) + var(--safe-top, 0px)) var(--spacing-4) 8px;
 }
 
-.catalog__title {
-  margin: 0 0 var(--spacing-3);
-  font-size: 26px;
-  font-weight: 900;
-  letter-spacing: -0.02em;
+.catalog-header__left {
+  display: flex;
+}
+
+.catalog-header__title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  text-align: center;
   color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
+.catalog-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-self: end;
+}
+
+/* ---- Sheet: белый лист от Home, но выход в голубой начинается сразу после
+   4 плиток категорий (docs/17 CAT-07c). ---- */
+.home-sheet.catalog-sheet {
+  background: linear-gradient(
+    180deg,
+    #ffffff 0,
+    #ffffff 250px,
+    var(--color-bg-storefront-blue) 100%
+  );
+}
+
+/* ---- Search ---- */
 .search-bar {
   display: flex;
   align-items: center;
-  gap: var(--spacing-2);
-  margin-bottom: var(--spacing-3);
-  padding: 10px 14px;
+  gap: 10px;
+  height: 48px;
+  margin: 0 0 var(--spacing-3);
+  padding: 0 10px 0 14px;
   background: var(--color-bg-card);
+  border: 1.5px solid rgba(108, 92, 231, 0.12);
   border-radius: var(--radius-full);
-  box-shadow: var(--shadow-card);
+  box-shadow: 0 4px 16px rgba(108, 92, 231, 0.07);
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+
+.search-bar:focus-within {
+  border-color: var(--color-accent);
+  box-shadow:
+    0 0 0 3px rgba(108, 92, 231, 0.14),
+    0 4px 16px rgba(108, 92, 231, 0.07);
 }
 
 .search-bar__icon {
   flex: 0 0 auto;
-  color: var(--color-text-secondary);
+  color: var(--color-accent);
+  opacity: 0.85;
 }
 
 .search-bar__input {
   flex: 1 1 auto;
   min-width: 0;
+  height: 100%;
   border: none;
   outline: none;
   background: transparent;
@@ -45,54 +92,362 @@
   color: var(--color-text-secondary);
 }
 
+.search-bar__input::-webkit-search-cancel-button {
+  display: none;
+}
+
 .search-bar__clear {
   flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
   display: flex;
+  align-items: center;
+  justify-content: center;
   padding: 0;
   border: none;
-  background: none;
+  border-radius: var(--radius-full);
+  background: var(--color-input-bg);
   color: var(--color-text-secondary);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.search-bar__clear:active {
+  background: var(--color-accent);
+  color: #ffffff;
+}
+
+/* ---- Search row: поиск + кнопка фильтров ---- */
+.catalog-search-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: var(--spacing-3);
+}
+
+.catalog-search-row .search-bar {
+  flex: 1 1 auto;
+  margin: 0;
+}
+
+.catalog-filter-btn {
+  position: relative;
+  flex: 0 0 auto;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1.5px solid rgba(108, 92, 231, 0.12);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-card);
+  color: var(--color-text-primary);
+  box-shadow: 0 4px 16px rgba(108, 92, 231, 0.07);
+  cursor: pointer;
+  transition:
+    border-color 0.2s,
+    color 0.2s,
+    box-shadow 0.2s;
+}
+
+.catalog-filter-btn:active {
+  transform: scale(0.95);
+}
+
+.catalog-filter-btn--active {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.catalog-filter-btn__dot {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  box-shadow: 0 0 0 2px var(--color-bg-card);
+}
+
+/* ---- Applied filter chips ---- */
+.catalog-applied {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: var(--spacing-3);
+}
+
+.catalog-applied__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 11px 7px 14px;
+  border: none;
+  border-radius: var(--radius-full);
+  background: rgba(108, 92, 231, 0.12);
+  color: var(--color-accent);
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.catalog-applied__chip:active {
+  background: rgba(108, 92, 231, 0.22);
+}
+
+.catalog-applied__text {
+  max-width: 170px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- Quick categories (8 карточек как на Home) — docs/17 CAT-07c ---- */
+.catalog-cats {
+  margin-bottom: var(--spacing-3);
+}
+
+.catalog-cats__head {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 6px;
+}
+
+.catalog-all-arrow {
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-card);
+  color: var(--color-text-primary);
+  box-shadow: var(--shadow-card, 0 2px 8px rgba(108, 92, 231, 0.08));
+  cursor: pointer;
+  transition: transform 0.12s;
+}
+
+.catalog-all-arrow:active {
+  transform: scale(0.94);
+}
+
+.catalog-cats__grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--spacing-3) 6px;
+  justify-items: center;
+}
+
+/* ---- All categories sheet ---- */
+.allcats-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-3) 14px;
+  padding: 4px 0 8px;
+}
+
+/* ---- Filter sheet ---- */
+.filter-block {
+  margin-bottom: 8px;
+}
+
+.filter-block__label {
+  font-size: var(--font-size-md);
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin-bottom: 10px;
+}
+
+.filter-empty {
+  margin: 8px 0 16px;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.filter-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.filter-actions .btn-primary {
+  flex: 1 1 auto;
+}
+
+/* ---- Dual price slider ---- */
+.price-slider__values {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.price-slider__value {
+  font-size: var(--font-size-md);
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.price-slider__control {
+  position: relative;
+  height: 34px;
+}
+
+.price-slider__track {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 4px;
+  transform: translateY(-50%);
+  border-radius: 2px;
+  background: var(--color-input-bg);
+}
+
+.price-slider__fill {
+  position: absolute;
+  top: 50%;
+  height: 4px;
+  transform: translateY(-50%);
+  border-radius: 2px;
+  background: var(--color-accent);
+}
+
+.price-slider__input {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 34px;
+  margin: 0;
+  background: transparent;
+  -webkit-appearance: none;
+  appearance: none;
+  pointer-events: none;
+}
+
+.price-slider__input:focus {
+  outline: none;
+}
+
+.price-slider__input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 2px solid var(--color-accent);
+  box-shadow: 0 2px 6px rgba(108, 92, 231, 0.3);
+  pointer-events: auto;
   cursor: pointer;
 }
 
-/* ---- Category cards (общие стили — в buyer/category.css) ---- */
-.catalog__cats {
-  margin-bottom: var(--spacing-4);
+.price-slider__input::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 2px solid var(--color-accent);
+  box-shadow: 0 2px 6px rgba(108, 92, 231, 0.3);
+  pointer-events: auto;
+  cursor: pointer;
 }
 
-.catalog__empty {
-  padding: 40px 0;
+.price-slider__input::-webkit-slider-runnable-track {
+  background: transparent;
+}
+
+.price-slider__input::-moz-range-track {
+  background: transparent;
+}
+
+/* ---- Empty state ---- */
+.catalog-empty {
+  padding: 36px 16px 48px;
   text-align: center;
-  font-size: var(--font-size-md);
+}
+
+.catalog-empty__title {
+  margin: 0 0 6px;
+  font-size: var(--font-size-lg);
+  font-weight: 800;
+  color: var(--color-text-primary);
+}
+
+.catalog-empty__text {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
   color: var(--color-text-secondary);
 }
 
-/* Skeleton (общий `.skel` — в components.css) */
-.skel--title {
-  width: 45%;
-  height: 30px;
-  margin-bottom: var(--spacing-3);
+/* ---- Error state ---- */
+.catalog-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 48px 16px;
+  text-align: center;
+}
+
+.catalog-error__title {
+  margin: 0 0 6px;
+  font-size: var(--font-size-lg);
+  font-weight: 800;
+  color: var(--color-text-primary);
+}
+
+.catalog-error__text {
+  margin: 0 0 16px;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+/* ---- Skeleton (общий `.skel` — в components.css) ---- */
+.catalog-skel-title {
+  width: 40%;
+  height: 24px;
+  margin: 0 auto;
   border-radius: var(--radius-sm);
+}
+
+.catalog-cat-skel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.catalog-cat-skel__img {
+  width: 68px;
+  height: 68px;
+  border-radius: 20px;
+}
+
+.catalog-cat-skel__name {
+  width: 48px;
+  height: 10px;
+  border-radius: var(--radius-sm);
+}
+
+.catalog-arrow-skel {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-full);
 }
 
 .skel--search {
   width: 100%;
   height: 44px;
   margin-bottom: var(--spacing-3);
-  border-radius: var(--radius-full);
-}
-
-.catalog__skel-chips {
-  display: flex;
-  gap: var(--spacing-2);
-  margin-bottom: var(--spacing-3);
-  overflow: hidden;
-}
-
-.skel--chip {
-  flex: 0 0 auto;
-  width: 72px;
-  height: 34px;
   border-radius: var(--radius-full);
 }
 

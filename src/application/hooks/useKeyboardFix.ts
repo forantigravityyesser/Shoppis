@@ -29,46 +29,81 @@ function moveCaretToEnd(el: HTMLInputElement | HTMLTextAreaElement): void {
   }
 }
 
-/**
- * Мягкая клавиатура сжимает visual viewport. Фокус сам по себе клавиатуру не
- * открывает: программный фокус (например, Home → Catalog с автфокусом поиска)
- * вешает фокус на поле, но клавиатуры нет. Поэтому состояние определяем по
- * реальному сжатию viewport — иначе навигация ложно прятала нижнюю панель,
- * и она не возвращалась, пока поле оставалось в фокусе.
- */
+/** Мягкая клавиатура сжимает visual viewport (не всегда — см. shouldHideNav). */
 function isKeyboardOpen(): boolean {
   const vv = typeof window !== 'undefined' ? window.visualViewport : null;
   if (!vv) return false;
   return window.innerHeight - vv.height > 120;
 }
 
-/** Прячет нижнюю навигацию при открытой клавиатуре, скроллит к активному input */
+/**
+ * Прячем нижнюю навигацию, когда открыта клавиатура **или** выбран текстовый ввод.
+ * Опора только на `visualViewport` ненадёжна в Telegram (WebView может ресайзить
+ * layout, а не visual, либо не менять innerHeight) — поэтому фокус текстового поля
+ * сам по себе является сигналом скрыть панель.
+ */
+function shouldHideNav(): boolean {
+  return isKeyboardOpen() || isTextEntry(document.activeElement);
+}
+
+/**
+ * Центрирует активное поле ввода в видимой области (глобальное правило для всех
+ * страниц): центрируем относительно пересечения контейнера скролла и visualViewport,
+ * поэтому поле не уезжает под клавиатуру.
+ */
+function centerActiveInput(): void {
+  const el = document.activeElement;
+  if (!isTextEntry(el)) return;
+  const node = el as HTMLElement;
+  const scroller = node.closest('.scrollable-content') as HTMLElement | null;
+
+  if (!scroller) {
+    node.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    return;
+  }
+
+  const vv = window.visualViewport;
+  const rect = node.getBoundingClientRect();
+  const scrollRect = scroller.getBoundingClientRect();
+  const visibleTop = Math.max(scrollRect.top, vv ? vv.offsetTop : 0);
+  const visibleBottom = vv
+    ? Math.min(scrollRect.bottom, vv.offsetTop + vv.height)
+    : scrollRect.bottom;
+  const visibleCenter = (visibleTop + visibleBottom) / 2;
+  const elementCenter = rect.top + rect.height / 2;
+  const delta = elementCenter - visibleCenter;
+
+  if (Math.abs(delta) > 4) {
+    scroller.scrollTo({ top: scroller.scrollTop + delta, behavior: 'smooth' });
+  }
+}
+
+/** Прячет нижнюю навигацию и центрирует активное поле ввода при клавиатуре. */
 export function useKeyboardFix(): void {
   useEffect(() => {
-    const sync = () => document.body.classList.toggle('keyboard-is-open', isKeyboardOpen());
+    const sync = () => document.body.classList.toggle('keyboard-is-open', shouldHideNav());
 
     const onFocusIn = (e: FocusEvent) => {
       const target = e.target;
       if (isCaretEditable(target)) {
-        // Ставим каретку в конец после того, как браузер применит позицию по тапу.
         const el = target;
+        // Каретку и центрирование — после того, как браузер применит позицию по тапу.
         requestAnimationFrame(() => {
           if (document.activeElement === el) moveCaretToEnd(el);
         });
       }
-      // Клавиатура открывается не мгновенно — проверим состояние после кадра.
-      requestAnimationFrame(sync);
+      // Клавиатура открывается не мгновенно — синхронизируем состояние после кадра.
+      requestAnimationFrame(() => {
+        sync();
+        centerActiveInput();
+      });
     };
     const onFocusOut = () => requestAnimationFrame(sync);
 
     const viewport = window.visualViewport;
     const onResize = () => {
       sync();
-      if (!isKeyboardOpen()) return;
-      const active = document.activeElement;
-      if (isTextEntry(active)) {
-        (active as HTMLElement).scrollIntoView({ block: 'center', behavior: 'smooth' });
-      }
+      centerActiveInput();
     };
     // На iOS при открытой клавиатуре скролл страницы не меняет размер viewport,
     // но сдвигает его — синхронизируем состояние и здесь.
@@ -76,11 +111,13 @@ export function useKeyboardFix(): void {
 
     window.addEventListener('focusin', onFocusIn);
     window.addEventListener('focusout', onFocusOut);
+    window.addEventListener('resize', onResize);
     viewport?.addEventListener('resize', onResize);
     viewport?.addEventListener('scroll', onScroll);
     return () => {
       window.removeEventListener('focusin', onFocusIn);
       window.removeEventListener('focusout', onFocusOut);
+      window.removeEventListener('resize', onResize);
       viewport?.removeEventListener('resize', onResize);
       viewport?.removeEventListener('scroll', onScroll);
       document.body.classList.remove('keyboard-is-open');

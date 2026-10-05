@@ -99,11 +99,11 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Скрываем_navbar при клавиатуре */
+/* Скрываем navbar при активном вводе / клавиатуре */
 body.keyboard-is-open .bottom-nav {
   display: none;
 }
-body.keyboard-is-open body {
+body.keyboard-is-open {
   height: 100vh;
   overflow: hidden;
 }

@@ -14,12 +14,15 @@ const SearchBar = forwardRef<HTMLInputElement, Props>(function SearchBar(
 ) {
   return (
     <div className="search-bar">
-      <Search className="search-bar__icon" size={18} strokeWidth={2.4} aria-hidden />
+      <Search className="search-bar__icon" size={19} strokeWidth={2.6} aria-hidden />
       <input
         ref={ref}
         className="search-bar__input"
         type="search"
         inputMode="search"
+        enterKeyHint="search"
+        autoComplete="off"
+        spellCheck={false}
         value={value}
         placeholder={placeholder}
         aria-label="Поиск по названию"
@@ -32,7 +35,7 @@ const SearchBar = forwardRef<HTMLInputElement, Props>(function SearchBar(
           aria-label="Очистить"
           onClick={() => onChange('')}
         >
-          <X size={16} strokeWidth={2.6} />
+          <X size={15} strokeWidth={2.8} />
         </button>
       ) : null}
     </div>

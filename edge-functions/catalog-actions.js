@@ -4,6 +4,7 @@
 //   {
 //     action: 'product-create' | 'product-update' | 'variant-create'
 //           | 'product-status' | 'product-delete' | 'category-delete'
+//           | 'category-reorder'
 //           | 'product-link-add' | 'product-link-remove',
 //     ...payload
 //   }
@@ -77,6 +78,12 @@ function dispatch(client, action, session, body) {
     case 'category-delete':
       return client.database.rpc('category_delete_atomic', {
         p_category_id: body.categoryId,
+        p_actor_user_id: session.uid,
+      });
+    case 'category-reorder':
+      return client.database.rpc('category_reorder_atomic', {
+        p_category_id: body.categoryId,
+        p_position: body.position,
         p_actor_user_id: session.uid,
       });
     case 'product-link-add':

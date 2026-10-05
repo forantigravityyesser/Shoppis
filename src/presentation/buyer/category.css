@@ -62,6 +62,47 @@
   background: linear-gradient(135deg, #efeafb 0%, #e6e4f4 100%);
 }
 
+/* Каталог: цвет-заглушка по позиции слота (1..8, docs/17 CAT-07c). */
+.category-item__placeholder--1 {
+  background: linear-gradient(135deg, #dde7fb 0%, #c3d4f7 100%);
+  color: #3b6fd4;
+}
+
+.category-item__placeholder--2 {
+  background: linear-gradient(135deg, #ffe0ea 0%, #ffc4d6 100%);
+  color: #e0407c;
+}
+
+.category-item__placeholder--3 {
+  background: linear-gradient(135deg, #ffe9cc 0%, #ffd6a1 100%);
+  color: #c77700;
+}
+
+.category-item__placeholder--4 {
+  background: linear-gradient(135deg, #d2efe3 0%, #b3e3cd 100%);
+  color: #159a54;
+}
+
+.category-item__placeholder--5 {
+  background: linear-gradient(135deg, #e9e5fb 0%, #d5cbf6 100%);
+  color: #6c5ce7;
+}
+
+.category-item__placeholder--6 {
+  background: linear-gradient(135deg, #d9f0fb 0%, #bfe4f7 100%);
+  color: #0984e3;
+}
+
+.category-item__placeholder--7 {
+  background: linear-gradient(135deg, #fff3cc 0%, #ffe6a3 100%);
+  color: #a67c00;
+}
+
+.category-item__placeholder--8 {
+  background: linear-gradient(135deg, #ffe3d6 0%, #ffcbb3 100%);
+  color: #d35400;
+}
+
 .category-item--active .category-item__img,
 .category-item--active .category-item__placeholder {
   outline-color: var(--color-accent);

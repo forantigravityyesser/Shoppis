@@ -5,6 +5,10 @@ import type {
   StorefrontProductCard,
   StorefrontStore,
 } from '../read-models/storefront';
+import type {
+  StorefrontCatalogPriceBounds,
+  StorefrontCatalogProductPage,
+} from '../read-models/storefront-catalog';
 import type { PublicStoreContext } from '../read-models/public-store';
 
 /**
@@ -29,6 +33,12 @@ function asNullableString(value: unknown): string | null {
 function asNumber(value: unknown): number {
   const n = typeof value === 'number' ? value : Number(value);
   return Number.isFinite(n) ? n : 0;
+}
+
+function asNullableNumber(value: unknown): number | null {
+  if (value === null || value === undefined) return null;
+  const n = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(n) ? n : null;
 }
 
 function mapStore(raw: unknown): StorefrontStore | null {
@@ -113,5 +123,32 @@ export function mapStorefrontHomeProductPage(raw: unknown): StorefrontHomeProduc
       ? raw.products.map(mapProduct).filter((p): p is StorefrontProductCard => p !== null)
       : [],
     nextCursor: asNullableString(raw.nextCursor),
+  };
+}
+
+/**
+ * Страница Каталога (`storefront_catalog_products_read`). Карточка — та же
+ * `StorefrontProductCard`, что и на Home (единая проекция/price semantics).
+ */
+export function mapStorefrontCatalogProductPage(
+  raw: unknown,
+): StorefrontCatalogProductPage | null {
+  if (!isRecord(raw)) return null;
+  return {
+    products: Array.isArray(raw.products)
+      ? raw.products.map(mapProduct).filter((p): p is StorefrontProductCard => p !== null)
+      : [],
+    nextCursor: asNullableString(raw.nextCursor),
+  };
+}
+
+/** Границы актуальных цен магазина (`storefront_catalog_price_bounds_read`). */
+export function mapStorefrontCatalogPriceBounds(
+  raw: unknown,
+): StorefrontCatalogPriceBounds | null {
+  if (!isRecord(raw)) return null;
+  return {
+    minPrice: asNullableNumber(raw.minPrice),
+    maxPrice: asNullableNumber(raw.maxPrice),
   };
 }

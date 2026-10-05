@@ -1,73 +1,145 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { LayoutGrid } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { SlidersHorizontal } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { useStore } from '../../../application/store';
 import { useStorefrontHome } from '../../../application/hooks/useStorefrontHome';
-import { useStorefrontHomeProducts } from '../../../application/hooks/useStorefrontHomeProducts';
+import { useStorefrontCatalog } from '../../../application/hooks/useStorefrontCatalog';
+import { useStorefrontCatalogPriceBounds } from '../../../application/hooks/useStorefrontCatalogPriceBounds';
+import { formatMoneyMinor } from '../../../domain/rules/product-rules';
+import { useInfiniteScrollSentinel } from '../hooks/useInfiniteScrollSentinel';
 import ProductGrid from '../components/ProductGrid';
-import CategoryItem from '../components/CategoryItem';
+import CatalogCategoryTiles from '../components/CatalogCategoryTiles';
+import CatalogHeader from '../components/CatalogHeader';
+import CatalogFilterSheet from '../components/CatalogFilterSheet';
+import CatalogAppliedFilters from '../components/CatalogAppliedFilters';
+import AllCategoriesSheet from '../components/AllCategoriesSheet';
 import SearchBar from '../components/SearchBar';
 import StoreStatusView from '../components/StoreStatusView';
 import CatalogSkeleton from '../components/CatalogSkeleton';
-import '../category.css';
+import '../home.css';
 import '../catalog.css';
 
-/**
- * Прототип Каталога покупателя: поиск по названию, категории-чипы, сетка товаров.
- * Данные — контекст (`useStorefrontHome`) + первая (широкая) страница товаров
- * (`useStorefrontHomeProducts`), фильтрация на клиенте. Настоящий Каталог
- * (server-side search/filters/sort/pagination) — отдельная будущая feature
- * (docs/15 §8); здесь только поддерживаем работоспособность.
- */
-// Прототип тянет одну широкую страницу того же RPC, что и Home; серверный потолок
-// `p_limit` = 24 (HOME-FIX-02). Реальный Каталог получит свой paginated-RPC (docs/15 §8).
-const CATALOG_PRODUCTS_LIMIT = 24;
+/** Задержка дебаунса поиска: URL/запрос обновляются после паузы ввода. docs/17 §4 (CAT-08). */
+const SEARCH_DEBOUNCE_MS = 300;
 
+/**
+ * Каталог покупателя: server-driven (категория/поиск/цена/пагинация — на сервере).
+ * Визуал и фон — от Home (`.home` + `.home-sheet`). Шапка: назад / название / профиль.
+ * URL — источник истины: `category`, `q`, `minPrice`, `maxPrice` (docs/17 §2.8).
+ * Поиск дебаунсится (300ms), фильтр цены применяется по кнопке (CAT-09).
+ */
 export default function CatalogView() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const viewedStore = useStore((s) => s.viewedStore);
+  const serverUser = useStore((s) => s.serverUser);
   const publicId = viewedStore?.publicId ?? null;
-  const { home, loading, error, notFound, refresh } = useStorefrontHome(publicId);
-  const productStream = useStorefrontHomeProducts(publicId, CATALOG_PRODUCTS_LIMIT);
 
-  const [query, setQuery] = useState('');
-  const [categoryId, setCategoryId] = useState<string | null>(searchParams.get('category'));
+  const categoryId = searchParams.get('category');
+  const search = searchParams.get('q') ?? '';
+  const minPrice = parsePriceParam(searchParams.get('minPrice'));
+  const maxPrice = parsePriceParam(searchParams.get('maxPrice'));
+
+  const { home, loading, error, notFound, refresh } = useStorefrontHome(publicId);
+  const catalog = useStorefrontCatalog(publicId, { categoryId, search, minPrice, maxPrice });
+  const { bounds } = useStorefrontCatalogPriceBounds(publicId);
+
+  const sentinelRef = useInfiniteScrollSentinel({
+    onLoadMore: catalog.loadMore,
+    enabled:
+      catalog.hasNextPage && !catalog.fetchingNextPage && !catalog.nextPageError,
+  });
+
+  const [allOpen, setAllOpen] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [searchDraft, setSearchDraft] = useState(search);
   const inputRef = useRef<HTMLInputElement>(null);
+  const debounceRef = useRef<number | null>(null);
+  // Актуальные URL-параметры для debounced-записи (не устаревают при паузе ввода).
+  const paramsRef = useRef(searchParams);
+  useEffect(() => {
+    paramsRef.current = searchParams;
+  }, [searchParams]);
 
   const shouldFocus = searchParams.get('focus') === '1';
   useEffect(() => {
-    if (shouldFocus) inputRef.current?.focus();
-  }, [shouldFocus]);
+    if (!shouldFocus) return;
+    inputRef.current?.focus();
+    // `focus` одноразовый: убираем из URL, чтобы возврат из товара не открывал
+    // клавиатуру повторно (Back должен вернуть каталог в прежнем виде). docs/17 CAT-13.
+    const next = new URLSearchParams(searchParams);
+    next.delete('focus');
+    setSearchParams(next, { replace: true });
+  }, [shouldFocus, searchParams, setSearchParams]);
 
-  const products = useMemo(() => {
-    const list = productStream.products;
-    const q = query.trim().toLowerCase();
-    return list.filter(
-      (p) =>
-        (!categoryId || p.categoryId === categoryId) &&
-        (!q || p.title.toLowerCase().includes(q)),
-    );
-  }, [productStream.products, query, categoryId]);
+  // Снимаем отложенную запись при уходе с экрана.
+  useEffect(
+    () => () => {
+      if (debounceRef.current) window.clearTimeout(debounceRef.current);
+    },
+    [],
+  );
 
-  if (loading || productStream.loading) {
+  const setParams = useCallback(
+    (updates: Record<string, string | null>) => {
+      const next = new URLSearchParams(paramsRef.current);
+      for (const [key, value] of Object.entries(updates)) {
+        if (value === null || value === '') next.delete(key);
+        else next.set(key, value);
+      }
+      next.delete('focus');
+      setSearchParams(next, { replace: true });
+    },
+    [setSearchParams],
+  );
+
+  const onSearchChange = (value: string) => {
+    setSearchDraft(value);
+    if (debounceRef.current) window.clearTimeout(debounceRef.current);
+    // Очистку применяем сразу — без лишнего сетевого запроса на пустой строке.
+    if (value.trim() === '') {
+      setParams({ q: null });
+      return;
+    }
+    debounceRef.current = window.setTimeout(() => {
+      debounceRef.current = null;
+      setParams({ q: value });
+    }, SEARCH_DEBOUNCE_MS);
+  };
+
+  const header = (
+    <CatalogHeader
+      title="Каталог"
+      buyerAvatarUrl={serverUser?.photoUrl ?? null}
+      buyerName={serverUser?.firstName ?? ''}
+      onProfile={() => navigate('/account')}
+    />
+  );
+
+  if (loading || catalog.loading) {
     return <CatalogSkeleton />;
   }
 
-  if (error ?? productStream.initialError) {
+  if (error ?? catalog.initialError) {
     return (
-      <div className="catalog">
-        <h1 className="catalog__title">Каталог</h1>
-        <button
-          type="button"
-          className="home-retry"
-          onClick={() => {
-            refresh();
-            productStream.refresh();
-          }}
-        >
-          Повторить
-        </button>
+      <div className="home">
+        {header}
+        <div className="home-sheet">
+          <div className="catalog-error" role="alert">
+            <p className="catalog-error__title">Не удалось загрузить каталог</p>
+            <p className="catalog-error__text">Проверьте соединение и попробуйте снова.</p>
+            <button
+              type="button"
+              className="home-retry"
+              onClick={() => {
+                refresh();
+                catalog.refresh();
+              }}
+            >
+              Повторить
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -87,44 +159,156 @@ export default function CatalogView() {
     );
   }
 
-  return (
-    <div className="catalog">
-      <h1 className="catalog__title">Каталог</h1>
-      <SearchBar ref={inputRef} value={query} onChange={setQuery} />
+  const products = catalog.products;
+  const priceActive = minPrice != null || maxPrice != null;
+  const categoryName = categoryId
+    ? (home.categories.find((c) => c.id === categoryId)?.name ?? 'Категория')
+    : null;
+  const priceLabel = buildPriceLabel(minPrice, maxPrice, home.store.currencySymbol);
 
-      {home.categories.length ? (
-        <div className="category-row catalog__cats">
+  return (
+    <div className="home">
+      {header}
+      <div className="home-sheet catalog-sheet">
+        {home.categories.length ? (
+          <CatalogCategoryTiles
+            categories={home.categories}
+            activeId={categoryId}
+            onSelect={(id) => setParams({ category: id })}
+            onViewAll={() => setAllOpen(true)}
+          />
+        ) : null}
+
+        <div className="catalog-search-row">
+          <SearchBar ref={inputRef} value={searchDraft} onChange={onSearchChange} />
           <button
             type="button"
-            className={`category-item${categoryId ? '' : ' category-item--active'}`}
-            onClick={() => setCategoryId(null)}
-            aria-label="Все"
-            aria-pressed={!categoryId}
+            className={`catalog-filter-btn${priceActive ? ' catalog-filter-btn--active' : ''}`}
+            aria-label="Фильтры"
+            aria-pressed={priceActive}
+            onClick={() => setFilterOpen(true)}
           >
-            <span className="category-item__placeholder" aria-hidden>
-              <LayoutGrid size={22} strokeWidth={2} />
-            </span>
-            <span className="category-item__name">Все</span>
+            <SlidersHorizontal size={20} strokeWidth={2.4} />
+            {priceActive ? <span className="catalog-filter-btn__dot" aria-hidden /> : null}
           </button>
-          {home.categories.map((category) => (
-            <CategoryItem
-              key={category.id}
-              id={category.id}
-              name={category.name}
-              imageUrl={category.imageUrl}
-              active={categoryId === category.id}
-              onSelect={(id) => setCategoryId(id)}
-            />
-          ))}
         </div>
-      ) : null}
 
-      <ProductGrid
-        products={products}
-        currencySymbol={home.store.currencySymbol}
-        onOpen={(productId) => navigate(`/product/${productId}`)}
+        <CatalogAppliedFilters
+          categoryName={categoryName}
+          priceLabel={priceLabel}
+          onRemoveCategory={() => setParams({ category: null })}
+          onRemovePrice={() => setParams({ minPrice: null, maxPrice: null })}
+        />
+
+        <ProductGrid
+          products={products}
+          currencySymbol={home.store.currencySymbol}
+          onOpen={(productId) => navigate(`/product/${productId}`)}
+        />
+        {products.length > 0 ? (
+          catalog.nextPageError ? (
+            <div className="home-stream-error" role="alert" data-testid="catalog-stream-error">
+              <span className="home-stream-error__text">Не удалось загрузить ещё товары</span>
+              <button
+                type="button"
+                className="home-stream-error__retry"
+                onClick={catalog.loadMore}
+              >
+                Повторить
+              </button>
+            </div>
+          ) : (
+            <>
+              <div
+                ref={sentinelRef}
+                className="home-stream-sentinel"
+                aria-hidden
+                data-testid="catalog-stream-sentinel"
+              />
+              {catalog.fetchingNextPage ? (
+                <div
+                  className="home-stream-loading"
+                  role="status"
+                  aria-label="Загрузка товаров"
+                  data-testid="catalog-stream-loading"
+                >
+                  <span className="home-stream-spinner" aria-hidden />
+                </div>
+              ) : null}
+            </>
+          )
+        ) : null}
+        {products.length === 0 ? (
+          <div className="catalog-empty" role="status">
+            {search ? (
+              <>
+                <p className="catalog-empty__title">Ничего не нашлось</p>
+                <p className="catalog-empty__text">
+                  По запросу «{search}» товаров нет. Попробуйте изменить запрос.
+                </p>
+              </>
+            ) : priceActive ? (
+              <>
+                <p className="catalog-empty__title">Нет товаров в этом диапазоне</p>
+                <p className="catalog-empty__text">Попробуйте изменить фильтр по цене.</p>
+              </>
+            ) : categoryId ? (
+              <>
+                <p className="catalog-empty__title">В этой категории пока нет товаров</p>
+                <p className="catalog-empty__text">Загляните в другие категории.</p>
+              </>
+            ) : (
+              <>
+                <p className="catalog-empty__title">Товаров пока нет</p>
+                <p className="catalog-empty__text">В этом магазине пока нечего показать.</p>
+              </>
+            )}
+          </div>
+        ) : null}
+      </div>
+
+      <AllCategoriesSheet
+        open={allOpen}
+        categories={home.categories}
+        activeId={categoryId}
+        onClose={() => setAllOpen(false)}
+        onSelect={(id) => setParams({ category: id })}
       />
-      {products.length === 0 ? <div className="catalog__empty">Ничего не найдено</div> : null}
+
+      <CatalogFilterSheet
+        open={filterOpen}
+        bounds={bounds}
+        currencySymbol={home.store.currencySymbol}
+        appliedMin={minPrice}
+        appliedMax={maxPrice}
+        onClose={() => setFilterOpen(false)}
+        onApply={(min, max) =>
+          setParams({
+            minPrice: min != null ? String(min) : null,
+            maxPrice: max != null ? String(max) : null,
+          })
+        }
+      />
     </div>
   );
+}
+
+/** Числовой URL-параметр цены; пусто/мусор → null. */
+function parsePriceParam(value: string | null): number | null {
+  if (value === null || value === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
+/** Подпись ценового фильтра: диапазон / «от» / «до». null — фильтра нет. */
+function buildPriceLabel(
+  min: number | null,
+  max: number | null,
+  symbol: string,
+): string | null {
+  const fmt = (value: number) => formatMoneyMinor(value, symbol);
+  if (min != null && max != null) return `${fmt(min)} – ${fmt(max)}`;
+  if (min != null) return `от ${fmt(min)}`;
+  if (max != null) return `до ${fmt(max)}`;
+  return null;
 }

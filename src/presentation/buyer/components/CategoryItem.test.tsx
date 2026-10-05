@@ -34,4 +34,18 @@ describe('CategoryItem', () => {
     fireEvent.error(container.querySelector('.category-item__img') as HTMLImageElement);
     expect(screen.getByText('О')).toBeInTheDocument();
   });
+
+  it('заглушка красится по позиции (variant 1..8), без variant — базовая', () => {
+    const { container } = render(
+      <CategoryItem id="c1" name="Обувь" imageUrl={null} onSelect={vi.fn()} variant={3} />,
+    );
+    expect(container.querySelector('.category-item__placeholder--3')).toBeTruthy();
+  });
+
+  it('variant=9 сворачивается в палитру 1..8', () => {
+    const { container } = render(
+      <CategoryItem id="c1" name="Обувь" imageUrl={null} onSelect={vi.fn()} variant={9} />,
+    );
+    expect(container.querySelector('.category-item__placeholder--1')).toBeTruthy();
+  });
 });
