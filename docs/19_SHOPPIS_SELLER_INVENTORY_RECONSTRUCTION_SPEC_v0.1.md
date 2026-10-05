@@ -1836,3 +1836,4 @@ tests = green
 | 2026-10-05 | Секционные «+» разделены: «Товары» → форма нового товара, «Категории» → форма новой категории; промежуточный `AddInventorySheet` удалён. |
 | 2026-10-05 | Phase F: `CategoryView` — список/редактирование/контекст сохранены; по правке заказчика удалён поиск в секции «Категории» (`InventorySearchState` + мёртвый CSS), `InventoryHeader` упрощён. |
 | 2026-10-05 | Phase G: typecheck/test(754)/build — зелёные; удалён мёртвый код (`EmptyInventoryState`, `ProductTabEmpty`, `onMore`, `InventorySearchState`, wide/pair CSS); синхронизированы `06/07/08/09`; добавлен аудит §45.1. |
+| 2026-10-05 | Повторный аудит после реконструкции перенесён в `20_SHOPPIS_SELLER_INVENTORY_HARDENING_AUDIT.md`: P0 — независимые оси custom-цены/скидки (JS + 8 SQL-функций buyer/checkout), единый mutation API, тесты, переименования, derived data, lint; этапы `INV-HARDEN-01…09`. Пункты `19` (Reviews/Questions, submit-tests, AddVariantSheet) подтверждены закрытыми. |
