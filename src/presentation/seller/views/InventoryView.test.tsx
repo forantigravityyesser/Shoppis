@@ -22,7 +22,7 @@ vi.mock('../../../application/hooks/useInventoryActions', () => ({
 
 vi.mock('../../shared/components/BackButton', () => ({ default: () => null }));
 vi.mock('../inventory/components/products/InventoryProductRow', () => ({ default: () => null }));
-vi.mock('../inventory/components/CategoryGrid', () => ({
+vi.mock('../inventory/components/InventoryCategoryList', () => ({
   default: () => <div>CATEGORIES_GRID</div>,
 }));
 
@@ -39,6 +39,9 @@ beforeEach(() => {
     productsByCategory: {},
     uncategorized: null,
     allProducts: [],
+    userCategoryIds: [],
+    positionsByCategory: {},
+    categoryNameById: {},
     totals: { products: 0, categories: 0 },
     loading: false,
     error: null,

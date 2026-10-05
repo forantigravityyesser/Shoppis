@@ -94,10 +94,10 @@ Search state (тот же экран, не отдельный маршрут):
 
 ---
 
-## 6. CategoryCard — анатомия
+## 6. InventoryCategoryRow — анатомия
 
 ```
-CategoryCard
+InventoryCategoryRow
 ├── CategoryHeader (CategoryName, ProductCount, [CategoryMoreButton])
 └── ProductPreviewGrid
     ├── ProductThumbnail × N
@@ -200,8 +200,8 @@ InventoryView
 │   ├── InventoryTitle (по центру)
 │   └── InventorySearchButton
 ├── AddButton («+ Добавить», строка справа)
-├── CategoryGrid
-│   └── CategoryCard
+├── InventoryCategoryList
+│   └── InventoryCategoryRow
 │       ├── (CategoryHeader)
 │       └── ProductPreviewRow
 │           ├── ProductThumbnail[]
@@ -218,7 +218,7 @@ InventoryView
 ## 16. Data contracts
 
 ```ts
-type CategoryCardProps = {
+type InventoryCategoryRowProps = {
   category: InventoryCategoryItem;
   previewProducts: InventoryProductItem[];
   variant: 'wide' | 'compact';

@@ -32,18 +32,21 @@ export interface EffectivePrice {
 
 /**
  * Цена позиции: вариант с CUSTOM_PRICE переопределяет цену товара. 02 §3, 03 §9.
+ *
+ * Цена и скидка — НЕЗАВИСИМЫЕ оси (docs/20 §3.1): `CUSTOM_PRICE` означает «переопределена
+ * хотя бы одна ось», а конкретное nullable-поле решает, какая. Inherited-ось наследует
+ * соответствующее значение товара (в т.ч. `customDiscountPercent = 0` — валидный custom).
  */
 export function effectivePrice(
   variant: Pick<Variant, 'priceMode' | 'customOriginalAmountMinor' | 'customDiscountPercent'>,
   product: Pick<Product, 'originalAmountMinor' | 'discountPercent'>,
 ): EffectivePrice {
-  const useCustom =
-    variant.priceMode === 'CUSTOM_PRICE' && variant.customOriginalAmountMinor != null;
-  const originalAmountMinor = useCustom
-    ? (variant.customOriginalAmountMinor as number)
+  const isCustom = variant.priceMode === 'CUSTOM_PRICE';
+  const originalAmountMinor = isCustom
+    ? (variant.customOriginalAmountMinor ?? product.originalAmountMinor)
     : product.originalAmountMinor;
-  const discountPercent = useCustom
-    ? (variant.customDiscountPercent ?? 0)
+  const discountPercent = isCustom
+    ? (variant.customDiscountPercent ?? product.discountPercent)
     : product.discountPercent;
   return {
     originalAmountMinor,

@@ -5,7 +5,7 @@ interface ProductThumbnailProps {
   onClick: () => void;
 }
 
-/** Квадратная миниатюра товара внутри CategoryCard. Не знает про источник данных. */
+/** Квадратная миниатюра товара внутри InventoryCategoryRow. Не знает про источник данных. */
 export default function ProductThumbnail({ product, onClick }: ProductThumbnailProps) {
   const hidden = product.status === 'ARCHIVED';
   const label = hidden ? `${product.title} (в архиве)` : product.title;

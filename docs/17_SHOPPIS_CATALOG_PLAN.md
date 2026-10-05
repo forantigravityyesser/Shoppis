@@ -407,11 +407,11 @@ full-порядок **1..N** для всех ACTIVE-категорий; общи
 - ✅ `typecheck`, `eslint` (0), `test` — **487 / 76 файлов зелёные**.
 
 #### CAT-07b — Seller UI ✅ выполнено
-- ✅ `CategoryCard`: номерной бейдж позиции рядом с кол-вом товаров; `position` 1–4 → акцентные цвета (`inv-cat__rank--1..4`), 5+ → нейтральный (`--n`); системная категория без бейджа. Клик — `stopPropagation`, не открывает категорию.
+- ✅ `InventoryCategoryRow`: номерной бейдж позиции рядом с кол-вом товаров; `position` 1–4 → акцентные цвета (`inv-cat__rank--1..4`), 5+ → нейтральный (`--n`); системная категория без бейджа. Клик — `stopPropagation`, не открывает категорию.
 - ✅ `ReorderCategorySheet` (на `BottomSheet`): сетка чисел `1..N`, текущая позиция `aria-pressed`, выбор применяется **сразу** (`onSelect`).
-- ✅ `CategoryGrid` пробрасывает `positionsByCategory` и `onReorderCategory`; `InventoryView` считает позиции (1-based среди несистемных, из уже отсортированного списка `useInventoryHome`), хранит `reorderId`, вызывает `useInventoryActions.reorderCategory`. Сетка продавца переупорядочивается (общий `sort_order`, WYSIWYG).
+- ✅ `InventoryCategoryList` пробрасывает `positionsByCategory` и `onReorderCategory`; `InventoryView` считает позиции (1-based среди несистемных, из уже отсортированного списка `useInventoryHome`), хранит `reorderId`, вызывает `useInventoryActions.reorderCategory`. Сетка продавца переупорядочивается (общий `sort_order`, WYSIWYG).
 - ✅ CSS (`inventory.css`): `.inv-cat__rank*`, `.reorder__*` (числа 1–4 окрашены, 5+ нейтральны).
-- ✅ Тесты: `CategoryCard` (+4: бейдж/клик без открытия/нейтраль 5+/скрытие), `ReorderCategorySheet` (+3: 1..N/текущая/выбор).
+- ✅ Тесты: `InventoryCategoryRow` (+4: бейдж/клик без открытия/нейтраль 5+/скрытие), `ReorderCategorySheet` (+3: 1..N/текущая/выбор).
 - ✅ `typecheck`, `eslint` (0), `test` — **494 / 78 файлов зелёные**.
 
 #### CAT-07c — Buyer UI ✅ выполнено

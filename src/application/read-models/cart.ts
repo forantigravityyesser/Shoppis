@@ -1,3 +1,4 @@
+import type { CartItem } from '../../domain/models/cart';
 import type { StorefrontStore } from './storefront';
 
 /**
@@ -15,6 +16,15 @@ export interface CartItemRef {
   productId: string;
   /** null — позиция без варианта (в MVP не создаётся; реконсиляция удаляет). */
   productVariantId: string | null;
+}
+
+/**
+ * Buy-side позиция корзины: вариант гарантированно есть (в отличие от persisted
+ * `CartItem`, где `productVariantId` nullable). Позиции без варианта реконсиляция
+ * удаляет, поэтому до рендера они не доходят (docs/21 §6.1).
+ */
+export interface BuyerCartItem extends Omit<CartItem, 'productVariantId'> {
+  productVariantId: string;
 }
 
 /**

@@ -6,7 +6,10 @@ import { useProductDetail } from '../../../../application/hooks/useProduct';
 import { currencySymbol } from '../../../../domain/constants/currencies';
 import type { ProductStatus } from '../../../../domain/models/product';
 import { formatMoneyMinor } from '../../../../domain/rules/product-rules';
-import type { ProductStatusErrorCode } from '../../../../application/contracts/product-status';
+import {
+  ProductStatusError,
+  type ProductStatusErrorCode,
+} from '../../../../application/contracts/product-status';
 import StockControlSheet from './StockControlSheet';
 
 /** Вкладка «Карточка»: сводка остатков, варианты, атрибуты, показатели и действия. */
@@ -16,6 +19,8 @@ export default function ProductOverview() {
   const { product } = useProductDetail(productId);
   const { setProductStatus, deleteProduct } = useInventoryActions();
   const [stockOpen, setStockOpen] = useState(false);
+  /** Remount sheet при открытии: сброс правок без effect (docs/20 §11). */
+  const [stockKey, setStockKey] = useState(0);
   const [pending, setPending] = useState<null | 'archive' | 'publish'>(null);
   const [lastStatus, setLastStatus] = useState<ProductStatus | null>(null);
   const [statusError, setStatusError] = useState<{
@@ -37,9 +42,17 @@ export default function ProductOverview() {
     setLastStatus(status);
     setPending(status === 'ARCHIVED' ? 'archive' : 'publish');
     setStatusError(null);
-    const result = await setProductStatus(product.id, status);
-    setPending(null);
-    if (!result.ok) setStatusError({ code: result.code, message: result.message });
+    try {
+      await setProductStatus(product.id, status);
+    } catch (e) {
+      setStatusError(
+        e instanceof ProductStatusError
+          ? { code: e.code, message: e.message }
+          : { code: 'UNKNOWN', message: 'Не удалось изменить статус. Попробуйте ещё раз.' },
+      );
+    } finally {
+      setPending(null);
+    }
   };
 
   const archive = () => void changeStatus('ARCHIVED');
@@ -74,7 +87,10 @@ export default function ProductOverview() {
         <button
           type="button"
           className="btn-ghost btn-primary--wide prod-stock-btn"
-          onClick={() => setStockOpen(true)}
+          onClick={() => {
+            setStockOpen(true);
+            setStockKey((k) => k + 1);
+          }}
         >
           <PackagePlus size={16} />
           <span>Контроль остатков</span>
@@ -184,6 +200,7 @@ export default function ProductOverview() {
       </section>
 
       <StockControlSheet
+        key={stockKey}
         open={stockOpen}
         productId={product.id}
         variants={product.variants}

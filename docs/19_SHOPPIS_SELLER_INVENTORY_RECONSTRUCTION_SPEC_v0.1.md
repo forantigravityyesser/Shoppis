@@ -1441,6 +1441,11 @@ Layout категорий должен оставаться читаемым б�
 > сохранены. Тесты: `CategoryGrid.test.tsx` (+3), `CategoryCard.test.tsx` обновлён.
 > 718 тестов зелёные.
 
+> **Переименование (2026-10-05, `20` INV-HARDEN-06):** `CategoryGrid` → **`InventoryCategoryList`**,
+> `CategoryCard` → **`InventoryCategoryRow`** (+ файлы тестов, CSS `.inv-grid` → `.inv-cat-list`,
+> `.inv-grid__row` → `.inv-cat-row`, `InventorySkeleton`). Семантика не менялась — только имя, так как
+> это список полноширинных строк, а не grid.
+
 > **Доработка «+» (2026-10-05):** `+` в блоке **категории** открывает `CategoryAddSheet`
 > (visual `.sheet__options`) с выбором: «Новый товар» → форма создания в контексте категории;
 > «Товар из магазина» → мультивыбор товаров магазина (уже в категории — отмечены и недоступны)
@@ -1790,7 +1795,7 @@ tests = green
 | Раздел | Основные файлы |
 |---|---|
 | §6 Товары (секция, список, поиск) | `presentation/seller/views/InventoryView.tsx`, `application/hooks/useInventory.ts`, `application/mappers/inventory-mappers.ts` |
-| §7 Категории (строки, responsive) | `presentation/seller/inventory/layout.ts`, `components/CategoryGrid.tsx`, `components/CategoryCard.tsx`, `inventory.css:137-316` |
+| §7 Категории (строки, responsive) | `presentation/seller/inventory/layout.ts`, `components/InventoryCategoryList.tsx`, `components/InventoryCategoryRow.tsx`, `inventory.css:137-316` |
 | §8, §30 CategoryView и контекст | `views/CategoryView.tsx`, `views/CreateProductView.tsx:13-39`, `router.tsx` |
 | §9–§10 Реордер | `components/ReorderCategorySheet.tsx`, `views/InventoryView.tsx:137-149`, `application/hooks/useInventoryActions.ts:131-139`, `application/store/slices/category-slice.ts:117-128`, `domain/rules/category-rules.ts:14-26`, `migrations/0027_category_reorder.sql` |
 | §11 Редактирование категории | `components/EditCategorySheet.tsx`, `application/hooks/useInventoryActions.ts:99-117` |
@@ -1798,7 +1803,7 @@ tests = green
 | §14–§23 Варианты, наследование, валидация | `components/ProductForm.tsx:19-31,63-80,94-116,174-224,395-459`, `application/hooks/useInventoryActions.ts:52-90,198-226`, `domain/rules/product-rules.ts:33-53`, `domain/models/product.ts:3` |
 | §24–§26 ProductView | `views/ProductView.tsx`, `inventory/product/ProductOverview.tsx`, `router.tsx:86-94` |
 | §31–§32 Empty/loading | `components/EmptyInventoryState.tsx` (мёртвый), `InventorySkeleton.tsx`, `InventorySearchState.tsx`, `inventory.css` |
-| §39 Responsive | `inventory.css:137-154`, `layout.ts`, `components/CategoryCard.tsx` |
+| §39 Responsive | `inventory.css:137-154`, `layout.ts`, `components/InventoryCategoryRow.tsx` |
 
 ## A.6 Стейл-места документации (для `INV-R-37`)
 

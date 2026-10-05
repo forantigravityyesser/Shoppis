@@ -8,7 +8,7 @@ vi.mock('../../composition/container', () => ({
 
 import { useStore } from '../index';
 import { cartItemKey } from '../../../domain/rules/cart-rules';
-import { MAX_CART_QTY } from '../../../domain/constants/limits';
+import { MAX_CART_QTY, MAX_CART_ITEMS } from '../../../domain/constants/limits';
 
 function reset(storeId: string | null = 'store-a') {
   useStore.setState({ cartByStore: {}, storeId });
@@ -64,6 +64,18 @@ describe('cart-slice', () => {
     useStore.getState().setSelectedByKeys([cartItemKey('p2', 'v2')], false);
     expect(itemsOf().find((i) => i.productId === 'p1')?.selected).toBe(true);
     expect(itemsOf().find((i) => i.productId === 'p2')?.selected).toBe(false);
+  });
+
+  it('addToCart: не добавляет новую строку сверх MAX_CART_ITEMS, но мерджит существующую', () => {
+    for (let i = 0; i < MAX_CART_ITEMS; i += 1) add(`p${i}`, `v${i}`);
+    expect(itemsOf()).toHaveLength(MAX_CART_ITEMS);
+
+    add('overflow', 'v');
+    expect(itemsOf()).toHaveLength(MAX_CART_ITEMS);
+
+    add('p0', 'v0', 1);
+    expect(itemsOf()).toHaveLength(MAX_CART_ITEMS);
+    expect(itemsOf()[0]).toMatchObject({ productId: 'p0', quantity: 2 });
   });
 
   it('removeByKeys удаляет только адресные ключи', () => {

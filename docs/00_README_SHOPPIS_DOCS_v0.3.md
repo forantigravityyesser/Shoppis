@@ -30,6 +30,7 @@ infinite loading, состояния. План/аудит — `17` (CAT-00…CAT
 применённых проектных миграций — таблица `public.schema_migrations` (`0034`), проверки
 `npm run migrations:check` / `migrations:record`, конвенция `migrations/README.md`. InsForge CLI
 `db migrations` не используется (timestamp-имена + нет backfill) — обоснование в README.
+`record-migration.mjs` переведён на прямой admin REST (Windows-баг `spawnSync('npx.cmd')` падал молча).
 
 **Актуализация (2026-10-05) — Cart реализован:** вкладка **Корзина** (`/cart`) и граница до checkout —
 `18_SHOPPIS_CART_PLAN.md`, этапы `CART-01…CART-06` **выполнены**. buy-side read-model `CartItemView`
@@ -66,14 +67,42 @@ mutation lifecycle (submitting / disable / error / retry) для всех seller
 Phase G `[x]` LOCAL (typecheck/тесты/build зелёные, мёртвый код удалён, `06/07/08/09`
 синхронизированы, аудит §45.1; ручная `LOCAL`/`TELEGRAM`-сверка — за человеком).
 
+**Актуализация (2026-10-05) — commerce hardening (Cart/Checkout/Order):** внешний аудит контура
+Cart→Checkout→Order→Inventory перенесён в `21_SHOPPIS_CART_COMMERCE_HARDENING_AUDIT.md` (этапы
+`CART-HARDEN-01…12`). Вердикт: Cart архитектурно готов (Onion 9.2, read-model/reconciliation 9.0),
+но commerce-фундамент **не закрыт**: P0 — idempotency retry (один attempt = один key) и SQL race
+(reserve-before-order), серверный quantity-contract `1..99` + reject duplicate variant, `held_quantity`
+custody (seller read-only, переносы через `inventory_reconcile`), SQL/integration/concurrency тесты.
+Отклонены как противоречащие решениям `00`/`18`: email-получатель и отдельный `CartTotalCard`
+(итог только в CTA). `P0` независимых осей цены/скидки — общая зависимость с `20` (`INV-HARDEN-02`,
+SQL `0037`); commerce-миграции начинаются с `0038`. **Прогресс:** `CART-HARDEN-01` ✅ (ключ на
+checkout-попытку, reuse на retry), `CART-HARDEN-02` ✅ (миграция `0038`: `create_order_atomic`
+reserve-before-order, применена и записана), `CART-HARDEN-03` ✅ (серверный quantity-contract `1..99` +
+reject duplicate variant: `_shared/checkout-items.js`, миграция `0039`, edge задеплоен), `CART-HARDEN-04` ✅
+(`held_quantity` custody: seller read-only, переносы через `inventory_reconcile`). **Phase A+B+C закрыты:** `CART-HARDEN-05` ✅ (harness `npm run commerce:harness`, Test 1–9 — 24/24),
+`CART-HARDEN-06` ✅ (гейт: `test` 812/812, `build`, `migrations:check` 0001..0039; `0037` записана),
+`CART-HARDEN-07…09` ✅ (checkout→reconcile, select-all только orderable + `MAX_CART_ITEMS`, split
+`cart-rules`/`checkout-rules`), `CART-HARDEN-10…12` ✅ (`BuyerCartItem`, selection summary, финальный
+docs-sync/аудит). **Commerce-фундамент закрыт;** осталась ручная `LOCAL`/`TELEGRAM`-проверка за человеком.
+
 **Актуализация (2026-10-05) — hardening Seller Inventory:** повторный аудит после `19` перенесён в
 `20_SHOPPIS_SELLER_INVENTORY_HARDENING_AUDIT.md` (этапы `INV-HARDEN-01…09`). Ключевое: P0 — независимые
 оси custom-цены и custom-скидки варианта, причём **шире внешнего аудита** (не только seller-маппинг и
-`effectivePrice`, но и 8 живых SQL-функций buyer/checkout). Далее: единый mutation API (`throw`),
-тесты категорий/responsive, переименование `CategoryGrid/CategoryCard` (+ CSS-классы), вынос derived
-data из `InventoryView`, lint-гигиена. Пункты, уже закрытые в `19` (Reviews/Questions, submit-tests,
-AddVariantSheet fire-and-forget), в аудите помечены устаревшими. Производительность 100+ товаров
-(N+1 social summary) — deferred с триггером.
+`effectivePrice`, но и 7 живых SQL-функций buyer/checkout). Далее: единый mutation API (`throw`),
+тесты категорий/responsive, переименование `CategoryGrid/CategoryCard` → `InventoryCategoryList`/
+`InventoryCategoryRow` (✅ `INV-HARDEN-06`), вынос derived data из `InventoryView`, lint-гигиена.
+Пункты, уже закрытые в `19` (Reviews/Questions, submit-tests, AddVariantSheet fire-and-forget), в
+аудите помечены устаревшими. Производительность 100+ товаров (N+1 social summary) — deferred с
+триггером. **Прогресс:** `INV-HARDEN-01` ✅ (независимые оси в JS:
+`product-mapping`/`addVariant`/`effectivePrice`) и `INV-HARDEN-02` ✅ (миграция `0037`: 7 SQL-функций
+per-axis, применена/записана, 0 регрессий; `P0` закрыт). `INV-HARDEN-04` ✅ — единый mutation API
+(`throw` + `ProductStatusError`, без `console.error`-глотания), `INV-HARDEN-05` ✅ — тесты категорий и
+responsive, `INV-HARDEN-06` ✅ — переименование `CategoryGrid/CategoryCard` + CSS, `INV-HARDEN-07` ✅ —
+derived data вынесена из `InventoryView`, `INV-HARDEN-08` ✅ — lint полностью чист (8→0 warnings),
+`INV-HARDEN-09` ✅ — docs-sync и финальный аудит. **Seller Inventory закрыт как LOCAL-этап** (`20 §16`);
+полный гейт зелёный (`typecheck`/`lint` 0/0/`test` 812/`build`/`migrations:check`), открыто — ручная
+`LOCAL`/`TELEGRAM`-сверка. Зависимость: `0038` (`21`) не должна откатывать per-axis логику
+`create_order_atomic`.
 
 **Актуализация (2026-10-03):** следующий блок buyer-части — карточка товара: экран, галерея,
 варианты/цена/наличие, избранное, корзина, «О товаре / Отзывы / Вопросы» (чтение), related
@@ -101,7 +130,8 @@ Spec §9.0.
 14. `17_SHOPPIS_CATALOG_PLAN.md` — Каталог покупателя (server-driven): план реализации, единый контракт read-model/URL/React Query, переиспользование Home-фундамента; этапы CAT-00…CAT-16 (ЧТО+КАК).
 15. `18_SHOPPIS_CART_PLAN.md` — Корзина покупателя (`/cart`) + граница до checkout: единый источник истины (inventory), buy-side read-model `CartItemView`, реконсиляция, selection/select-all, inline-удаление, один итог, checkout-форма (ФИО / телефон / **адрес доставки**, не email); этапы CART-01…CART-06 (ЧТО+КАК).
 16. `19_SHOPPIS_SELLER_INVENTORY_RECONSTRUCTION_SPEC_v0.1.md` — реконструкция Seller Inventory: план исправлений и рефакторинга (секции Товары/Категории, explicit variant inheritance, mutation lifecycle, чистка ProductView, полноширинные строки категорий); этапы INV-R-01…INV-R-37, Приложение A — разбор относительно кода.
-17. `20_SHOPPIS_SELLER_INVENTORY_HARDENING_AUDIT.md` — повторный hardening-audit Seller Inventory после `19`: независимые оси custom-цены/скидки (JS + 8 живых SQL-функций + checkout), единый mutation API (throw), тесты категорий/responsive, переименование `CategoryGrid/CategoryCard`, derived data, lint-гигиена; этапы INV-HARDEN-01…09, deferred-производительность 100+ с триггером.
+17. `20_SHOPPIS_SELLER_INVENTORY_HARDENING_AUDIT.md` — повторный hardening-audit Seller Inventory после `19`: независимые оси custom-цены/скидки (JS + 7 живых SQL-функций + checkout; `INV-HARDEN-01/02` ✅, миграция `0037` применена), единый mutation API (throw), тесты категорий/responsive, переименование `CategoryGrid/CategoryCard` → `InventoryCategoryList`/`InventoryCategoryRow` (`INV-HARDEN-06` ✅), derived data, lint-гигиена; этапы INV-HARDEN-01…09, deferred-производительность 100+ с триггером.
+18. `21_SHOPPIS_CART_COMMERCE_HARDENING_AUDIT.md` — commerce hardening Cart/Checkout/Order: idempotency (retry + SQL reserve-before-order), серверный quantity-contract, `held_quantity` custody, SQL/integration/concurrency тесты, checkout-error → reconciliation, `MAX_CART_ITEMS`, split `cart-rules`/`checkout-rules`; этапы CART-HARDEN-01…12, deferred realtime с триггером. Владелец P0 независимых осей цены — `20` INV-HARDEN-02 (общая зависимость).
 
 ## Принцип двух сред проверки
 Telegram — не финальная интеграция, а целевая среда исполнения и проверки с первых этапов. Каждый глобальный этап имеет два состояния: `LOCAL VERIFIED` (браузер / локальный контур) и `TELEGRAM VERIFIED` (реальный Telegram Mini App на development-окружении). Этап не закрывается без обоих.

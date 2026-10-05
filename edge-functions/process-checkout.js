@@ -23,10 +23,13 @@ import { bearerToken, json, methodNotAllowed, preflight, readJson } from './_sha
 import { verifySession } from './_shared/auth.js';
 import { notify } from './_shared/telegram.js';
 import { errorToResponse } from './_shared/errors.js';
+import { validateCheckoutItems } from './_shared/checkout-items.js';
 
 const ERROR_STATUS = {
   EMPTY_CART: 400,
+  INVALID_CART_ITEM: 400,
   INVALID_QUANTITY: 400,
+  VARIANT_DUPLICATE: 400,
   STORE_NOT_FOUND: 404,
   STORE_PAUSED: 409,
   VARIANT_NOT_FOUND: 404,
@@ -61,15 +64,15 @@ export default async function (request) {
   const address = String(body?.recipient?.address || '').trim();
 
   if (!storeId) return json({ success: false, error: 'storeId is required' }, 400);
-  if (!items.length) return json({ success: false, error: 'Cart is empty' }, 400);
   if (!name || !phone || !address) {
     return json({ success: false, error: 'Recipient name, phone and address are required' }, 400);
   }
 
-  const rpcItems = items
-    .map((it) => ({ variantId: String(it?.variantId || ''), quantity: Number(it?.quantity) }))
-    .filter((it) => it.variantId && Number.isInteger(it.quantity) && it.quantity > 0);
-  if (!rpcItems.length) return json({ success: false, error: 'Invalid cart items' }, 400);
+  // Позиции: 1..MAX_ITEM_QTY, без дублей вариантов (docs/21 §3.3). Сервер
+  // авторитетен — не доверяем количеству/нормализации с клиента.
+  const validated = validateCheckoutItems(items);
+  if (validated.error) return json({ success: false, error: validated.error }, 400);
+  const rpcItems = validated.items;
 
   let result;
   try {

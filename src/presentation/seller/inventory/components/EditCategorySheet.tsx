@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import BottomSheet from '../../../shared/components/BottomSheet';
 import type { InventoryCategoryItem } from '../../../../application/hooks/useInventory';
@@ -51,19 +51,6 @@ export default function EditCategorySheet({
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    setName(category.name);
-    setThreshold(category.lowStockThreshold ? String(category.lowStockThreshold) : '');
-    setPhoto(category.imageUrl);
-    setUploadError(null);
-    setSaveError(null);
-    setReorderOpen(false);
-    resetReorder();
-    setConfirmDelete(false);
-    setDeleteError(null);
-  }, [open, category, resetReorder]);
-
   const canSave = name.trim().length > 0;
   const canDelete = !isSystemCategory(category.id);
 
@@ -106,8 +93,9 @@ export default function EditCategorySheet({
   const remove = async () => {
     setDeleting(true);
     setDeleteError(null);
-    const ok = await deleteCategory(category.id);
-    if (!ok) {
+    try {
+      await deleteCategory(category.id);
+    } catch {
       setDeleting(false);
       setDeleteError('Не удалось удалить категорию. Попробуйте ещё раз.');
       return;

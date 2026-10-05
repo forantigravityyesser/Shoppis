@@ -3,7 +3,8 @@ import { useNavigate, useParams } from 'react-router';
 import { useInventoryHome } from '../../../application/hooks/useInventory';
 import { useInventoryActions } from '../../../application/hooks/useInventoryActions';
 import { useProductDetail } from '../../../application/hooks/useProduct';
-import ProductForm, { detailToFormValues } from '../components/ProductForm';
+import ProductForm from '../components/ProductForm';
+import { detailToFormValues } from '../components/product-form-values';
 import '../inventory/inventory.css';
 
 /** Редактирование карточки: та же форма, что при создании, с предзаполненными данными. */

@@ -1,6 +1,5 @@
-import { readdirSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { spawnSync } from 'node:child_process';
 
 /**
  * Records a migration as applied in `public.schema_migrations` (project-owned
@@ -28,9 +27,20 @@ const sql =
   `insert into public.schema_migrations (version, name) ` +
   `values ('${version}', '${name}') on conflict (version) do nothing;`;
 
-const npx = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-const result = spawnSync(npx, ['-y', '@insforge/cli', 'db', 'query', sql, '--json'], {
-  stdio: 'inherit',
+const config = JSON.parse(readFileSync(resolve(process.cwd(), '.insforge/project.json'), 'utf8'));
+const res = await fetch(`${config.oss_host}/api/database/advance/rawsql`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${config.api_key}`,
+  },
+  body: JSON.stringify({ query: sql }),
 });
 
-process.exit(result.status ?? 1);
+if (!res.ok) {
+  console.error(`[migrations] record failed: ${res.status} ${await res.text()}`);
+  process.exit(1);
+}
+
+await res.json().catch(() => ({}));
+console.log(`[migrations] recorded ${version}_${name}`);

@@ -64,10 +64,13 @@ export interface UpdateProductPatch {
   linkAttributes?: Array<{ name: string; value: string }>;
 }
 
-/** Патч остатков варианта (прямое редактирование). */
+/**
+ * Патч остатков варианта (прямое редактирование продавцом).
+ * `held_quantity` здесь НЕТ: им управляет только lifecycle заказа
+ * (`inventory_reconcile` / checkout / cancel — docs/21 §3.4).
+ */
 export interface VariantStockPatch {
   availableQuantity?: number;
-  heldQuantity?: number;
 }
 
 /** Быстрое добавление одного варианта: базовые цена/скидка применяются первому варианту. */

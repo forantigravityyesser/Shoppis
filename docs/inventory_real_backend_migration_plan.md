@@ -302,7 +302,7 @@ graph TD
 - `src/infrastructure/repositories/product-repository.ts` — guard `setProductStatus`.
 - `src/presentation/seller/inventory/components/ProductPreviewRow.tsx` — листание стрелками.
 - `src/presentation/seller/inventory/components/ProductThumbnail.tsx`, `ProductMiniCard.tsx`,
-  `CategoryCard.tsx`, `src/presentation/seller/inventory/inventory.css`.
+  `InventoryCategoryRow.tsx`, `src/presentation/seller/inventory/inventory.css`.
 - `src/presentation/seller/inventory/product/ProductOverview.tsx` — статус UI.
 
 ### Верификация блока
@@ -344,7 +344,7 @@ graph TD
 - `src/presentation/seller/components/ProductForm.tsx`,
   `src/presentation/seller/views/ProductView.tsx`, `CategoryView.tsx`, `CreateCategoryView.tsx`,
   `src/presentation/seller/inventory/components/EditCategorySheet.tsx`, `ProductThumbnail.tsx`,
-  `ProductMiniCard.tsx`, `CategoryCard.tsx`.
+  `ProductMiniCard.tsx`, `InventoryCategoryRow.tsx`.
 - `migrations/0010_product_image_thumb.sql`.
 
 ### Верификация

@@ -17,6 +17,8 @@ Database Spec §11–18, §24–25, §29), `04` (Technical Spec §4–5, §9, §
 Cart надстраивается поверх уже существующего cart-фундамента (домен/стор/граница checkout) и публичного
 storefront read-layer.
 
+> **Commerce hardening (2026-10-05):** поверх реализованного Cart открыт второй слой — `21_SHOPPIS_CART_COMMERCE_HARDENING_AUDIT.md` (этапы `CART-HARDEN-01…12`). **Выполнено:** idempotency (retry `CART-HARDEN-01` + SQL reserve-before-order `0038`), серверный quantity-contract `1..99` + reject duplicate variant (`0039`, edge), `held_quantity` custody, harness Test 1–9 (`npm run commerce:harness`, 24/24), checkout-error → reconciliation, `MAX_CART_ITEMS`, split `cart-rules`/`checkout-rules`, `BuyerCartItem`. `21` не меняет продуктовые/UX-решения `18` (адрес доставки вместо email, итог только в CTA). Осталась ручная `TELEGRAM VERIFIED`.
+
 ---
 
 ## 0. Главный принцип этапа
@@ -1126,7 +1128,7 @@ CartEmptyState
   только в живой среде (за владельцем); логика уже атомарна на сервере.
 
 > Примечание: финальный прогон всего suite на момент закрытия показывал падения в **seller inventory**
-> (`CategoryCard`/`CategoryGrid`, «Phase E») из-за активной параллельной правки, не связанной с Cart.
+> (`InventoryCategoryRow`/`InventoryCategoryList`, «Phase E») из-за активной параллельной правки, не связанной с Cart.
 > Scope Cart/Checkout — зелёный (111/111).
 
 ---

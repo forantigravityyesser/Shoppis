@@ -1,6 +1,7 @@
 import { MotionConfig } from 'framer-motion';
 import { useStore } from './application/store';
 import { useAppInit } from './application/hooks/useAppInit';
+import { useKeyboardFix } from './application/hooks/useKeyboardFix';
 import AppRouter from './router';
 
 /**
@@ -12,6 +13,7 @@ export default function App() {
   const isAppInitializing = useStore((s) => s.isAppInitializing);
 
   useAppInit();
+  useKeyboardFix();
 
   return (
     <MotionConfig reducedMotion="user">

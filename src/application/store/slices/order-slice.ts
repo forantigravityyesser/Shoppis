@@ -1,6 +1,7 @@
 import type { StateCreator } from 'zustand';
-import { canCheckout, checkedOutItemKeys } from '../../../domain/rules/cart-rules';
+import { canCheckoutCart, checkedOutItemKeys } from '../../../domain/rules/cart-rules';
 import { canTransition, type OrderActor } from '../../../domain/rules/order-rules';
+import { validateRecipient } from '../../../domain/rules/checkout-rules';
 import type {
   DeliveryOutcome,
   Order,
@@ -32,7 +33,12 @@ export interface OrderSlice {
     reason?: RefusalReasonCode,
   ) => Promise<void>;
   reconcileInventory: (variantId: string, quantity: number, reason?: string) => Promise<void>;
-  placeOrder: (recipient: RecipientInfo) => Promise<string>;
+  /**
+   * Оформить заказ. `idempotencyKey` задаёт владелец checkout-попытки
+   * (`useCheckout`): один attempt = один ключ, повтор использует тот же
+   * (docs/21 §3.1). Если не передан — fallback в `checkout-api`.
+   */
+  placeOrder: (recipient: RecipientInfo, idempotencyKey?: string) => Promise<string>;
   /**
    * Opt-in Telegram-уведомлений — ОТДЕЛЬНО и ПОСЛЕ успешного заказа.
    * Запрашивает write access и, при согласии, фиксирует его на сервере и шлёт
@@ -161,12 +167,15 @@ export const createOrderSlice: StateCreator<RootStore, [], [], OrderSlice> = (se
       if (storeId) await get().fetchCatalog(storeId);
     },
 
-    placeOrder: async (recipient: RecipientInfo) => {
+    placeOrder: async (recipient: RecipientInfo, idempotencyKey?: string) => {
       const { storeId, sessionToken, cartByStore } = get();
       if (!storeId) throw new Error('No store selected');
       if (!sessionToken) throw new Error('Not authenticated');
       const items = cartByStore[storeId] ?? [];
-      if (!canCheckout(items, recipient)) throw new Error('Cart or recipient is invalid');
+      // Корзина и получатель валидируются независимо (docs/21 §3.8).
+      if (!canCheckoutCart(items) || !validateRecipient(recipient).valid) {
+        throw new Error('Cart or recipient is invalid');
+      }
       // Позиции, которые реально уходят на сервер (выбранные с вариантом): после
       // успеха удаляем из корзины только их, невыбранные остаются (docs/18 §16).
       const orderedKeys = checkedOutItemKeys(items);
@@ -176,12 +185,14 @@ export const createOrderSlice: StateCreator<RootStore, [], [], OrderSlice> = (se
         // Разрешение на уведомления запрашивает вызывающий слой (`useCheckout`)
         // в жесте клика, ДО checkout: это повышает шанс доставки первого
         // уведомления «Заказ принят». Сам заказ от разрешения не зависит (04 §11).
+        // `idempotencyKey` не генерируем здесь: один и тот же ключ должен
+        // переиспользоваться при повторе (иначе повтор создаст второй заказ, docs/21 §3.1).
         const result = await deps().checkoutApi.invokeCheckout({
           items,
           recipientInfo: recipient,
           storeId,
           sessionToken,
-          idempotencyKey: crypto.randomUUID(),
+          idempotencyKey,
         });
         get().removeByKeys(orderedKeys);
         set({ lastOrderId: result.orderId, lastOrder: result, ordersLoading: false });

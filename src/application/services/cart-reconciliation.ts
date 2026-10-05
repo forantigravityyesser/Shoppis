@@ -1,6 +1,11 @@
 import type { CartItem } from '../../domain/models/cart';
 import { cartItemKey } from '../../domain/rules/cart-rules';
-import type { CartItemProjection, CartItemView, CartReadResult } from '../read-models/cart';
+import type {
+  BuyerCartItem,
+  CartItemProjection,
+  CartItemView,
+  CartReadResult,
+} from '../read-models/cart';
 import type { StorefrontStore } from '../read-models/storefront';
 
 /**
@@ -13,7 +18,8 @@ import type { StorefrontStore } from '../read-models/storefront';
  */
 
 export interface ReconciledCartItem {
-  item: CartItem;
+  /** Buy-side позиция: вариант гарантированно есть (см. `BuyerCartItem`). */
+  item: BuyerCartItem;
   view: CartItemView;
   /** false — позиция сохранена, но сейчас не оформляется (сток меньше количества). */
   orderable: boolean;
@@ -78,7 +84,8 @@ export function reconcileCart(
       continue;
     }
     items.push({
-      item,
+      // view разрешилась → variantId непустой; фиксируем non-null в buy-side модели.
+      item: { ...item, productVariantId: view.productVariantId },
       view,
       orderable: view.availableQuantity >= item.quantity,
     });

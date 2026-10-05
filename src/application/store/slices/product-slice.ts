@@ -229,14 +229,11 @@ export const createProductSlice: StateCreator<RootStore, [], [], ProductSlice> =
           row.variantId === variantId
             ? {
                 ...row,
+                // `held` — lifecycle заказа: локально не меняем (docs/21 §3.4).
                 availableQuantity:
                   patch.availableQuantity !== undefined
                     ? Math.max(0, Math.round(patch.availableQuantity))
                     : row.availableQuantity,
-                heldQuantity:
-                  patch.heldQuantity !== undefined
-                    ? Math.max(0, Math.round(patch.heldQuantity))
-                    : row.heldQuantity,
               }
             : row,
         ),
@@ -266,10 +263,10 @@ export const createProductSlice: StateCreator<RootStore, [], [], ProductSlice> =
     const requested = quantity === undefined ? row.heldQuantity : Math.max(0, Math.round(quantity));
     const moved = Math.min(requested, row.heldQuantity);
     if (moved <= 0) return;
-    await get().updateVariantStock(variantId, {
-      availableQuantity: row.availableQuantity + moved,
-      heldQuantity: row.heldQuantity - moved,
-    });
+    // Lifecycle-aware: HELD → AVAILABLE только серверным `inventory_reconcile`
+    // (с movement и проверкой владельца), а не прямой записью `held_quantity`
+    // (docs/21 §3.4). `reconcileInventory` заодно перечитывает каталог.
+    await get().reconcileInventory(variantId, moved, 'MANUAL_RECONCILE');
   },
 
   linkProducts: async (productId, targetId) => {

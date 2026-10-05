@@ -1,13 +1,8 @@
-import { useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { deps } from '../composition/container';
 import { useCart } from './useCart';
-import {
-  cartItemKey,
-  hasSelectedItems,
-  isAllSelected,
-  isSomeSelected,
-} from '../../domain/rules/cart-rules';
+import { cartItemKey, hasSelectedItems } from '../../domain/rules/cart-rules';
 import {
   canCheckoutReconciled,
   hasUnavailableSelected,
@@ -45,7 +40,8 @@ export interface BuyerCartState {
   /** Можно ли инициировать оформление прямо сейчас (docs/18 §22). */
   canCheckout: boolean;
 
-  setAllSelected: (selected: boolean) => void;
+  /** Выбрать/снять все оформляемые (orderable) позиции; неоформляемые не трогаем (docs/21 §3.7). */
+  toggleAllOrderable: () => void;
   setSelectedByKeys: (keys: string[], selected: boolean) => void;
   toggleSelected: (productId: string, variantId: string | null) => void;
   updateQty: (productId: string, variantId: string | null, quantity: number) => void;
@@ -65,7 +61,6 @@ export function useBuyerCart(publicId: string | null, enabled = true): BuyerCart
   const cart = useCart();
   const {
     items,
-    setAllSelected,
     setSelectedByKeys,
     toggleSelected,
     updateQty,
@@ -113,9 +108,30 @@ export function useBuyerCart(publicId: string | null, enabled = true): BuyerCart
   }, [soldOutSelectedKeys, setSelectedByKeys]);
 
   const reconciling = queryEnabled && query.isFetching;
-  const selectionState: CartSelectionState = isAllSelected(items)
+
+  // Выбор «все» считается по оформляемым позициям (docs/21 §3.7): неоформляемые
+  // (недостаток стока) не выбираются автоматически и не блокируют семантику «Снять всё».
+  const orderableEntries = useMemo(
+    () => (reconciliation?.items ?? []).filter((entry) => entry.orderable),
+    [reconciliation],
+  );
+  const orderableKeys = useMemo(
+    () =>
+      orderableEntries.map((entry) =>
+        cartItemKey(entry.item.productId, entry.item.productVariantId),
+      ),
+    [orderableEntries],
+  );
+  const allOrderableSelected =
+    orderableEntries.length > 0 && orderableEntries.every((entry) => entry.item.selected);
+  const toggleAllOrderable = useCallback(() => {
+    if (orderableKeys.length === 0) return;
+    setSelectedByKeys(orderableKeys, !allOrderableSelected);
+  }, [orderableKeys, allOrderableSelected, setSelectedByKeys]);
+
+  const selectionState: CartSelectionState = allOrderableSelected
     ? 'all'
-    : isSomeSelected(items)
+    : orderableEntries.some((entry) => entry.item.selected)
       ? 'some'
       : 'none';
 
@@ -133,7 +149,7 @@ export function useBuyerCart(publicId: string | null, enabled = true): BuyerCart
     hasSelection: hasSelectedItems(items),
     selectionState,
     canCheckout: canCheckoutReconciled(reconciliation) && !reconciling,
-    setAllSelected,
+    toggleAllOrderable,
     setSelectedByKeys,
     toggleSelected,
     updateQty,

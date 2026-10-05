@@ -34,7 +34,9 @@
 - **Cart:** ✅ реализован — `18_SHOPPIS_CART_PLAN.md`, этапы `CART-01…CART-06`: read-model `CartItemView`
   (RPC `storefront_cart_items_read`, `0036`), реконсиляция, selection/select-all, inline-удаление,
   один итог в CTA, checkout-форма (ФИО / телефон / **адрес доставки**), экран успеха, серверный гейт
-  уведомлений (`notifications_enabled`). Осталось: ручная проверка в Telegram.
+  уведомлений (`notifications_enabled`). Осталось: ручная проверка в Telegram. **Commerce hardening
+  (P0/P1) — `21_SHOPPIS_CART_COMMERCE_HARDENING_AUDIT.md`** (idempotency, quantity-contract,
+  `held_quantity`, SQL-тесты).
 - **Favorites:** ✅ реализован (`FavoritesView`, storefront-hydration по id).
 - **Orders:** остаётся заглушкой (`OrdersView` → `null`). Фундамент готов: `fetchBuyerOrders` заполняет
   `ordersByStore`, заказ создаётся атомарно, `lastOrder` доступен после оформления. Нужен экран
@@ -77,7 +79,9 @@
 
 - **RLS + закрытие anon-доступа (S1)** — гейт перед продом (`11` §S1, `08 §1.9`).
 - **Критические SQL/интеграционные тесты** — идемпотентность checkout, гонка за последним
-  стоком, RPC-переходы заказов, инварианты инвентаря (`11` §S2 «Тесты»).
+  стоком, RPC-переходы заказов, инварианты инвентаря (`11` §S2 «Тесты»). _(Детализация — `21`
+  `CART-HARDEN-05`, §9 Test 1–9; **закрыто** harness `npm run commerce:harness` — 24/24, миграции
+  `0038`/`0039`.)_
 - **Warning-и** `react-hooks/set-state-in-effect` (7 шт.) и `react-refresh` — `11` §S3/§S4.
 - **DRY в ботах**, CSS-чистка, `npm audit` (valibot) — `11`.
 - **Home infinite-query memory (`maxPages`)** — `DEFERRED`: все загруженные страницы остаются

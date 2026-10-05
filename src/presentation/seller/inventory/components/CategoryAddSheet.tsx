@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ArrowLeft, Boxes, Check, PackagePlus, Search, X } from 'lucide-react';
 import BottomSheet from '../../../shared/components/BottomSheet';
 import SafeImage from '../../../shared/components/SafeImage';
@@ -42,14 +42,6 @@ export default function CategoryAddSheet({
   const [error, setError] = useState<string | null>(null);
 
   const existing = useMemo(() => new Set(existingIds), [existingIds]);
-
-  useEffect(() => {
-    if (!open) return;
-    setStep('menu');
-    setSelected(new Set());
-    setQuery('');
-    setError(null);
-  }, [open]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();

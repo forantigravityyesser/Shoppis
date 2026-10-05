@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import BottomSheet from '../../shared/components/BottomSheet';
 import type { StorefrontCatalogPriceBounds } from '../../../application/read-models/storefront-catalog';
 import PriceRangeSlider from './PriceRangeSlider';
@@ -42,14 +42,12 @@ export default function CatalogFilterSheet({
   const boundsMax = bounds?.maxPrice ?? null;
   const hasBounds = boundsMin != null && boundsMax != null && boundsMax > boundsMin;
 
-  const [valueMin, setValueMin] = useState(boundsMin ?? 0);
-  const [valueMax, setValueMax] = useState(boundsMax ?? 0);
+  /** Правка пользователя; null — ещё не трогал (берём applied / bounds). Без sync-effect. */
+  const [valueMin, setValueMin] = useState<number | null>(null);
+  const [valueMax, setValueMax] = useState<number | null>(null);
 
-  useEffect(() => {
-    if (!open || boundsMin == null || boundsMax == null) return;
-    setValueMin(appliedMin ?? boundsMin);
-    setValueMax(appliedMax ?? boundsMax);
-  }, [open, boundsMin, boundsMax, appliedMin, appliedMax]);
+  const sliderMin = valueMin ?? appliedMin ?? boundsMin ?? 0;
+  const sliderMax = valueMax ?? appliedMax ?? boundsMax ?? 0;
 
   const reset = () => {
     setValueMin(boundsMin ?? 0);
@@ -61,7 +59,7 @@ export default function CatalogFilterSheet({
       onClose();
       return;
     }
-    onApply(valueMin > boundsMin ? valueMin : null, valueMax < boundsMax ? valueMax : null);
+    onApply(sliderMin > boundsMin ? sliderMin : null, sliderMax < boundsMax ? sliderMax : null);
     onClose();
   };
 
@@ -88,8 +86,8 @@ export default function CatalogFilterSheet({
           <PriceRangeSlider
             min={boundsMin as number}
             max={boundsMax as number}
-            valueMin={valueMin}
-            valueMax={valueMax}
+            valueMin={sliderMin}
+            valueMax={sliderMax}
             symbol={currencySymbol}
             onChangeMin={setValueMin}
             onChangeMax={setValueMax}

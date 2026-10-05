@@ -35,10 +35,6 @@ export default function ProductPreviewRow({
   const current = Math.min(index, maxIndex);
 
   useEffect(() => {
-    setIndex((prev) => Math.min(prev, maxIndex));
-  }, [maxIndex]);
-
-  useEffect(() => {
     const el = trackRef.current;
     if (!el) return;
     const measure = () => {
@@ -52,7 +48,7 @@ export default function ProductPreviewRow({
   }, [visible]);
 
   const step = (direction: -1 | 1) =>
-    setIndex((prev) => Math.min(Math.max(prev + direction, 0), maxIndex));
+    setIndex(Math.min(Math.max(current + direction, 0), maxIndex));
 
   return (
     <div className="inv-preview">

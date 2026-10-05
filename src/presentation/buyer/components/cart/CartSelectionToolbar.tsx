@@ -21,7 +21,7 @@ export default function CartSelectionToolbar({
   return (
     <div className="cart-toolbar" aria-busy={updating}>
       <span className="cart-toolbar__label">
-        {selectedCount > 0 ? `Выбрано ${selectedCount}` : 'Все товары'}
+        Выбрано {selectedCount}
         {updating ? (
           <span
             className="cart-spinner"

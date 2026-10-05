@@ -28,7 +28,7 @@ Severity: **S1** критично · **S2** высоко · **S3** средне 
 1. **Обязательно до запуска / реальных пользователей → RLS + закрытие anon-доступа (этап 6).**
    Сейчас риск низкий: данные тестовые, заказов 0, PII нет. Но anon-ключ публичен (в бандле), поэтому без RLS БД открыта на чтение и частично на запись. Это гейт перед продом, не срочно сегодня.
 2. **Дёшево — сделано в этом заходе:** проверка `DEV_AUTH_MODE` для прод-сборки; разбор `npm audit`. Результаты ниже.
-3. **Перед первыми реальными заказами:** критические SQL-тесты (идемпотентность checkout, гонка за последним стоком stock=1, RPC-переходы, инварианты инвентаря).
+3. **Перед первыми реальными заказами:** критические SQL-тесты (идемпотентность checkout, гонка за последним стоком stock=1, RPC-переходы, инварианты инвентаря). _(Перенесено и детализировано в `21` (commerce hardening): Test 1–9, этапы `CART-HARDEN-01…12`.)_
 4. **Потом / оппортунистически:** 5× `set-state-in-effect` (seller-inventory ×4 + `CatalogFilterSheet`), 3× `react-refresh`, DRY в ботах, `window.Telegram` в `useAppInit`, CSS-чистка, `toCatalogFields`. _(Inventory-часть запланирована в `20`: `INV-HARDEN-01` — `toCatalogFields`, `INV-HARDEN-08` — lint; bulk social summary и split CSS — deferred с триггером.)_
 5. **Продуктовый пробел (не аудит):** экраны покупателя (`return null`) — это roadmap, а не hardening.
 
@@ -100,8 +100,8 @@ Severity: **S1** критично · **S2** высоко · **S3** средне 
 ## S2 — Тесты (этап 7) — базовый слой закрыт
 
 - **Сделано:** Vitest настроен (`vitest.config.ts`, node-env). Покрыты domain-правила (`product`, `inventory`, `order`, `cart`, `category`), application-mapper (`inventory-mappers`) и infrastructure (`telegram-share`: allowed/cancelled/таймаут/reject/sync-throw) — 55 тестов.
-- **Остаток (критический флоу, требует SQL/интеграции):** идемпотентность checkout, гонка за последним стоком (stock=1, 2 запроса → ровно один успех), переходы заказов на уровне RPC, инварианты инвентаря. `04 §15`.
-- **Остаток (UI/слайсы):** `toCatalogFields`/`resolveCategoryId` не экспортированы — протестировать через извлечение чистой функции. _(Запланировано в `20` `INV-HARDEN-01`: перенос в `application/rules/product-mapping.ts` + тесты 4 комбинаций.)_
+- **Остаток (критический флоу, требует SQL/интеграции):** идемпотентность checkout, гонка за последним стоком (stock=1, 2 запроса → ровно один успех), переходы заказов на уровне RPC, инварианты инвентаря. `04 §15`. _(Детализация и план — `21` `CART-HARDEN-05`, §9 Test 1–9. **Закрыто:** harness `npm run commerce:harness`, 24/24; идемпотентность `0038`, item-contract `0039`.)_
+- **Остаток (UI/слайсы):** ✅ **Сделано (2026-10-05, `20` INV-HARDEN-01):** `toCatalogFields`/`resolveCategoryId` вынесены в `application/rules/product-mapping.ts` (чистые, экспортированы) + тесты 4 комбинаций осей.
 
 ---
 
@@ -116,7 +116,9 @@ Severity: **S1** критично · **S2** высоко · **S3** средне 
 - `src/presentation/seller/inventory/product/StockControlSheet.tsx:58`
 
 **Задача:** перейти на `key`-remount или производное состояние (`useMemo`/derived) вместо setState в effect.
-_(Запланировано в `20` `INV-HARDEN-08`; `CatalogFilterSheet` — вне Inventory, не входит.)_
+✅ **Сделано (2026-10-05, `20` INV-HARDEN-08):** Inventory-файлы переведены на `key`-remount/derived state,
+`ProductForm` типы/хелпер → `product-form-values.ts`. `npm run lint` — **8 → 0 warnings** (0 errors);
+дополнительно закрыты не-Inventory `main.tsx` (react-refresh) и `CatalogFilterSheet` (set-state).
 
 ## S3 — Проверка безопасности dev-пути — проверено
 

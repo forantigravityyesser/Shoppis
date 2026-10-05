@@ -57,8 +57,8 @@ describe('currentPriceMinor', () => {
   });
 });
 
-describe('effectivePrice', () => {
-  it('uses product price for USE_PRODUCT_PRICE', () => {
+describe('effectivePrice — независимые оси (docs/20 §3.1)', () => {
+  it('inherited/inherited: обе оси от товара', () => {
     const product = makeProduct({ originalAmountMinor: 2000, discountPercent: 10 });
     expect(effectivePrice(makeVariant(), product)).toEqual({
       originalAmountMinor: 2000,
@@ -67,7 +67,7 @@ describe('effectivePrice', () => {
     });
   });
 
-  it('uses custom price for CUSTOM_PRICE with amount', () => {
+  it('custom/custom: обе оси свои', () => {
     const variant = makeVariant({
       priceMode: 'CUSTOM_PRICE',
       customOriginalAmountMinor: 5000,
@@ -80,11 +80,55 @@ describe('effectivePrice', () => {
     });
   });
 
-  it('falls back to product price when CUSTOM_PRICE has no amount', () => {
-    const variant = makeVariant({ priceMode: 'CUSTOM_PRICE', customOriginalAmountMinor: null });
+  it('custom price / inherited discount: скидка берётся у товара', () => {
+    const variant = makeVariant({
+      priceMode: 'CUSTOM_PRICE',
+      customOriginalAmountMinor: 5000,
+      customDiscountPercent: null,
+    });
+    expect(effectivePrice(variant, makeProduct({ discountPercent: 10 }))).toEqual({
+      originalAmountMinor: 5000,
+      discountPercent: 10,
+      currentAmountMinor: 4500,
+    });
+  });
+
+  it('inherited price / custom discount: цена берётся у товара', () => {
+    const variant = makeVariant({
+      priceMode: 'CUSTOM_PRICE',
+      customOriginalAmountMinor: null,
+      customDiscountPercent: 25,
+    });
+    expect(effectivePrice(variant, makeProduct({ originalAmountMinor: 2000 }))).toEqual({
+      originalAmountMinor: 2000,
+      discountPercent: 25,
+      currentAmountMinor: 1500,
+    });
+  });
+
+  it('custom discount = 0 — валидный custom, а не наследование', () => {
+    const variant = makeVariant({
+      priceMode: 'CUSTOM_PRICE',
+      customOriginalAmountMinor: 5000,
+      customDiscountPercent: 0,
+    });
+    expect(effectivePrice(variant, makeProduct({ discountPercent: 30 }))).toEqual({
+      originalAmountMinor: 5000,
+      discountPercent: 0,
+      currentAmountMinor: 5000,
+    });
+  });
+
+  it('CUSTOM_PRICE без обоих custom-значений откатывается к товару', () => {
+    const variant = makeVariant({
+      priceMode: 'CUSTOM_PRICE',
+      customOriginalAmountMinor: null,
+      customDiscountPercent: null,
+    });
     expect(
-      effectivePrice(variant, makeProduct({ originalAmountMinor: 1000 })).currentAmountMinor,
-    ).toBe(1000);
+      effectivePrice(variant, makeProduct({ originalAmountMinor: 1000, discountPercent: 10 }))
+        .currentAmountMinor,
+    ).toBe(900);
   });
 });
 

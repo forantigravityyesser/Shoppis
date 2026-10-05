@@ -1,4 +1,5 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import type { RecipientInfo } from '../../domain/models/customer';
 import type { ServerUser } from '../contracts/auth';
 import type { CheckoutResult } from '../contracts/checkout';
@@ -58,17 +59,37 @@ const CHECKOUT_ERROR_MESSAGES: Record<string, string> = {
   INVENTORY_NOT_FOUND: 'Товар больше недоступен. Обновите корзину.',
   INVALID_QUANTITY: 'Проверьте количество товаров.',
   EMPTY_CART: 'Корзина пуста.',
+  VARIANT_DUPLICATE: 'В корзине есть повторяющиеся позиции. Обновите корзину.',
+  INVALID_CART_ITEM: 'Корзина повреждена. Обновите её.',
   UNAUTHORIZED: 'Сессия истекла. Откройте приложение заново.',
   NETWORK: 'Не удалось оформить заказ. Проверьте соединение.',
   UNKNOWN: 'Не удалось оформить заказ. Попробуйте ещё раз.',
 };
 
+/** Машинный код ошибки checkout из сырого сообщения (docs/18 §32), null если не распознан. */
+export function checkoutErrorCode(raw: string): string | null {
+  const message = String(raw ?? '');
+  return (
+    Object.keys(CHECKOUT_ERROR_MESSAGES).find(
+      (key) => key !== 'NETWORK' && key !== 'UNKNOWN' && message.includes(key),
+    ) ?? null
+  );
+}
+
+/** Коды, означающие, что состояние корзины устарело → нужен пере-запрос/reconcile (docs/21 §3.6). */
+const RECONCILE_ERROR_CODES = new Set([
+  'INSUFFICIENT_STOCK',
+  'PRODUCT_NOT_ACTIVE',
+  'VARIANT_NOT_FOUND',
+  'FOREIGN_VARIANT',
+  'INVENTORY_NOT_FOUND',
+  'STORE_PAUSED',
+]);
+
 /** Маппинг кода/сообщения ошибки checkout в понятный текст (docs/18 §32). */
 export function mapCheckoutError(raw: string): string {
   const message = String(raw ?? '');
-  const code = Object.keys(CHECKOUT_ERROR_MESSAGES).find(
-    (key) => key !== 'NETWORK' && key !== 'UNKNOWN' && message.includes(key),
-  );
+  const code = checkoutErrorCode(message);
   if (code) return CHECKOUT_ERROR_MESSAGES[code];
   if (/network|fetch|timeout|offline/i.test(message)) return CHECKOUT_ERROR_MESSAGES.NETWORK;
   return CHECKOUT_ERROR_MESSAGES.UNKNOWN;
@@ -84,6 +105,7 @@ function initialRecipient(def: RecipientInfo, user: ServerUser | null): Recipien
 }
 
 export function useCheckout(): CheckoutState {
+  const queryClient = useQueryClient();
   const defaultRecipient = useStore((s) => s.defaultRecipient);
   const serverUser = useStore((s) => s.serverUser);
   const placeOrder = useStore((s) => s.placeOrder);
@@ -101,6 +123,10 @@ export function useCheckout(): CheckoutState {
   const [error, setError] = useState<string | null>(null);
   const [notificationsGranted, setNotificationsGranted] = useState(notificationsEnabled);
   const [notificationsPending, setNotificationsPending] = useState(false);
+  // Idempotency текущей checkout-попытки (docs/21 §3.1): генерируется лениво при
+  // первом submit и переиспользуется при повторе, чтобы потерянный ответ/ретрай
+  // не создал второй заказ; сбрасывается при успехе и `reset`.
+  const idempotencyKeyRef = useRef<string | null>(null);
 
   const validation = validateRecipient(recipient);
 
@@ -124,19 +150,32 @@ export function useCheckout(): CheckoutState {
     setStatus('submitting');
     setError(null);
 
+    // Ключ создаётся один раз на попытку и переиспользуется при повторе
+    // (docs/21 §3.1): network-timeout + повтор не должны создать второй заказ.
+    const idempotencyKey = idempotencyKeyRef.current ?? crypto.randomUUID();
+    idempotencyKeyRef.current = idempotencyKey;
+
     // Заказ (сервер сам перепроверяет цену/остаток и создаёт атомарно).
     // Разрешение на уведомления здесь НЕ спрашиваем: его берём на экране успеха
     // по тапу, там же досылаем «Заказ принят» (Telegram-попап требует решения
     // человека и не должен блокировать оформление).
     try {
-      await placeOrder(recipient);
+      await placeOrder(recipient, idempotencyKey);
+      idempotencyKeyRef.current = null;
       setDefaultRecipient(recipient);
       setStatus('success');
     } catch (e) {
+      const raw = (e as Error).message;
       setStatus('error');
-      setError(mapCheckoutError((e as Error).message));
+      setError(mapCheckoutError(raw));
+      // Конфликт стока/товара/магазина → состояние корзины устарело: перечитываем
+      // `buyer-cart`, чтобы реконсиляция привела UI в актуальный вид (docs/21 §3.6).
+      const code = checkoutErrorCode(raw);
+      if (code && RECONCILE_ERROR_CODES.has(code)) {
+        void queryClient.invalidateQueries({ queryKey: ['buyer-cart'] });
+      }
     }
-  }, [status, recipient, placeOrder, setDefaultRecipient]);
+  }, [status, recipient, placeOrder, setDefaultRecipient, queryClient]);
 
   const enableNotifications = useCallback(
     async (orderId?: string) => {
@@ -162,6 +201,7 @@ export function useCheckout(): CheckoutState {
     setError(null);
     setNotificationsGranted(notificationsEnabled);
     setRecipient(initialRecipient(defaultRecipient, serverUser));
+    idempotencyKeyRef.current = null;
     useStore.getState().resetCheckout();
   }, [defaultRecipient, serverUser, notificationsEnabled]);
 

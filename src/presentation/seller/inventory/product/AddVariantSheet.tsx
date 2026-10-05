@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import BottomSheet from '../../../shared/components/BottomSheet';
 import { useInventoryActions } from '../../../../application/hooks/useInventoryActions';
 import {
@@ -27,17 +27,6 @@ export default function AddVariantSheet({ open, productId, onClose }: AddVariant
   const [discount, setDiscount] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (open) {
-      setName('Объём');
-      setValue('');
-      setQuantity('0');
-      setPrice('');
-      setDiscount('');
-      setSaveError(null);
-    }
-  }, [open]);
 
   const canSave = value.trim().length > 0 && parsePriceMinor(price) > 0;
 

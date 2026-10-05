@@ -24,6 +24,11 @@ vi.mock('../store', () => ({
   }),
 }));
 
+const query = vi.hoisted(() => ({ invalidateQueries: vi.fn() }));
+vi.mock('@tanstack/react-query', () => ({
+  useQueryClient: () => ({ invalidateQueries: query.invalidateQueries }),
+}));
+
 import { useCheckout } from './useCheckout';
 
 const VALID: RecipientInfo = {
@@ -42,6 +47,7 @@ beforeEach(() => {
   h.state.setDefaultRecipient.mockReset();
   h.state.setUserSettings.mockReset();
   h.state.resetCheckout.mockReset();
+  query.invalidateQueries.mockReset();
 });
 
 describe('useCheckout', () => {
@@ -107,7 +113,7 @@ describe('useCheckout', () => {
     });
 
     expect(h.state.requestNotifications).not.toHaveBeenCalled();
-    expect(h.state.placeOrder).toHaveBeenCalledWith(VALID);
+    expect(h.state.placeOrder).toHaveBeenCalledWith(VALID, expect.any(String));
     expect(h.state.setDefaultRecipient).toHaveBeenCalledWith(VALID);
     expect(result.current.status).toBe('success');
     expect(result.current.error).toBeNull();
@@ -184,5 +190,79 @@ describe('useCheckout', () => {
     expect(result.current.status).toBe('idle');
     expect(result.current.notificationsGranted).toBe(false);
     expect(h.state.resetCheckout).toHaveBeenCalledTimes(1);
+  });
+
+  it('повтор после ошибки переиспользует тот же idempotencyKey (docs/21 P0-01)', async () => {
+    h.state.placeOrder
+      .mockRejectedValueOnce(new Error('NETWORK'))
+      .mockResolvedValueOnce('order-1');
+
+    const { result } = renderHook(() => useCheckout());
+    act(() => result.current.setField(VALID));
+
+    await act(async () => {
+      await result.current.submit();
+    });
+    expect(result.current.status).toBe('error');
+
+    await act(async () => {
+      await result.current.submit();
+    });
+    expect(result.current.status).toBe('success');
+
+    expect(h.state.placeOrder).toHaveBeenCalledTimes(2);
+    const firstKey = h.state.placeOrder.mock.calls[0][1];
+    const secondKey = h.state.placeOrder.mock.calls[1][1];
+    expect(typeof firstKey).toBe('string');
+    expect(firstKey).toBeTruthy();
+    expect(secondKey).toBe(firstKey);
+  });
+
+  it('после успеха и reset новый attempt получает новый idempotencyKey', async () => {
+    h.state.placeOrder.mockResolvedValue('order-1');
+
+    const { result } = renderHook(() => useCheckout());
+    act(() => result.current.setField(VALID));
+    await act(async () => {
+      await result.current.submit();
+    });
+    const firstKey = h.state.placeOrder.mock.calls[0][1];
+
+    act(() => result.current.reset());
+    act(() => result.current.setField(VALID));
+    await act(async () => {
+      await result.current.submit();
+    });
+    const secondKey = h.state.placeOrder.mock.calls[1][1];
+
+    expect(typeof secondKey).toBe('string');
+    expect(secondKey).not.toBe(firstKey);
+  });
+
+  it('конфликт стока → invalidate buyer-cart (docs/21 §3.6)', async () => {
+    h.state.placeOrder.mockRejectedValue(new Error('INSUFFICIENT_STOCK'));
+
+    const { result } = renderHook(() => useCheckout());
+    act(() => result.current.setField(VALID));
+    await act(async () => {
+      await result.current.submit();
+    });
+
+    expect(result.current.status).toBe('error');
+    expect(result.current.error).toBe('Недостаточно товара. Проверьте количество.');
+    expect(query.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['buyer-cart'] });
+  });
+
+  it('неконфликтная ошибка → без invalidate корзины', async () => {
+    h.state.placeOrder.mockRejectedValue(new Error('UNKNOWN_FAILURE'));
+
+    const { result } = renderHook(() => useCheckout());
+    act(() => result.current.setField(VALID));
+    await act(async () => {
+      await result.current.submit();
+    });
+
+    expect(result.current.status).toBe('error');
+    expect(query.invalidateQueries).not.toHaveBeenCalled();
   });
 });

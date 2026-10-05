@@ -1,19 +1,19 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Plus } from 'lucide-react';
 import { useNavigate } from 'react-router';
-import { useInventoryHome, UNCATEGORIZED_ID } from '../../../application/hooks/useInventory';
+import { useInventoryHome } from '../../../application/hooks/useInventory';
 import {
   createProductPath,
   useInventoryActions,
 } from '../../../application/hooks/useInventoryActions';
 import { useCategoryReorder } from '../../../application/hooks/useCategoryReorder';
-import { resolveProductCategoryId } from '../../../domain/rules/category-rules';
+import { useInventoryCategoryAssignment } from '../../../application/hooks/useInventoryCategoryAssignment';
 import InventoryHeader from '../inventory/components/InventoryHeader';
 import InventoryModeSwitcher, {
   type InventoryMode,
 } from '../inventory/components/InventoryModeSwitcher';
 import InventoryProductsSection from '../inventory/components/products/InventoryProductsSection';
-import CategoryGrid from '../inventory/components/CategoryGrid';
+import InventoryCategoryList from '../inventory/components/InventoryCategoryList';
 import CategoryAddSheet from '../inventory/components/CategoryAddSheet';
 import InventorySkeleton from '../inventory/components/InventorySkeleton';
 import ReorderCategorySheet from '../inventory/components/ReorderCategorySheet';
@@ -21,61 +21,47 @@ import '../inventory/inventory.css';
 
 /**
  * Inventory Home — рабочая зона каталога продавца.
- * Две секции: «Товары» (по умолчанию) и «Категории» (визуал не менялся).
- * docs/19 §5–§7, §27 (Phase D).
+ * Две секции: «Товары» (по умолчанию) и «Категории».
+ * Derived data (позиции/имена/назначение) живёт в `useInventoryHome`/application (docs/20 §8).
  */
 export default function InventoryView() {
   const navigate = useNavigate();
-  const { categories, productsByCategory, allProducts, loading, error } = useInventoryHome();
+  const {
+    categories,
+    productsByCategory,
+    allProducts,
+    userCategoryIds,
+    positionsByCategory,
+    categoryNameById,
+    totals,
+    loading,
+    error,
+  } = useInventoryHome();
   const reorder = useCategoryReorder();
   const { assignProductsToCategory } = useInventoryActions();
   const [mode, setMode] = useState<InventoryMode>('products');
   const [reorderId, setReorderId] = useState<string | null>(null);
   const [categoryAddId, setCategoryAddId] = useState<string | null>(null);
+  /** Remount sheet при каждом открытии: сброс шага/выбора без effect (docs/20 §11). */
+  const [categoryAddKey, setCategoryAddKey] = useState(0);
 
-  // Позиции для витрины: 1-based среди пользовательских (несистемных) категорий.
-  const reorderable = useMemo(
-    () => categories.filter((c) => c.id !== UNCATEGORIZED_ID),
-    [categories],
-  );
-  const positionsByCategory = useMemo(() => {
-    const map: Record<string, number> = {};
-    reorderable.forEach((category, index) => {
-      map[category.id] = index + 1;
-    });
-    return map;
-  }, [reorderable]);
-  const reorderTarget = reorderId
-    ? (reorderable.find((c) => c.id === reorderId) ?? null)
-    : null;
-
-  const categoryNameById = useMemo(() => {
-    const map: Record<string, string> = {};
-    for (const category of categories) map[category.id] = category.name;
-    return map;
-  }, [categories]);
-
-  const userCategoryIds = useMemo(
-    () => categories.filter((c) => c.id !== UNCATEGORIZED_ID).map((c) => c.id),
-    [categories],
-  );
+  const reorderTarget = reorderId ? (categories.find((c) => c.id === reorderId) ?? null) : null;
   const categoryAddTarget = categoryAddId
     ? (categories.find((c) => c.id === categoryAddId) ?? null)
     : null;
-  const existingProductIds = useMemo(() => {
-    if (!categoryAddTarget) return [];
-    return allProducts
-      .filter(
-        (product) =>
-          resolveProductCategoryId(product.categoryId, userCategoryIds) === categoryAddTarget.id,
-      )
-      .map((product) => product.id);
-  }, [categoryAddTarget, allProducts, userCategoryIds]);
+  const existingProductIds = useInventoryCategoryAssignment(
+    allProducts,
+    userCategoryIds,
+    categoryAddTarget?.id ?? null,
+  );
 
   const openCategory = (id: string) => navigate(`/seller/inventory/category/${id}`);
   const openProduct = (id: string) => navigate(`/seller/inventory/product/${id}`);
   /** «+» в категории открывает выбор: новый товар или товары из магазина. */
-  const openCategoryAdd = (categoryId: string) => setCategoryAddId(categoryId);
+  const openCategoryAdd = (categoryId: string) => {
+    setCategoryAddId(categoryId);
+    setCategoryAddKey((k) => k + 1);
+  };
 
   return (
     <div className="screen inv">
@@ -112,7 +98,7 @@ export default function InventoryView() {
               <span>Добавить</span>
             </button>
           </div>
-          <CategoryGrid
+          <InventoryCategoryList
             categories={categories}
             productsByCategory={productsByCategory}
             onOpenCategory={openCategory}
@@ -131,7 +117,7 @@ export default function InventoryView() {
         <ReorderCategorySheet
           open
           categoryName={reorderTarget.name}
-          total={reorderable.length}
+          total={totals.categories}
           currentPosition={positionsByCategory[reorderTarget.id] ?? 1}
           pending={reorder.pending}
           error={reorder.error}
@@ -148,6 +134,7 @@ export default function InventoryView() {
       ) : null}
 
       <CategoryAddSheet
+        key={categoryAddKey}
         open={Boolean(categoryAddTarget)}
         categoryName={categoryAddTarget?.name ?? ''}
         products={allProducts}

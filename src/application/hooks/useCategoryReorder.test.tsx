@@ -16,7 +16,7 @@ beforeEach(() => {
 
 describe('useCategoryReorder', () => {
   it('успех: true, pending гаснет, ошибки нет', async () => {
-    reorderCategory.mockResolvedValue(true);
+    reorderCategory.mockResolvedValue(undefined);
     const { result } = renderHook(() => useCategoryReorder());
 
     let ok = false;
@@ -31,7 +31,7 @@ describe('useCategoryReorder', () => {
   });
 
   it('ошибка: false и понятное сообщение', async () => {
-    reorderCategory.mockResolvedValue(false);
+    reorderCategory.mockRejectedValue(new Error('boom'));
     const { result } = renderHook(() => useCategoryReorder());
 
     let ok = true;
@@ -44,10 +44,10 @@ describe('useCategoryReorder', () => {
   });
 
   it('защита от дублей: повторный вызов во время отправки игнорируется', async () => {
-    let resolve!: (value: boolean) => void;
+    let resolve!: () => void;
     reorderCategory.mockImplementation(
       () =>
-        new Promise<boolean>((res) => {
+        new Promise<void>((res) => {
           resolve = res;
         }),
     );
@@ -64,14 +64,14 @@ describe('useCategoryReorder', () => {
     expect(reorderCategory).toHaveBeenCalledTimes(1);
 
     await act(async () => {
-      resolve(true);
+      resolve();
       await first;
     });
     expect(result.current.pending).toBe(false);
   });
 
   it('reset сбрасывает ошибку', async () => {
-    reorderCategory.mockResolvedValue(false);
+    reorderCategory.mockRejectedValue(new Error('boom'));
     const { result } = renderHook(() => useCategoryReorder());
 
     await act(async () => {

@@ -16,7 +16,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "migrations:check": "node scripts/check-migrations.mjs",
-    "migrations:record": "node scripts/record-migration.mjs"
+    "migrations:record": "node scripts/record-migration.mjs",
+    "commerce:harness": "node scripts/commerce-harness.mjs"
   },
   "dependencies": {
     "@insforge/sdk": "^1.5.2",

@@ -403,7 +403,11 @@ export async function updateProduct(
   }
 }
 
-/** Прямое редактирование остатков варианта (контроль остатков). 02 §4 */
+/**
+ * Редактирование остатка варианта продавцом. Пишет ТОЛЬКО `available_quantity`:
+ * `held_quantity` принадлежит lifecycle заказа и меняется серверным
+ * `inventory_reconcile`, а не seller-эдитором (docs/21 §3.4). 02 §4
+ */
 export async function updateVariantStock(
   variantId: string,
   patch: VariantStockPatch,
@@ -411,9 +415,6 @@ export async function updateVariantStock(
   const updateData: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (patch.availableQuantity !== undefined) {
     updateData.available_quantity = Math.max(0, Math.round(patch.availableQuantity));
-  }
-  if (patch.heldQuantity !== undefined) {
-    updateData.held_quantity = Math.max(0, Math.round(patch.heldQuantity));
   }
   const { error } = await insforge.database
     .from('inventory')

@@ -126,6 +126,36 @@ describe('order-slice — checkout foundation', () => {
     expect(invokeCheckout).not.toHaveBeenCalled();
   });
 
+  it('placeOrder: пробрасывает переданный idempotencyKey (docs/21 P0-01)', async () => {
+    invokeCheckout.mockResolvedValue({
+      orderId: 'o1',
+      orderNumber: 'SH-1',
+      totalMinor: 1000,
+      currencyCode: 'USD',
+    });
+
+    await useStore.getState().placeOrder(RECIPIENT, 'attempt-key-1');
+
+    expect(invokeCheckout).toHaveBeenCalledWith(
+      expect.objectContaining({ idempotencyKey: 'attempt-key-1' }),
+    );
+  });
+
+  it('placeOrder: без ключа не генерирует его в слайсе (fallback в infra)', async () => {
+    invokeCheckout.mockResolvedValue({
+      orderId: 'o1',
+      orderNumber: 'SH-1',
+      totalMinor: 1000,
+      currencyCode: 'USD',
+    });
+
+    await useStore.getState().placeOrder(RECIPIENT);
+
+    expect(invokeCheckout).toHaveBeenCalledWith(
+      expect.objectContaining({ idempotencyKey: undefined }),
+    );
+  });
+
   it('requestNotifications: согласие → фиксируется на сервере', async () => {
     requestMessagesAccess.mockResolvedValue(true);
     expect(await useStore.getState().requestNotifications()).toBe(true);

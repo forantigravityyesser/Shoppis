@@ -13,7 +13,7 @@
 > (authoritative для реконструкции). Секции «Товары» (по умолчанию) / «Категории»; explicit
 > variant inheritance; mutation lifecycle (submitting/error/retry); категории — полноширинные
 > строки; per-product индикаторы непросмотренного. Из Phase 3-структуры удалены `InventorySearchState`
-> и `AddInventorySheet`; `CategoryGrid`/`CategoryCard` сохранены без wide/pair-композиции.
+> и `AddInventorySheet`; `InventoryCategoryList`/`InventoryCategoryRow` сохранены без wide/pair-композиции.
 
 Легенда статуса: `[x]` готово · `[~]` в работе · `[ ]` не начато.
 Каждый этап закрывается дважды: **LOCAL VERIFIED** (браузер) и **TELEGRAM VERIFIED** (Mini App).
@@ -38,7 +38,7 @@
 - Вью-модели вынесены в `src/domain/models/inventory-view.ts`, мок-слой удалён.
 
 ## Phase 3 — Inventory Home `[x]`
-- `InventoryView` + `InventoryHeader`, `InventoryToolbar`, `CategoryGrid`, `CategoryCard`,
+- `InventoryView` + `InventoryHeader`, `InventoryToolbar`, `InventoryCategoryList`, `InventoryCategoryRow`,
   `ProductThumbnail`, `AddProductTile`, `EmptyInventoryState`, `InventorySearchState`,
   `InventorySkeleton`, `AddInventorySheet`, общий `BottomSheet`.
 - `src/application/hooks/useInventory.ts` (контракт под Query), `useInventoryActions.ts`.

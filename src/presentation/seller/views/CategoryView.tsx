@@ -17,6 +17,8 @@ export default function CategoryView() {
   const { category, products, orderPosition, orderTotal, loading } = useCategoryPage(categoryId);
   const [query, setQuery] = useState('');
   const [editOpen, setEditOpen] = useState(false);
+  /** Remount sheet при открытии: сброс формы без effect (docs/20 §11). */
+  const [editKey, setEditKey] = useState(0);
   /** Системную «Без категории» нельзя редактировать. */
   const editable = !isSystemCategory(categoryId);
 
@@ -67,7 +69,10 @@ export default function CategoryView() {
           <button
             type="button"
             className="inv-icon-btn"
-            onClick={() => setEditOpen(true)}
+            onClick={() => {
+              setEditOpen(true);
+              setEditKey((k) => k + 1);
+            }}
             aria-label="Редактировать категорию"
           >
             <Pencil size={18} />
@@ -139,6 +144,7 @@ export default function CategoryView() {
 
       {editable ? (
         <EditCategorySheet
+          key={editKey}
           open={editOpen}
           category={category}
           orderPosition={orderPosition}

@@ -127,8 +127,7 @@ export interface NewInventoryProduct {
 /** Патч редактирования товара: та же форма, что при создании. */
 export type UpdateInventoryProductPatch = NewInventoryProduct;
 
-/** Патч остатков варианта (контроль остатков). */
+/** Патч остатков варианта (контроль остатков). `held` не редактируется — lifecycle заказа (docs/21 §3.4). */
 export interface UpdateVariantStockPatch {
   availableQuantity?: number;
-  heldQuantity?: number;
 }

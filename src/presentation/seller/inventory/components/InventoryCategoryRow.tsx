@@ -6,7 +6,7 @@ import type {
 import { PREVIEW_VISIBLE } from '../layout';
 import ProductPreviewRow from './ProductPreviewRow';
 
-interface CategoryCardProps {
+interface InventoryCategoryRowProps {
   category: InventoryCategoryItem;
   previewProducts: InventoryProductItem[];
   onOpen: () => void;
@@ -18,8 +18,8 @@ interface CategoryCardProps {
   onReorder?: () => void;
 }
 
-/** Крупный контейнер каталога: заголовок + строка превью товаров + «+». Спека §18–29. */
-export default function CategoryCard({
+/** Строка категории: заголовок + строка превью товаров + «+». Спека §18–29. */
+export default function InventoryCategoryRow({
   category,
   previewProducts,
   onOpen,
@@ -27,7 +27,7 @@ export default function CategoryCard({
   onAddProduct,
   position,
   onReorder,
-}: CategoryCardProps) {
+}: InventoryCategoryRowProps) {
   return (
     <article className="inv-cat" onClick={onOpen}>
       <div className="inv-cat__head">

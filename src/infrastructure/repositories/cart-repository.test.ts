@@ -5,6 +5,7 @@ const { rpc } = vi.hoisted(() => ({ rpc: vi.fn() }));
 vi.mock('../insforge/client', () => ({ insforge: { database: { rpc } } }));
 
 import { loadCartItems } from './cart-repository';
+import { MAX_CART_ITEMS } from '../../domain/constants/limits';
 
 const STORE = {
   id: 's1',
@@ -85,5 +86,19 @@ describe('loadCartItems', () => {
     await expect(
       loadCartItems('pub1', [{ productId: 'p1', productVariantId: 'v1' }]),
     ).rejects.toThrow('boom');
+  });
+
+  it('больше MAX_CART_ITEMS ссылок читает чанками и не теряет позиции (docs/21 §3.5)', async () => {
+    const refs = Array.from({ length: MAX_CART_ITEMS + 50 }, (_, i) => ({
+      productId: `p${i}`,
+      productVariantId: `v${i}`,
+    }));
+    rpc.mockResolvedValue({ data: { store: STORE, items: [] }, error: null });
+
+    await loadCartItems('pub1', refs);
+
+    expect(rpc).toHaveBeenCalledTimes(2);
+    expect(rpc.mock.calls[0][1].p_items).toHaveLength(MAX_CART_ITEMS);
+    expect(rpc.mock.calls[1][1].p_items).toHaveLength(50);
   });
 });

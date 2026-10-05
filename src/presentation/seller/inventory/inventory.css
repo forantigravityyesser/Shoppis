@@ -180,14 +180,14 @@
   color: var(--color-text-primary);
 }
 
-/* ---- Grid composition ---- */
-.inv-grid {
+/* ---- Category list ---- */
+.inv-cat-list {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-3);
 }
 
-/* ---- CategoryCard ---- */
+/* ---- InventoryCategoryRow ---- */
 .inv-cat {
   background: var(--color-bg-card);
   border: 0.5px solid rgba(0, 0, 0, 0.04);
@@ -1310,19 +1310,36 @@
 }
 
 /* ---- StockControlSheet ---- */
+.stock-sheet {
+  display: flex;
+  flex-direction: column;
+  /* Весь шит скроллится целиком — раскрытый редактор никогда не обрезается
+     внутренним контейнером. Раньше .stock-list имел max-height + overflow,
+     из-за чего низ раскрытого варианта был наполовину скрыт. */
+  max-height: min(86dvh, 720px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: 4px;
+  scroll-padding-bottom: 12px;
+}
+
 .stock-list {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  max-height: 46vh;
-  overflow-y: auto;
+  /* Без внутренней обрезки: раскрытие всегда видно полностью,
+     скролл — на уровне .stock-sheet. */
+  max-height: none;
+  overflow: visible;
   margin-bottom: var(--spacing-3);
 }
 
 .stock-item {
+  flex: 0 0 auto;
   border-radius: var(--radius-md);
   background: var(--color-input-bg);
   overflow: hidden;
+  scroll-margin-bottom: 12px;
 }
 
 .stock-item--open {

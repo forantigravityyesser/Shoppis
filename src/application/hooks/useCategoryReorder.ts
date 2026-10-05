@@ -30,12 +30,11 @@ export function useCategoryReorder(): CategoryReorderController {
       setPending(true);
       setError(null);
       try {
-        const ok = await reorderCategory(id, position);
-        if (!ok) {
-          setError('Не удалось изменить порядок. Попробуйте ещё раз.');
-          return false;
-        }
+        await reorderCategory(id, position);
         return true;
+      } catch {
+        setError('Не удалось изменить порядок. Попробуйте ещё раз.');
+        return false;
       } finally {
         guard.current = false;
         setPending(false);

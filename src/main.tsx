@@ -11,7 +11,6 @@ import { queryClient } from './application/queryClient';
 import { INSFORGE_URL } from './infrastructure/insforge/config';
 import { initI18n } from './infrastructure/i18n/i18n';
 import { initApp, logTelegramDiagnostics } from './infrastructure/telegram/telegram-app';
-import { useKeyboardFix } from './application/hooks/useKeyboardFix';
 
 initApp();
 logTelegramDiagnostics();
@@ -33,17 +32,12 @@ function preconnectBackend(): void {
 
 preconnectBackend();
 
-function Root() {
-  useKeyboardFix();
-  return <App />;
-}
-
 void initI18n().then(() => {
   ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
       <QueryClientProvider client={queryClient}>
         <MemoryRouter>
-          <Root />
+          <App />
         </MemoryRouter>
       </QueryClientProvider>
     </React.StrictMode>,

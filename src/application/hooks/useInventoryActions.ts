@@ -2,13 +2,14 @@ import { useCallback } from 'react';
 import { useNavigate } from 'react-router';
 import { UNCATEGORIZED_ID } from '../../domain/constants/categories';
 import type { ProductStatus } from '../../domain/models/product';
-import type { ProductStatusResult } from '../contracts/product-status';
+import { ProductStatusError } from '../contracts/product-status';
 import type {
   NewInventoryVariant,
   ProductFormPayload,
   UpdateVariantStockPatch,
 } from '../read-models/inventory-view';
 import type { AddVariantInput, NewProductInput, UpdateProductPatch } from '../contracts/product';
+import { resolveCategoryId, toCatalogFields } from '../rules/product-mapping';
 import { useStore } from '../store';
 
 export type {
@@ -29,65 +30,6 @@ export interface UpdateCategoryInput {
   name?: string;
   imageStorageKey?: string | null;
   lowStockThreshold?: number | null;
-}
-
-/** Системная «Без категории» хранится в БД как category_id = null. */
-function resolveCategoryId(categoryId: string): string | null {
-  return categoryId && categoryId !== UNCATEGORIZED_ID ? categoryId : null;
-}
-
-interface CatalogFields {
-  title: string;
-  description: string;
-  categoryId: string | null;
-  originalAmountMinor: number;
-  discountPercent: number;
-  status: ProductStatus;
-  images: NewProductInput['images'];
-  variants: NewProductInput['variants'];
-  attributes: Array<{ name: string; value: string }>;
-  linkAttributes: Array<{ name: string; value: string }>;
-}
-
-/**
- * Форма → поля каталога. Первый (заполненный) вариант задаёт базовую цену/скидку товара;
- * вариант с явным режимом CUSTOM по цене или скидке становится CUSTOM_PRICE.
- * Пустая категория → null.
- */
-function toCatalogFields(payload: ProductFormPayload): CatalogFields {
-  const filled = payload.variants.filter((v) => v.value.trim());
-  const base = filled[0] ?? null;
-  const basePrice = base?.priceMinor ?? 0;
-  const baseDiscount = base?.discountPercent ?? 0;
-
-  const variants = filled.map((v) => {
-    const custom = v.priceMode === 'CUSTOM' || v.discountMode === 'CUSTOM';
-    return {
-      id: v.id,
-      name: v.name.trim() || 'Вариант',
-      value: v.value.trim(),
-      availableQuantity: Math.max(0, Math.round(Number.isFinite(v.quantity) ? v.quantity : 0)),
-      priceMode: custom ? ('CUSTOM_PRICE' as const) : ('USE_PRODUCT_PRICE' as const),
-      customOriginalAmountMinor: custom ? v.priceMinor : null,
-      customDiscountPercent: custom ? v.discountPercent : null,
-    };
-  });
-
-  return {
-    title: payload.title.trim(),
-    description: (payload.description ?? '').trim(),
-    categoryId: resolveCategoryId(payload.categoryId),
-    originalAmountMinor: basePrice,
-    discountPercent: baseDiscount,
-    status: payload.status,
-    images: payload.images.map((image) => ({
-      storageKey: image.url,
-      thumbStorageKey: image.thumbUrl,
-    })),
-    variants,
-    attributes: payload.attributes,
-    linkAttributes: [],
-  };
 }
 
 /**
@@ -112,26 +54,14 @@ export function useInventoryActions() {
     await useStore.getState().updateCategory(id, patch);
   }, []);
 
-  /** Удаляет категорию (товары → «Без категории», обложка → из Storage). true — успех. */
-  const deleteCategory = useCallback(async (id: string): Promise<boolean> => {
-    try {
-      await useStore.getState().deleteCategory(id);
-      return true;
-    } catch (e) {
-      console.error('[inventory] deleteCategory failed', e);
-      return false;
-    }
+  /** Удаляет категорию (товары → «Без категории», обложка → из Storage). Ошибка → throw. */
+  const deleteCategory = useCallback(async (id: string): Promise<void> => {
+    await useStore.getState().deleteCategory(id);
   }, []);
 
-  /** Переставляет категорию на позицию 1..N (порядок витрины покупателя). true — успех. */
-  const reorderCategory = useCallback(async (id: string, position: number): Promise<boolean> => {
-    try {
-      await useStore.getState().reorderCategory(id, position);
-      return true;
-    } catch (e) {
-      console.error('[inventory] reorderCategory failed', e);
-      return false;
-    }
+  /** Переставляет категорию на позицию 1..N (порядок витрины покупателя). Ошибка → throw. */
+  const reorderCategory = useCallback(async (id: string, position: number): Promise<void> => {
+    await useStore.getState().reorderCategory(id, position);
   }, []);
 
   const createProduct = useCallback(
@@ -160,19 +90,14 @@ export function useInventoryActions() {
     [],
   );
 
-  const setProductStatus = useCallback(
-    async (id: string, status: ProductStatus): Promise<ProductStatusResult> => {
-      const result =
-        status === 'ARCHIVED'
-          ? await useStore.getState().archiveProduct(id)
-          : await useStore.getState().restoreProduct(id);
-      if (!result.ok) {
-        console.error('[inventory] setProductStatus failed', result.code, result.message);
-      }
-      return result;
-    },
-    [],
-  );
+  /** Архив/витрина товара. Бизнес-отказ → `ProductStatusError` (с машинным кодом). */
+  const setProductStatus = useCallback(async (id: string, status: ProductStatus): Promise<void> => {
+    const result =
+      status === 'ARCHIVED'
+        ? await useStore.getState().archiveProduct(id)
+        : await useStore.getState().restoreProduct(id);
+    if (!result.ok) throw new ProductStatusError(result.code, result.message);
+  }, []);
 
   const deleteProduct = useCallback(async (id: string) => {
     await useStore.getState().deleteProduct(id);
@@ -191,8 +116,10 @@ export function useInventoryActions() {
     const isFirst = !state.variants.some((v) => v.productId === productId);
     const basePrice = product?.originalAmountMinor ?? input.priceMinor;
     const baseDiscount = product?.discountPercent ?? input.discountPercent;
-    const useCustom =
-      !isFirst && (input.priceMinor !== basePrice || input.discountPercent !== baseDiscount);
+    // Независимые оси (docs/20 §3.1): каждая ось переопределяется сама по себе.
+    const priceCustom = !isFirst && input.priceMinor !== basePrice;
+    const discountCustom = !isFirst && input.discountPercent !== baseDiscount;
+    const hasCustom = priceCustom || discountCustom;
 
     const variant: AddVariantInput = {
       name: input.name.trim() || 'Вариант',
@@ -201,9 +128,9 @@ export function useInventoryActions() {
         0,
         Math.round(Number.isFinite(input.quantity) ? input.quantity : 0),
       ),
-      priceMode: useCustom ? 'CUSTOM_PRICE' : 'USE_PRODUCT_PRICE',
-      customOriginalAmountMinor: useCustom ? input.priceMinor : null,
-      customDiscountPercent: useCustom ? input.discountPercent : null,
+      priceMode: hasCustom ? 'CUSTOM_PRICE' : 'USE_PRODUCT_PRICE',
+      customOriginalAmountMinor: priceCustom ? input.priceMinor : null,
+      customDiscountPercent: discountCustom ? input.discountPercent : null,
       baseOriginalAmountMinor: isFirst ? input.priceMinor : undefined,
       baseDiscountPercent: isFirst ? input.discountPercent : undefined,
     };

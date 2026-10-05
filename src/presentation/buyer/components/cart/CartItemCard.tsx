@@ -1,6 +1,5 @@
 import { Check, Trash2 } from 'lucide-react';
-import type { CartItem } from '../../../../domain/models/cart';
-import type { CartItemView } from '../../../../application/read-models/cart';
+import type { BuyerCartItem, CartItemView } from '../../../../application/read-models/cart';
 import { formatMoneyMinor } from '../../../../domain/rules/product-rules';
 import { getInitial } from '../../../../domain/rules/initial';
 import SafeImage from '../../../shared/components/SafeImage';
@@ -8,7 +7,7 @@ import CartQuantityControl from './CartQuantityControl';
 import CartRemoveConfirmation from './CartRemoveConfirmation';
 
 interface Props {
-  item: CartItem;
+  item: BuyerCartItem;
   view: CartItemView;
   /** false — ссылка ещё жива, но стока меньше запрошенного количества (docs/18 §12). */
   orderable: boolean;

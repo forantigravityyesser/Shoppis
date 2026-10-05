@@ -29,6 +29,12 @@ export interface InventoryHomeData {
   uncategorized: InventoryCategoryItem | null;
   /** Активные + архивные товары (для поиска и превью). */
   allProducts: InventoryProductItem[];
+  /** id пользовательских категорий (без системной), в порядке витрины. */
+  userCategoryIds: string[];
+  /** 1-based позиции пользовательских категорий в каталоге покупателя (по id). */
+  positionsByCategory: Record<string, number>;
+  /** id категории → имя (включая системную). */
+  categoryNameById: Record<string, string>;
   totals: InventoryTotals;
   loading: boolean;
   error: string | null;
@@ -110,11 +116,21 @@ export function useInventoryHome(): InventoryHomeData {
     const allProducts = allCategoryItems.flatMap((item) => productsByCategory[item.id]);
     const activeTotal = allCategoryItems.reduce((sum, item) => sum + item.productCount, 0);
 
+    const positionsByCategory: Record<string, number> = {};
+    userCategories.forEach((category, index) => {
+      positionsByCategory[category.id] = index + 1;
+    });
+    const categoryNameById: Record<string, string> = {};
+    for (const item of allCategoryItems) categoryNameById[item.id] = item.name;
+
     return {
       categories: allCategoryItems,
       productsByCategory,
       uncategorized,
       allProducts,
+      userCategoryIds,
+      positionsByCategory,
+      categoryNameById,
       totals: { products: activeTotal, categories: categoryItems.length },
       loading: catalogLoading || categoriesLoading,
       error: catalogError ?? categoriesError ?? null,

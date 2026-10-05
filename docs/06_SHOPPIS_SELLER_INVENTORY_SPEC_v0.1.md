@@ -80,7 +80,7 @@ Level 3  Product            /seller/inventory/product/:productId
 
 ### ADR-06.3 — Обложка категории
 - **Решение:** добавить nullable `categories.image_storage_key` (миграция `0009`).
-- **Почему:** референс строит CategoryCard вокруг изображения; без обложки карточка теряет смысл.
+- **Почему:** референс строит InventoryCategoryRow вокруг изображения; без обложки карточка теряет смысл.
 - **Влияние:** `03 §4` дополнить полем `image_storage_key`. Storage bucket для обложек.
 
 ### ADR-06.4 — SKU товара
@@ -110,7 +110,7 @@ Level 3  Product            /seller/inventory/product/:productId
 - **Актуализация (2026-10-05): решение ПЕРЕСМОТРЕНО.** Ручной порядок реализован: миграция
   `0027_category_reorder.sql`, edge `catalog-actions` (`category-reorder`),
   `CategoryRepository.setCategoryOrder`, `category-slice.reorderCategory`,
-  `ReorderCategorySheet`, бейдж позиции на `CategoryCard`; в `EditCategorySheet` — блок
+  `ReorderCategorySheet`, бейдж позиции на `InventoryCategoryRow`; в `EditCategorySheet` — блок
   «Порядок на витрине N из M» → «Изменить порядок» (`19` Phase C). `sortOrder` — источник
   истины порядка витрины. Оставлено без drag&drop.
 
@@ -219,7 +219,7 @@ InventoryView                         [rewrite]  presentation/seller/views/Inven
 │   ├── SearchButton                  [new]
 │   └── AddButton                     [new]
 ├── CategorySection                   [new]
-│   └── CategoryCard                  [new]      compact | wide (responsive)
+│   └── InventoryCategoryRow                  [new]      compact | wide (responsive)
 │       ├── CategoryHeader            [new]
 │       ├── ProductThumbnailGrid      [new]
 │       │   └── ProductThumbnail      [new]
@@ -289,7 +289,7 @@ src/presentation/seller/
   views/InventoryView.tsx               [rewrite]  /seller/inventory
   views/CategoryView.tsx                [new]      /seller/inventory/category/:categoryId
   views/ProductView.tsx                 [new]      /seller/inventory/product/:productId
-  inventory/components/*                [new] CategoryCard, ProductThumbnail, ProductMiniCard, StockBadge…
+  inventory/components/*                [new] InventoryCategoryRow, ProductThumbnail, ProductMiniCard, StockBadge…
   inventory/forms/*                     [new] CreateCategorySheet, CreateProductForm, VariantEditor
   inventory/sheets/*                    [new] AddBottomSheet, CategoryActionsSheet
 ```
@@ -313,7 +313,7 @@ src/presentation/seller/
 **Раскладка (сверху вниз):**
 1. `InventoryHeader` — заголовок «Инвентарь»; справа иконки поиска и Add.
 2. `InventoryToolbar` — при активном поиске: строка ввода «Найти товар или категорию».
-3. `CategorySection` — сетка `CategoryCard`:
+3. `CategorySection` — сетка `InventoryCategoryRow`:
    - 1 категория → `wide`;
    - 2 категории → две `compact`;
    - 3+ → adaptive grid (masonry по высоте).
@@ -321,7 +321,7 @@ src/presentation/seller/
    или архивной категорией), если такие есть.
 5. `AddButton` — «+ Добавить».
 
-**CategoryCard — ключевой компонент.**
+**InventoryCategoryRow — ключевой компонент.**
 ```
 compact                          wide
 ┌──────────────┐                ┌──────────────────────────────┐
@@ -684,7 +684,7 @@ haptic, переходы, высота экрана, малые устройст
 
 | Release | Состав | Данные |
 |---|---|---|
-| **R1 Visual Inventory** | InventoryView, CategoryCard, ProductThumbnail, CategoryView, ProductMiniCard, ProductView, навигация | mock |
+| **R1 Visual Inventory** | InventoryView, InventoryCategoryRow, ProductThumbnail, CategoryView, ProductMiniCard, ProductView, навигация | mock |
 | **R2 Creation** | AddBottomSheet, CreateCategory, CreateProduct, Create из категории | mock/частично |
 | **R3 Real backend** | миграция 0009, CRUD через Query, storage | InsForge |
 | **R4 Operations** | поиск, фильтры, сток, low/out-of-stock, «Переместить в наличии», отзывы/вопросы (read-only) | InsForge |

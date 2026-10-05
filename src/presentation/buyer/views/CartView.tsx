@@ -166,7 +166,7 @@ export default function CartView() {
         <CartSelectionToolbar
           selectedCount={selectedItems.length}
           allSelected={allSelected}
-          onToggleAll={() => cart.setAllSelected(!allSelected)}
+          onToggleAll={() => cart.toggleAllOrderable()}
           updating={cart.reconciling}
         />
 

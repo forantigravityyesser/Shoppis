@@ -2,9 +2,9 @@ import type {
   InventoryCategoryItem,
   InventoryProductItem,
 } from '../../../../application/hooks/useInventory';
-import CategoryCard from './CategoryCard';
+import InventoryCategoryRow from './InventoryCategoryRow';
 
-interface CategoryGridProps {
+interface InventoryCategoryListProps {
   categories: InventoryCategoryItem[];
   productsByCategory: Record<string, InventoryProductItem[]>;
   onOpenCategory: (categoryId: string) => void;
@@ -16,10 +16,10 @@ interface CategoryGridProps {
 }
 
 /**
- * Список категорий полноширинными строками (docs/19 Phase E): каждая категория —
- * одна строка во всю ширину, визуал карточки не меняется. Порядок — порядок витрины.
+ * Список категорий полноширинными строками (docs/19 Phase E, docs/20 §3.3): каждая
+ * категория — одна строка во всю ширину; это список, а не grid. Порядок — порядок витрины.
  */
-export default function CategoryGrid({
+export default function InventoryCategoryList({
   categories,
   productsByCategory,
   onOpenCategory,
@@ -27,12 +27,12 @@ export default function CategoryGrid({
   onAddProduct,
   positionsByCategory,
   onReorderCategory,
-}: CategoryGridProps) {
+}: InventoryCategoryListProps) {
   return (
-    <div className="inv-grid">
+    <div className="inv-cat-list">
       {categories.map((category) => (
-        <div className="inv-grid__row" key={category.id}>
-          <CategoryCard
+        <div className="inv-cat-row" key={category.id}>
+          <InventoryCategoryRow
             category={category}
             previewProducts={productsByCategory[category.id] ?? []}
             position={positionsByCategory?.[category.id]}

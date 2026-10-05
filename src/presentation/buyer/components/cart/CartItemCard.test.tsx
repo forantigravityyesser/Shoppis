@@ -3,10 +3,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import CartItemCard from './CartItemCard';
-import type { CartItem } from '../../../../domain/models/cart';
-import type { CartItemView } from '../../../../application/read-models/cart';
+import type { BuyerCartItem, CartItemView } from '../../../../application/read-models/cart';
 
-const ITEM: CartItem = {
+const ITEM: BuyerCartItem = {
   productId: 'p1',
   productVariantId: 'v1',
   quantity: 2,

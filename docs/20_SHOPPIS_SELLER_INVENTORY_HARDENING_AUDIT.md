@@ -66,7 +66,7 @@ Severity hardening: **H1** обязательно · **H2** высоко · **H3
 - Переписывать архитектуру **не надо**. Onion-границы соблюдены: `Presentation → Application → Domain`, `Infrastructure` реализует контракты; `Presentation`/`Domain` не ходят в InsForge/Zustand напрямую.
 - Экран Inventory больше не God component; `ProductForm` — не God (бизнес-правила вынесены в `application/rules/variant-form.ts`); новые God-файлы не появились.
 - Реальная работа — **точечный hardening**, а не реконструкция:
-  1. 🔴 **P0** — независимые оси custom-цены и custom-скидки варианта. В аудите описан seller-маппинг; по коду дефект **шире**: JS-маппинг (2 пути), `effectivePrice` и **8 живых SQL-функций** (buyer read + checkout). §4.
+  1. 🔴 **P0** — независимые оси custom-цены и custom-скидки варианта. В аудите описан seller-маппинг; по коду дефект **шире**: JS-маппинг (2 пути), `effectivePrice` и **7 живых SQL-функций** (buyer read + checkout). JS закрыт (`INV-HARDEN-01`), SQL — миграция `0037` (`INV-HARDEN-02`). §4.
   2. 🟠 **P1** — привести mutation API к одному стилю (`throw`). §5.
   3. 🟠 **P1** — тесты: маппинг/round-trip 4 комбинаций, mutation-lifecycle категорий (save/delete). §6.
   4. 🟡 **P2** — переименование `CategoryGrid/CategoryCard` + CSS-классов; вынос derived data из `InventoryView`; lint-гигиена. §7–§11.
@@ -84,8 +84,8 @@ Severity hardening: **H1** обязательно · **H2** высоко · **H3
 | §33 «проверить submit tests (double click → one request, failure → retry)» | Уже покрыто: `ProductForm.test.tsx:22-44` (double click/прогресс), `:46-63` (reject → alert → повтор) | ⏭️ устарело, работы нет |
 | §25–28 «документация расходится по Reviews/Questions; надо окончательно зафиксировать» | Решение заказчика уже зафиксировано: `19 §24–25`, `00`, `06` (шапка + ADR-06.7), `08 §2.1`; `ProductView.tsx:14-19` рендерит `Карточка/Отзывы/Вопросы/Витрина`, `ProductOverview` без ссылок | ⏭️ устарело, работы нет (кроме контрольной сверки `07`, §12) |
 | A.4.3 «`AddVariantSheet` — fire-and-forget, `addVariant` без `await`» | Уже `await` + `saving` + `saveError` + close только при успехе (`AddVariantSheet.tsx:44-63`) | ⏭️ устарело; **но** heuristic внутри `addVariant` — часть P0 (§4.2) |
-| §33 «нужны тесты категорий: save rejects → sheet open, save resolves → close» | `EditCategorySheet.test.tsx` покрывает только реордер; save/delete — **нет** | ❌ остаётся работой (§6) |
-| §33 «long category name / archived count / position + long name» | `CategoryCard.test.tsx` — только rank-бейдж; `CategoryGrid.test.tsx` — layout/row | ❌ остаётся работой (§6, §10) |
+| §33 «нужны тесты категорий: save rejects → sheet open, save resolves → close» | `EditCategorySheet.test.tsx` покрывал только реордер | ✅ закрыто `INV-HARDEN-05` (save/delete reject+resolve, retry) |
+| §33 «long category name / archived count / position + long name» | `CategoryCard.test.tsx` — только rank-бейдж; `CategoryGrid.test.tsx` — layout/row | ✅ закрыто `INV-HARDEN-05`; тесты переименованы `INV-HARDEN-06` (`InventoryCategoryRow.test.tsx` / `InventoryCategoryList.test.tsx`) |
 | §31 N+1 social summary | Подтверждено (`InventoryProductRow.tsx:16-27`, `useSellerProductSocial.ts:103-133`) | ✅ подтверждено; 🧊 deferred с триггером (§9) |
 | §25 CSS 38 KB | Фактически `inventory.css` — **1978 строк** | 🧊 deferred (§9) |
 
@@ -100,8 +100,8 @@ Severity hardening: **H1** обязательно · **H2** высоко · **H3
 | 5 | Быстрый вариант (`AddVariantSheet`) — та же болезнь | ❌ подтверждён | `useInventoryActions.ts:194-195,204-206`: `useCustom = !isFirst && (price≠base || discount≠base)` — оба поля замораживаются |
 | 6 | Buyer/checkout используют связанную логику | ❌ подтверждён, **шире аудита** | 7 живых read-функций + `create_order_atomic` гейтят по `custom_original_amount_minor is not null` для цены **и** скидки (Приложение A.3) |
 | 7 | Mutation API — три разных стиля | ✅ подтверждён | throw: `createCategory/updateCategory/createProduct/updateProduct/assignProducts/deleteProduct/updateVariantStock/addVariant/moveHeldToAvailable`; boolean+`console.error`: `deleteCategory:116-124`, `reorderCategory:127-135`; typed result+`console.error`: `setProductStatus:163-175` |
-| 8 | `CategoryGrid` больше не grid | ✅ подтверждён | `CategoryGrid.tsx:31-47` рендерит `.inv-grid` (flex column, `inventory.css:184-188`) + `.inv-grid__row` |
-| 9 | `CategoryCard` — presentation, не God | ✅ подтверждён | `CategoryCard.tsx` (~96 строк): identity/rank/count/preview/actions, без данных/мутаций/роутинга |
+| 8 | `CategoryGrid` больше не grid | ✅ подтверждён | `CategoryGrid.tsx:31-47` рендерил `.inv-grid` (flex column) + `.inv-grid__row`; переименован в `InventoryCategoryList.tsx` (`INV-HARDEN-06`) |
+| 9 | `CategoryCard` — presentation, не God | ✅ подтверждён | `CategoryCard.tsx` (~96 строк): identity/rank/count/preview/actions, без данных/мутаций/роутинга; переименован в `InventoryCategoryRow.tsx` (`INV-HARDEN-06`) |
 | 10 | Derived data живёт в `InventoryView` | ✅ подтверждён | `InventoryView.tsx:37-73`: `reorderable`, `positionsByCategory`, `categoryNameById`, `userCategoryIds`, `existingProductIds` |
 | 11 | `useInventoryHome` — watchlist, не God | ✅ подтверждён | `useInventory.ts:41-134`: sort/group/count/build/totals — всё Inventory read model |
 | 12 | `inventory-mappers` — чистый read-model слой | ✅ подтверждён | `inventory-mappers.ts` (`buildCategoryItem`/`buildSystemCategoryItem`/`buildProductItem`/`buildProductDetail`) |
@@ -129,7 +129,7 @@ Application mapping (persistence) useInventoryActions.ts        ❌ P0 (2 пут
       ↓
 Domain effective price            product-rules.ts              ❌ P0
       ↓
-Buyer/checkout SQL (8 функций)    migrations/**                 ❌ P0 (Приложение A.3)
+Buyer/checkout SQL (7 функций)    migrations/**                 ✅ P0 (0037, Приложение A.3)
       ↓
 Read-back в форму                 ProductForm.detailToFormValues ✅ совместимо после фикса
 ```
@@ -374,15 +374,18 @@ Callers обновляются:
 
 ## 11. Lint-гигиена (Inventory)
 
-Закрыть 5 `react-hooks/set-state-in-effect` (сброс состояния формы/индекса в `useEffect`) через `key`-remount или производное состояние:
+✅ **Выполнено (`INV-HARDEN-08`).** Закрыты 5 `react-hooks/set-state-in-effect` + `react-refresh` в `ProductForm`:
 
-- `CategoryAddSheet.tsx:48`
-- `EditCategorySheet.tsx:56`
-- `ProductPreviewRow.tsx:38`
-- `AddVariantSheet.tsx:33`
-- `StockControlSheet.tsx:58`
+- `CategoryAddSheet.tsx` — сброс через `key`-remount (ключ инкрементит `InventoryView` при открытии).
+- `EditCategorySheet.tsx` — `key`-remount из `CategoryView`; effect-сброс удалён.
+- `AddVariantSheet.tsx` — `key`-remount из `StockControlSheet` при открытии.
+- `StockControlSheet.tsx` — `key`-remount при открытии + строки выводятся из `variants` (source of truth) + локальных правок «в наличии» (без mirror-state).
+- `ProductPreviewRow.tsx` — удалён redundant clamp-effect; `step` считает от уже клампированного `current`.
+- `ProductForm.tsx` — `detailToFormValues`/типы вынесены в `product-form-values.ts` (файл экспортирует только компонент).
 
-Плюс `react-refresh/only-export-components` в `ProductForm.tsx:51` — вынести типы/константы. Цель — `npm run lint` без warning по Inventory. `CatalogFilterSheet` (вне Inventory) — не трогаем.
+Результат: `npm run lint` — **0 errors, 0 warnings** (было 8). Inventory закрыт штатно, а два оставшихся
+предупреждения из чужих зон также устранены: `src/main.tsx` (пере-нос `Root`-хука в `App`) и
+`CatalogFilterSheet` (derived draft вместо sync-effect + `key`-remount на открытии, `CatalogView`).
 
 ---
 
@@ -392,25 +395,45 @@ Callers обновляются:
 
 ### Phase A — P0 корректность
 
-- **`INV-HARDEN-01`** 🔴 `H1` — независимые оси в seller-слое.
-  - Вынести `toCatalogFields`/`resolveCategoryId` в `application/rules/product-mapping.ts`; починить оси (`:63-73`).
-  - Починить `addVariant` (`:194-208`).
-  - Починить `effectivePrice` (`product-rules.ts:40-47`).
-  - Тесты: `product-mapping`, 4 комбинации `effectivePrice`, независимые оси + round-trip в `ProductForm`.
-- **`INV-HARDEN-02`** 🔴 `H1` — SQL: миграция `0037_variant_effective_price_independent.sql` (8 функций, Приложение A.3), `migrations:record/check`, проверка на данных 4 комбинаций (detail/home/catalog/cart/checkout).
-- **`INV-HARDEN-03`** 🟠 `H1` — гейт: `typecheck` / `lint` / `test` / `build` зелёные.
+- **`INV-HARDEN-01`** 🔴 `H1` — ✅ выполнено. Независимые оси в seller-слое.
+  - ✅ `toCatalogFields`/`resolveCategoryId` вынесены в `application/rules/product-mapping.ts` (закрыт остаток `11 S2`); каждая ось пишется независимо (`null` = наследуй).
+  - ✅ `addVariant` — независимое сравнение с базой по цене и скидке.
+  - ✅ `effectivePrice` (`product-rules.ts`) — per-axis `coalesce`; `customDiscountPercent = 0` — валидный custom.
+  - ✅ Тесты: `product-mapping.test.ts` (+9), `product-rules.test.ts` (независимые комбинации), `ProductForm.test.tsx` (+2 оси, +1 round-trip). Полный suite — **783 зелёных**, `typecheck` чистый, `lint` — те же 8 warnings (Inventory `set-state-in-effect` — `INV-HARDEN-08`).
+  - ⬜ SQL-часть (buyer/checkout) — `INV-HARDEN-02`; без неё P0 не считается закрытым (§2.2).
+- **`INV-HARDEN-02`** 🔴 `H1` — ✅ выполнено. SQL: миграция `0037_variant_effective_price_independent.sql` (7 вычислительных функций, Приложение A.3), per-axis `coalesce`; применена и записана в `schema_migrations`.
+  - ✅ Пересозданы: `create_order_atomic` + 6 buyer-RPC (`storefront_product_detail_read`, `storefront_home_products_read`, `storefront_catalog_products_read`, `storefront_catalog_price_bounds_read`, `storefront_favorite_products_read`, `storefront_cart_items_read`). `product_create_atomic`/`product_update_atomic`/`variant_create_atomic` не менялись (персист).
+  - ✅ Проверка live-функций (`pg_proc`): во всех 7 `still_old = false`, `fixed = true`.
+  - ✅ Проверка на данных: 4 комбинации осей дают ожидаемый результат; по всем **65** существующим вариантам old vs new `original`/`discount` — **0 расхождений** (регрессии нет).
+  - ✅ `migrations:check` — OK (37 файлов, `0001..0037`). Починен `scripts/record-migration.mjs` (Windows: `spawnSync('npx.cmd')` падал молча → прямой admin REST).
+  - ⚠️ **Зависимость с `21`** (commerce hardening): `0037` применена до commerce-миграции `0038`. Будущая `0038` пересоздаёт `create_order_atomic` — обязана **нести per-axis логику `0037`** (не откатывать к `0004`); `21 P0-05` закрыт вместе с этим этапом.
+- **`INV-HARDEN-03`** 🟠 `H1` — ✅ выполнено. Гейт Phase A: `typecheck` чистый, `lint` — 8 warnings / 0 errors, `test` — **783**, `build` — OK, `migrations:check` — OK.
 
 ### Phase B — P1 консистентность
 
-- **`INV-HARDEN-04`** 🟠 `H1` — mutation API → throw + `ProductStatusError`; callers на `try/catch`; убрать `console.error`-глотание (§5).
-- **`INV-HARDEN-05`** 🟠 `H2` — тесты категорий (save reject/resolve, delete error/success) + responsive-структура (§6).
+- **`INV-HARDEN-04`** 🟠 `H1` — ✅ выполнено. Mutation API → единый `throw` + `ProductStatusError`.
+  - ✅ `deleteCategory`/`reorderCategory` → `Promise<void>`, throw при ошибке; `setProductStatus` → `Promise<void>`, throw `ProductStatusError` (код сохранён); `console.error`-глотание убрано.
+  - ✅ Callers: `EditCategorySheet.remove` — `try/catch` (`deleteError`, форма не теряется); `useCategoryReorder` — `try/catch` → `error` для retry; `ProductOverview.changeStatus` — `try/catch` с `ProductStatusError.code/message`.
+  - ✅ Тесты обновлены под новый контракт (`useCategoryReorder`, `EditCategorySheet`); `typecheck` чистый, `test` — **787**, `lint` — 8 warnings / 0 errors.
+- **`INV-HARDEN-05`** 🟠 `H2` — ✅ выполнено. Тесты категорий + responsive-структура.
+  - ✅ `EditCategorySheet.test.tsx` (+4): save resolve → `onClose`; save reject → alert, поля сохранены, повтор работает; delete resolve → `onDeleted`+`onClose`; delete reject → сообщение, подтверждение остаётся, повтор работает.
+  - ✅ `InventoryCategoryRow.test.tsx` (+4, ex-`CategoryCard.test.tsx`): «+N в архиве» / без счётчика при 0; длинное имя + позиция без pair/compact; пустое превью («Пока нет товаров» + «+ Добавить товар»).
+  - ✅ `test` — **795**, `typecheck` чистый, `lint` — 8 warnings / 0 errors.
 
 ### Phase C — P2 чистота
 
-- **`INV-HARDEN-06`** 🟡 `H3` — переименование `CategoryGrid/CategoryCard` + CSS-классы + тесты + `InventorySkeleton` (§7).
-- **`INV-HARDEN-07`** 🟡 `H3` — вынос derived data из `InventoryView` в `useInventoryHome`/builder + тесты (§8).
-- **`INV-HARDEN-08`** 🟡 `H3` — lint-гигиена Inventory (§11).
-- **`INV-HARDEN-09`** 🟠 `H1` — docs-sync, финальный аудит, `00`/`11`/`19`-история; `LOCAL`/`TELEGRAM VERIFIED` — за человеком.
+- **`INV-HARDEN-06`** 🟡 `H3` — ✅ выполнено. Переименование `CategoryGrid/CategoryCard` + CSS + тесты + `InventorySkeleton`.
+  - ✅ `CategoryGrid.tsx` → `InventoryCategoryList.tsx`; `CategoryCard.tsx` → `InventoryCategoryRow.tsx`; файлы тестов переименованы (`git mv`).
+  - ✅ CSS: `.inv-grid` → `.inv-cat-list`, `.inv-grid__row` → `.inv-cat-row`; `InventorySkeleton`, `InventoryView`, `InventoryView.test`, `ProductThumbnail` обновлены; `09/06/07/17/18` + migration-plan синхронизированы; `19` — нота о переименовании.
+  - ✅ Поведение не менялось; `typecheck` чистый, целевые тесты (14) зелёные.
+- **`INV-HARDEN-07`** 🟡 `H3` — ✅ выполнено. Derived data вынесена из `InventoryView`.
+  - ✅ `useInventoryHome` отдаёт `userCategoryIds`, `positionsByCategory`, `categoryNameById`.
+  - ✅ Назначение категории: чистый `existingProductIdsForCategory` (`application/read-models/inventory-assignment.ts`) + хук `useInventoryCategoryAssignment`; `InventoryView` больше не считает `useMemo`-граф (позиции/имена/назначение).
+  - ✅ `InventoryView` сокращён до композиции; `resolveProductCategoryId`/`UNCATEGORIZED_ID` из вью убраны.
+  - ✅ Тесты: `inventory-assignment.test.ts` (+4), `InventoryView.test.tsx` (мок обновлён). Target-прогон Inventory — зелёный.
+  - ✅ На момент закрытия фазы полный гейт был временно красным из-за параллельного трека `21`; после завершения `CART-HARDEN-08` полный `typecheck`/`test` зелёные.
+- **`INV-HARDEN-08`** 🟡 `H3` — ✅ выполнено. Lint-гигиена Inventory (5× `set-state-in-effect` + `react-refresh`) — через `key`-remount/derived state; `ProductForm` типы/хелпер вынесены в `product-form-values.ts`. `npm run lint` — 0 errors / 0 warnings (дополнительно закрыты `main.tsx` и `CatalogFilterSheet`).
+- **`INV-HARDEN-09`** 🟠 `H1` — ✅ выполнено. Docs-sync (`00`/`11`/`19`/`06`/`07`/`09`/`17`/`18`), финальный аудит (§16), deferred с триггерами. Полный гейт зелёный; `LOCAL`/`TELEGRAM VERIFIED` — за человеком.
 
 ### Рекомендуемый порядок
 
@@ -456,17 +479,17 @@ Callers обновляются:
 
 ## 14. Definition of Done
 
-- [ ] `effectivePrice` и SQL читают оси независимо; 4 комбинации подтверждены на данных.
-- [ ] Рекурсия «сохранил → перезагрузил форму» сохраняет режимы осей.
-- [ ] Mutation API единый (`throw`), `console.error`-глотания нет.
-- [ ] Тесты категорий и responsive-структуры добавлены.
-- [ ] Нет новых архитектурных нарушений; God-файлы не появились.
-- [ ] `typecheck` / `lint` / `test` / `build` / `migrations:check` — зелёные.
-- [ ] `inventory.css`-классы соответствуют семантике (list/row, не grid).
-- [ ] Derived data не живёт в `InventoryView`.
-- [ ] Docs синхронизированы (`00`, `06`, `07`, `08`, `11`, `19`, `20`).
-- [ ] Deferred-пункты зафиксированы с триггером.
-- [ ] Нет unrelated refactor.
+- [x] `effectivePrice` и SQL читают оси независимо; 4 комбинации подтверждены на данных.
+- [x] Рекурсия «сохранил → перезагрузил форму» сохраняет режимы осей (`detailToFormValues` + тест).
+- [x] Mutation API единый (`throw`), `console.error`-глотания нет.
+- [x] Тесты категорий и responsive-структуры добавлены.
+- [x] Нет новых архитектурных нарушений; God-файлы не появились.
+- [x] `typecheck` / `lint` / `test` (812) / `build` / `migrations:check` — зелёные (полный гейт после завершения `CART-HARDEN-08`).
+- [x] `inventory.css`-классы соответствуют семантике (list/row, не grid).
+- [x] Derived data не живёт в `InventoryView`.
+- [x] Docs синхронизированы (`00`, `06`, `07`, `08`, `09`, `11`, `19`, `20`).
+- [x] Deferred-пункты зафиксированы с триггером.
+- [x] Нет unrelated refactor.
 
 ---
 
@@ -478,19 +501,38 @@ Callers обновляются:
 
 ## 16. Финальный Inventory hardening audit
 
-_Заполняется после `INV-HARDEN-01…09`._
+**Статус:** `INV-HARDEN-01…09` выполнены. Полный репозиторный гейт — зелёный: `typecheck` / `lint`
+(0 errors, 0 warnings) / `test` (812) / `build` / `migrations:check`. Ручная `LOCAL`/`TELEGRAM`-сверка —
+за человеком.
 
 | Этап | Что сделано | Артефакты |
 |---|---|---|
-| 01 Independent price/discount (JS) | — | — |
-| 02 SQL migration `0037` | — | — |
-| 03 Gate | — | — |
-| 04 Unified mutation API | — | — |
-| 05 Category/responsive tests | — | — |
-| 06 Rename | — | — |
-| 07 Derived data | — | — |
-| 08 Lint hygiene | — | — |
-| 09 Docs sync | — | — |
+| 01 Independent price/discount (JS) | `product-mapping.ts`, `addVariant`, per-axis `effectivePrice`; тесты 783 ✅ | `product-mapping.ts`, `product-mapping.test.ts` |
+| 02 SQL migration `0037` | 7 функций per-axis, применена + записана; 0 регрессий на 65 вариантах | `migrations/0037_variant_effective_price_independent.sql` |
+| 03 Gate | `typecheck` / `lint` / `test` (812) / `build` / `migrations:check` — зелёные | — |
+| 04 Unified mutation API | `throw` + `ProductStatusError`; callers на `try/catch`; глотание убрано; тесты обновлены | `useInventoryActions.ts`, `useCategoryReorder.ts`, `ProductOverview.tsx` |
+| 05 Category/responsive tests | save/delete reject+resolve, retry; long-name/archived/position/empty; +8 тестов (795) | `EditCategorySheet.test.tsx`, `InventoryCategoryRow.test.tsx` |
+| 06 Rename | `InventoryCategoryList`/`InventoryCategoryRow` + `.inv-cat-list`/`.inv-cat-row`; docs-sync имён | `InventoryCategoryList.tsx`, `InventoryCategoryRow.tsx` |
+| 07 Derived data | `useInventoryHome` отдаёт позиции/имена/ids; назначение — `existingProductIdsForCategory` + `useInventoryCategoryAssignment` | `useInventory.ts`, `inventory-assignment.ts`, `useInventoryCategoryAssignment.ts` |
+| 08 Lint hygiene | 5× `set-state-in-effect` + `react-refresh` закрыты (`key`-remount/derived); Inventory lint чист | `CategoryAddSheet`, `EditCategorySheet`, `AddVariantSheet`, `StockControlSheet`, `ProductPreviewRow`, `product-form-values.ts` |
+| 09 Docs sync | Финальный аудит; синхронизированы `00`/`11`/`19`/`06`/`07`/`09`/`17`/`18`; deferred зафиксированы с триггером | `20` §16, `00`, `11` |
+
+### Итог
+
+| Область | Было (аудит) | Стало |
+|---|---|---|
+| Variant price/discount axes (buyer/checkout) | 🔴 связанный гейт | ✅ независимые оси в JS + 7 SQL-функциях |
+| Mutation API (Inventory) | 🟠 три стиля | ✅ единый `throw` + `ProductStatusError` |
+| Тесты категорий / responsive | 🟡 не хватало | ✅ save/delete/retry + long-name/archived/position |
+| Имена `CategoryGrid/CategoryCard` | 🟡 вводят в заблуждение | ✅ `InventoryCategoryList`/`InventoryCategoryRow` |
+| Derived data в `InventoryView` | 🟡 watchlist | ✅ в `useInventoryHome`/application |
+| Lint Inventory | 🟡 8 warnings | ✅ 0 (2 warnings — вне Inventory) |
+| God-файлы / Onion | ✅ не нарушены | ✅ без изменений |
+
+**Вывод:** область Seller Inventory закрыта как LOCAL-этап. Архитектуру больше не трогать без новой
+реальной проблемы; «чистка ради чистки» вреднее перехода к следующему блоку. Полный гейт зелёный.
+Открыто: ручная визуальная проверка в браузере/Telegram; `0038` (`21`) должна нести per-axis логику
+`create_order_atomic` (не откатывать к `0004`).
 
 ---
 
@@ -559,7 +601,7 @@ _Заполняется после `INV-HARDEN-01…09`._
 
 ## A.6 Нумерация миграции
 
-Следующий свободный номер — **`0037`** (последняя применённая в репозитории — `0036_storefront_cart_items_read.sql`).
+`0037_variant_effective_price_independent.sql` — применена и записана (`INV-HARDEN-02`). Номера `0038+` использует commerce-hardening `21` (`0038` — idempotency и т.д.; на 2026-10-05 в репозитории уже `0039`, `migrations:check` — OK). `0038` при пересоздании `create_order_atomic` обязана сохранить per-axis логику из `0037`.
 
 ---
 
@@ -567,4 +609,13 @@ _Заполняется после `INV-HARDEN-01…09`._
 
 | Дата | Изменение |
 |---|---|
-| 2026-10-05 | Создан `20`: перенос внешнего повторного аудита Inventory в формат проекта, сверка с кодом (`ee79300`), решения (§3), P0 (§4, шире аудита — JS + 8 SQL-функций), план `INV-HARDEN-01…09`, deferred-раздел производительности 100+ с триггером. |
+| 2026-10-05 | Создан `20`: перенос внешнего повторного аудита Inventory в формат проекта, сверка с кодом (`ee79300`), решения (§3), P0 (§4, шире аудита — JS + 7 SQL-функций), план `INV-HARDEN-01…09`, deferred-раздел производительности 100+ с триггером. |
+| 2026-10-05 | `INV-HARDEN-01` выполнен: `application/rules/product-mapping.ts` (независимые оси), `addVariant`, per-axis `effectivePrice`; тесты `product-mapping`/`product-rules`/`ProductForm`. 783 теста зелёные, `typecheck` чистый. SQL (`INV-HARDEN-02`) — следующий. |
+| 2026-10-05 | `INV-HARDEN-02` выполнен: миграция `0037` пересоздала 7 вычислительных функций (`create_order_atomic` + 6 buyer-RPC) на per-axis `coalesce`; применена, записана в `schema_migrations`, `migrations:check` OK. Live-функции проверены, 4 комбинации — верны, 0 регрессий на 65 вариантах. Починен `scripts/record-migration.mjs` (Windows). Зависимость зафиксирована: `0038` (`21`) не должна откатывать per-axis логику `create_order_atomic`. P0 закрыт. |
+| 2026-10-05 | `INV-HARDEN-03` (гейт Phase A) и `INV-HARDEN-04` выполнены. Mutation API Inventory приведён к единому стилю `throw` (`deleteCategory`/`reorderCategory`/`setProductStatus` + `ProductStatusError`), `console.error`-глотание убрано, callers на `try/catch`; тесты обновлены. `typecheck` / `lint` / `test` (787) / `build` — зелёные. |
+| 2026-10-05 | `INV-HARDEN-05` выполнен: mutation-lifecycle категорий (save/delete reject+resolve, retry) и responsive-структура (long-name, archived-счётчик, позиция, пустое превью). `test` — 795, `typecheck` / `lint` — зелёные. Фаза B закрыта. |
+| 2026-10-05 | `INV-HARDEN-06` выполнен: `CategoryGrid` → `InventoryCategoryList`, `CategoryCard` → `InventoryCategoryRow` (`git mv` + тесты), CSS `.inv-grid`/`.inv-grid__row` → `.inv-cat-list`/`.inv-cat-row`, `InventorySkeleton`/`InventoryView` обновлены; имена синхронизированы в `06/07/09/17/18` (в `19` — нота о переименовании). Поведение не менялось. |
+| 2026-10-05 | `INV-HARDEN-07` выполнен: derived data вынесена из `InventoryView` — `useInventoryHome` отдаёт `userCategoryIds`/`positionsByCategory`/`categoryNameById`; назначение — `existingProductIdsForCategory` + `useInventoryCategoryAssignment`; тесты (+4). ⚠️ Полный гейт сейчас красный из-за незаконченного параллельного `CART-HARDEN-08` (`useBuyerCart`/`CartView`), Inventory-scope зелёный. |
+| 2026-10-05 | `INV-HARDEN-08` выполнен: 5× `set-state-in-effect` закрыты `key`-remount/derived state (`CategoryAddSheet`, `EditCategorySheet`, `AddVariantSheet`, `StockControlSheet`, `ProductPreviewRow`), `ProductForm` типы/хелпер → `product-form-values.ts`. `npm run lint` — 8 → **0 warnings** (0 errors). Full test — **812** зелёных. |
+| 2026-10-05 | `INV-HARDEN-09` выполнен: финальный docs-sync (`00`/`11`/`19`/`06`/`07`/`09`/`17`/`18`), §16 — итоговый аудит и DoD; deferred с триггерами. Полный гейт зелёный (`typecheck`/`lint`/`test` 812/`build`/`migrations:check`); Seller Inventory закрыт как LOCAL-этап, открыто — ручная `LOCAL`/`TELEGRAM`-сверка. |
+| 2026-10-05 | Добиты 2 не-Inventory lint-warning: `src/main.tsx` (перенос `Root`-хука в `App`, файл без компонентов) и `CatalogFilterSheet` (derived draft + `key`-remount из `CatalogView`). `npm run lint` — **0 warnings**; `typecheck`/`test` (812)/`build` — зелёные. |

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   calcSubtotal,
   calcTotal,
-  canCheckout,
+  canCheckoutCart,
   canDecrement,
   canIncrement,
   clampCartQuantity,
@@ -15,7 +15,6 @@ import {
 } from './cart-rules';
 import { MAX_CART_QTY } from '../constants/limits';
 import type { CartItem } from '../models/cart';
-import type { RecipientInfo } from '../models/customer';
 
 function makeItem(overrides: Partial<CartItem> = {}): CartItem {
   return {
@@ -27,8 +26,6 @@ function makeItem(overrides: Partial<CartItem> = {}): CartItem {
     ...overrides,
   };
 }
-
-const validRecipient: RecipientInfo = { name: 'Иван', phone: '+7900', address: 'Москва' };
 
 describe('calcSubtotal', () => {
   it('sums selected items only', () => {
@@ -110,25 +107,23 @@ describe('cartItemKey', () => {
   });
 });
 
-describe('canCheckout', () => {
-  it('accepts a valid selected item with recipient', () => {
-    expect(canCheckout([makeItem()], validRecipient)).toBe(true);
+describe('canCheckoutCart', () => {
+  it('принимает валидную выбранную позицию', () => {
+    expect(canCheckoutCart([makeItem()])).toBe(true);
   });
 
-  it('rejects an empty selection', () => {
-    expect(canCheckout([], validRecipient)).toBe(false);
-    expect(canCheckout([makeItem({ selected: false })], validRecipient)).toBe(false);
+  it('отклоняет пустой выбор', () => {
+    expect(canCheckoutCart([])).toBe(false);
+    expect(canCheckoutCart([makeItem({ selected: false })])).toBe(false);
   });
 
-  it('rejects invalid quantities', () => {
-    expect(canCheckout([makeItem({ quantity: 0 })], validRecipient)).toBe(false);
-    expect(canCheckout([makeItem({ quantity: MAX_CART_QTY + 1 })], validRecipient)).toBe(false);
-    expect(canCheckout([makeItem({ quantity: 1.5 })], validRecipient)).toBe(false);
+  it('отклоняет невалидные количества', () => {
+    expect(canCheckoutCart([makeItem({ quantity: 0 })])).toBe(false);
+    expect(canCheckoutCart([makeItem({ quantity: MAX_CART_QTY + 1 })])).toBe(false);
+    expect(canCheckoutCart([makeItem({ quantity: 1.5 })])).toBe(false);
   });
 
-  it('requires recipient name, phone and address', () => {
-    expect(canCheckout([makeItem()], { ...validRecipient, name: '  ' })).toBe(false);
-    expect(canCheckout([makeItem()], { ...validRecipient, phone: '' })).toBe(false);
-    expect(canCheckout([makeItem()], { ...validRecipient, address: '' })).toBe(false);
+  it('не зависит от получателя (это checkout-rules)', () => {
+    expect(canCheckoutCart([makeItem()])).toBe(true);
   });
 });

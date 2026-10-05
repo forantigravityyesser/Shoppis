@@ -64,6 +64,8 @@ export default function CatalogView() {
 
   const [allOpen, setAllOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
+  /** Remount sheet при открытии: сброс драфта фильтра без effect (docs/20 §11). */
+  const [filterKey, setFilterKey] = useState(0);
   const [searchDraft, setSearchDraft] = useState(search);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<number | null>(null);
@@ -214,7 +216,10 @@ export default function CatalogView() {
             className={`catalog-filter-btn${priceActive ? ' catalog-filter-btn--active' : ''}`}
             aria-label="Фильтры"
             aria-pressed={priceActive}
-            onClick={() => setFilterOpen(true)}
+            onClick={() => {
+              setFilterOpen(true);
+              setFilterKey((k) => k + 1);
+            }}
           >
             <SlidersHorizontal size={20} strokeWidth={2.4} />
             {priceActive ? <span className="catalog-filter-btn__dot" aria-hidden /> : null}
@@ -315,6 +320,7 @@ export default function CatalogView() {
       />
 
       <CatalogFilterSheet
+        key={filterKey}
         open={filterOpen}
         bounds={bounds}
         loading={boundsLoading}

@@ -1,6 +1,5 @@
 import { MAX_CART_QTY } from '../constants/limits';
 import type { CartItem } from '../models/cart';
-import type { RecipientInfo } from '../models/customer';
 
 function activeItems(items: CartItem[]): CartItem[] {
   return items.filter(isSelectedForCheckout);
@@ -78,13 +77,11 @@ export function calcTotal(items: CartItem[]): number {
   return calcSubtotal(items);
 }
 
-export function canCheckout(items: CartItem[], recipient: RecipientInfo): boolean {
+/**
+ * Корзина готова к оформлению: есть выбранные позиции с валидным количеством.
+ * Правила получателя — отдельно в `checkout-rules.validateRecipient` (docs/21 §3.8).
+ */
+export function canCheckoutCart(items: CartItem[]): boolean {
   const active = activeItems(items);
-  return (
-    active.length > 0 &&
-    active.every((i) => isValidCartQuantity(i.quantity)) &&
-    recipient.name.trim().length > 0 &&
-    recipient.phone.trim().length > 0 &&
-    recipient.address.trim().length > 0
-  );
+  return active.length > 0 && active.every((i) => isValidCartQuantity(i.quantity));
 }

@@ -1,8 +1,8 @@
 import { useRef, useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import type { InventoryCategoryItem } from '../../../application/hooks/useInventory';
-import type { InventoryProductDetail } from '../../../application/hooks/useProduct';
 import { uploadCatalogImages } from '../../../application/services/image-service';
+import type { Characteristic, ProductFormValues } from './product-form-values';
 import type {
   InventoryImageItem,
   ProductFormPayload,
@@ -25,55 +25,14 @@ import { UNCATEGORIZED_ID } from '../../../domain/constants/categories';
 import { MAX_IMAGES, MAX_VARIANTS } from '../../../domain/constants/limits';
 import type { ProductStatus } from '../../../domain/models/product';
 
-export interface Characteristic {
-  name: string;
-  value: string;
-}
-
-export interface ProductFormValues {
-  title: string;
-  description: string;
-  categoryId: string;
-  images: InventoryImageItem[];
-  attributes: Characteristic[];
-  variants: VariantForm[];
-}
-
 export type { ProductFormPayload };
+
+export type { Characteristic, ProductFormValues } from './product-form-values';
 
 interface ProductFormProps {
   categories: InventoryCategoryItem[];
   initial?: Partial<ProductFormValues>;
   onSubmit: (payload: ProductFormPayload) => Promise<void> | void;
-}
-
-/** Плоские данные товара → значения формы (для режима редактирования). */
-export function detailToFormValues(detail: InventoryProductDetail): ProductFormValues {
-  const variants: VariantForm[] = detail.variants.map((v, index) => ({
-    id: v.id,
-    name: v.name,
-    value: v.value,
-    quantity: String(v.availableQuantity),
-    price: (v.originalAmountMinor / 100).toFixed(2),
-    discount: String(v.discountPercent),
-    priceMode:
-      index > 0 && v.priceMode === 'CUSTOM_PRICE' && v.customOriginalAmountMinor != null
-        ? 'CUSTOM'
-        : 'INHERITED',
-    discountMode:
-      index > 0 && v.priceMode === 'CUSTOM_PRICE' && v.customDiscountPercent != null
-        ? 'CUSTOM'
-        : 'INHERITED',
-  }));
-
-  return {
-    title: detail.title,
-    description: detail.description,
-    categoryId: detail.categoryId ?? UNCATEGORIZED_ID,
-    images: detail.images,
-    attributes: detail.attributes.map((a) => ({ name: a.name, value: a.value })),
-    variants: variants.length ? variants : [emptyVariant()],
-  };
 }
 
 /**

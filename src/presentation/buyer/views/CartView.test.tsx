@@ -108,7 +108,7 @@ function cartState(overrides: Partial<BuyerCartState> = {}): BuyerCartState {
     hasSelection: true,
     selectionState: 'all',
     canCheckout: true,
-    setAllSelected: vi.fn(),
+    toggleAllOrderable: vi.fn(),
     setSelectedByKeys: vi.fn(),
     toggleSelected: vi.fn(),
     updateQty: vi.fn(),
@@ -189,6 +189,7 @@ describe('CartView', () => {
 
     expect(screen.getByText('Первый')).toBeInTheDocument();
     expect(screen.getByText('Второй')).toBeInTheDocument();
+    expect(screen.getByText(/Выбрано 2/)).toBeInTheDocument();
 
     // Итог вынесен в CTA (отдельного блока «Итого» больше нет).
     const cta = screen.getByRole('button', { name: /Оформить заказ · 290 \$/ });
@@ -234,17 +235,17 @@ describe('CartView', () => {
   });
 
   it('select all: «Выбрать все» / «Снять всё»', async () => {
-    const setAllSelected = vi.fn();
+    const toggleAllOrderable = vi.fn();
     useBuyerCart.mockReturnValue(
-      cartState({ items: [entry()], selectionState: 'some', setAllSelected }),
+      cartState({ items: [entry()], selectionState: 'some', toggleAllOrderable }),
     );
     const { unmount } = renderCart();
     await userEvent.click(screen.getByRole('button', { name: 'Выбрать все' }));
-    expect(setAllSelected).toHaveBeenCalledWith(true);
+    expect(toggleAllOrderable).toHaveBeenCalledTimes(1);
     unmount();
 
     useBuyerCart.mockReturnValue(
-      cartState({ items: [entry()], selectionState: 'all', setAllSelected }),
+      cartState({ items: [entry()], selectionState: 'all', toggleAllOrderable }),
     );
     renderCart();
     expect(screen.getByRole('button', { name: 'Снять всё' })).toBeInTheDocument();

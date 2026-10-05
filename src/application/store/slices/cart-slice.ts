@@ -1,5 +1,6 @@
 import type { StateCreator } from 'zustand';
 import { cartItemKey, clampCartQuantity } from '../../../domain/rules/cart-rules';
+import { MAX_CART_ITEMS } from '../../../domain/constants/limits';
 import type { CartItem } from '../../../domain/models/cart';
 import type { RootStore } from '../index';
 
@@ -41,11 +42,15 @@ export const createCartSlice: StateCreator<RootStore, [], [], CartSlice> = (set,
     set((s) => {
       const current = s.cartByStore[storeId] ?? [];
       const existing = current.find((i) => sameKey(i, item));
+      // Новую строку сверх MAX_CART_ITEMS не добавляем (docs/21 §3.5); слияние в
+      // существующую позицию лимитом не ограничено.
       const next = existing
         ? current.map((i) =>
             sameKey(i, item) ? { ...i, quantity: clampQty(i.quantity + qty), selected: true } : i,
           )
-        : [...current, { ...item, quantity: qty, selected: true }];
+        : current.length >= MAX_CART_ITEMS
+          ? current
+          : [...current, { ...item, quantity: qty, selected: true }];
       return { cartByStore: { ...s.cartByStore, [storeId]: next } };
     });
   },
