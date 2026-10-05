@@ -142,45 +142,86 @@ describe('mapStorefrontProductDetail', () => {
     expect(mapped?.questionsCount).toBe(0);
   });
 
-  it('фильтрует некорректные элементы: картинка без url, вариант без id', () => {
+  it('фильтрует некорректные картинки (без url) — список не ломает проекцию', () => {
     const mapped = mapStorefrontProductDetail({
       store: baseStore,
       product: { id: 'p-1' },
       images: [null, { thumbUrl: 'x' }, { url: 'https://cdn/ok.jpg' }, 'bad'],
-      variants: [{ name: 'Без id' }, { id: 'v-1', value: 'S' }],
     });
     expect(mapped?.images).toHaveLength(1);
     expect(mapped?.images[0]?.url).toBe('https://cdn/ok.jpg');
-    expect(mapped?.variants).toHaveLength(1);
-    expect(mapped?.variants[0]?.id).toBe('v-1');
   });
 
-  it('числа-строки приводятся к number, битые → 0; unavailable сохраняется', () => {
+  it('numeric-строки приводятся к number (sortOrder/rating/questionsCount/вариант)', () => {
     const mapped = mapStorefrontProductDetail({
       store: baseStore,
       product: { id: 'p-1' },
       images: [{ url: 'u', sortOrder: '2' }],
       rating: { average: '4.5', count: '3' },
       questionsCount: '7',
-      variants: [{ id: 'v-1', price: '100', originalPrice: 'nope', availableQuantity: 'x' }],
+      variants: [
+        { id: 'v-1', price: '100', originalPrice: null, availableQuantity: '5', available: true },
+      ],
     });
     expect(mapped?.images[0]?.sortOrder).toBe(2);
     expect(mapped?.rating).toEqual({ average: 4.5, count: 3 });
     expect(mapped?.questionsCount).toBe(7);
     expect(mapped?.variants[0]).toMatchObject({
       price: 100,
-      originalPrice: 0,
-      availableQuantity: 0,
-      available: false,
+      originalPrice: null,
+      availableQuantity: 5,
+      available: true,
     });
   });
 
-  it('неизвестный статус магазина → ACTIVE, PAUSED сохраняется', () => {
-    const active = mapStorefrontProductDetail({
-      store: { ...baseStore, status: 'WHATEVER' },
+  it('битая цена/количество варианта → detail null (никакого ложного «0»)', () => {
+    const base = { store: baseStore, product: { id: 'p-1' } };
+    expect(
+      mapStorefrontProductDetail({
+        ...base,
+        variants: [{ id: 'v-1', price: 'nope', availableQuantity: 0 }],
+      }),
+    ).toBeNull();
+    expect(
+      mapStorefrontProductDetail({
+        ...base,
+        variants: [{ id: 'v-1', price: 100, availableQuantity: 'x' }],
+      }),
+    ).toBeNull();
+    expect(
+      mapStorefrontProductDetail({
+        ...base,
+        variants: [{ id: 'v-1', price: 100, originalPrice: 'nope', availableQuantity: 0 }],
+      }),
+    ).toBeNull();
+    // отрицательные деньги тоже невалидны
+    expect(
+      mapStorefrontProductDetail({
+        ...base,
+        variants: [{ id: 'v-1', price: -1, availableQuantity: 0 }],
+      }),
+    ).toBeNull();
+  });
+
+  it('related с битой ценой отбрасывается, проекция остаётся валидной', () => {
+    const mapped = mapStorefrontProductDetail({
+      store: baseStore,
       product: { id: 'p-1' },
+      relatedProducts: [
+        { id: 'r-1', price: 100 },
+        { id: 'r-2', price: 'nope' },
+      ],
     });
-    expect(active?.store.status).toBe('ACTIVE');
+    expect(mapped?.relatedProducts.map((r) => r.id)).toEqual(['r-1']);
+  });
+
+  it('статус магазина: неизвестный → detail null, PAUSED сохраняется', () => {
+    expect(
+      mapStorefrontProductDetail({
+        store: { ...baseStore, status: 'WHATEVER' },
+        product: { id: 'p-1' },
+      }),
+    ).toBeNull();
     const paused = mapStorefrontProductDetail({
       store: { ...baseStore, status: 'PAUSED' },
       product: { id: 'p-1' },
@@ -274,6 +315,17 @@ describe('mapStorefrontProductReviews', () => {
     });
     expect(mapped.distribution).toHaveLength(5);
     expect(mapped.distribution.every((d) => d.count === 0)).toBe(true);
+  });
+
+  it('отзыв с оценкой вне 1..5 (или битой) отбрасывается', () => {
+    const mapped = mapStorefrontProductReviews({
+      reviews: [
+        { id: 'r-1', rating: 5, text: 'ok', createdAt: 't' },
+        { id: 'r-2', rating: 7, text: 'bad', createdAt: 't' },
+        { id: 'r-3', rating: 'nope', text: 'bad', createdAt: 't' },
+      ],
+    });
+    expect(mapped.reviews.map((r) => r.id)).toEqual(['r-1']);
   });
 });
 

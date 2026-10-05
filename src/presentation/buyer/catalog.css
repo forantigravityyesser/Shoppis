@@ -36,7 +36,7 @@
 }
 
 /* ---- Sheet: белый лист от Home, но выход в голубой начинается сразу после
-   4 плиток категорий (docs/17 CAT-07c). ---- */
+   блока категорий (8 карточек = 2 ряда, ~250px) — docs/17 CAT-16. ---- */
 .home-sheet.catalog-sheet {
   background: linear-gradient(
     180deg,
@@ -208,7 +208,7 @@
   white-space: nowrap;
 }
 
-/* ---- Quick categories (8 карточек как на Home) — docs/17 CAT-07c ---- */
+/* ---- Quick categories (8 карточек как на Home, 2 ряда по 4) — docs/17 CAT-16 ---- */
 .catalog-cats {
   margin-bottom: var(--spacing-3);
 }
@@ -367,6 +367,55 @@
 
 .price-slider__input::-moz-range-track {
   background: transparent;
+}
+
+/* ---- Results wrapper + stale (filter/search) updating indicator ---- */
+.catalog-results {
+  position: relative;
+  transition: opacity 0.15s ease;
+}
+
+/* При смене фильтра/поиска держим предыдущие товары, но приглушаем их:
+   видно, что список обновляется, без подмены на skeleton. */
+.catalog-results--updating {
+  opacity: 0.5;
+}
+
+.catalog-updating {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-card);
+  box-shadow: var(--shadow-card, 0 2px 8px rgba(108, 92, 231, 0.16));
+  pointer-events: none;
+}
+
+/* ---- Filter sheet: bounds loading / error / empty ---- */
+.filter-status {
+  margin: 8px 0 16px;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.filter-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 8px 0 16px;
+}
+
+.filter-error__text {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
 }
 
 /* ---- Empty state ---- */

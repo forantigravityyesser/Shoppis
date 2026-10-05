@@ -41,13 +41,25 @@ export default function CatalogView() {
   const maxPrice = parsePriceParam(searchParams.get('maxPrice'));
 
   const { home, loading, error, notFound, refresh } = useStorefrontHome(publicId);
-  const catalog = useStorefrontCatalog(publicId, { categoryId, search, minPrice, maxPrice });
-  const { bounds } = useStorefrontCatalogPriceBounds(publicId);
+  // Paused/closed store — не публичная товарная поверхность: не запускаем ни товары,
+  // ни границы цен, пока магазин не ACTIVE (defense-in-depth к guard в 0030).
+  const storeActive = home?.store.status === 'ACTIVE';
+  const catalog = useStorefrontCatalog(
+    publicId,
+    { categoryId, search, minPrice, maxPrice },
+    undefined,
+    storeActive,
+  );
+  const {
+    bounds,
+    loading: boundsLoading,
+    error: boundsError,
+    refresh: refreshBounds,
+  } = useStorefrontCatalogPriceBounds(publicId, storeActive);
 
   const sentinelRef = useInfiniteScrollSentinel({
     onLoadMore: catalog.loadMore,
-    enabled:
-      catalog.hasNextPage && !catalog.fetchingNextPage && !catalog.nextPageError,
+    enabled: catalog.hasNextPage && !catalog.fetchingNextPage && !catalog.nextPageError,
   });
 
   const [allOpen, setAllOpen] = useState(false);
@@ -60,6 +72,17 @@ export default function CatalogView() {
   useEffect(() => {
     paramsRef.current = searchParams;
   }, [searchParams]);
+
+  // Внешнее изменение `q` (back/forward, переход с Home, ссылка) синхронизирует поле:
+  // URL — источник истины. Заодно снимаем отложенную запись, чтобы старый debounce
+  // не перетёр только что пришедшее внешнее значение.
+  useEffect(() => {
+    if (debounceRef.current) {
+      window.clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+    }
+    setSearchDraft(search);
+  }, [search]);
 
   const shouldFocus = searchParams.get('focus') === '1';
   useEffect(() => {
@@ -200,20 +223,31 @@ export default function CatalogView() {
           onRemovePrice={() => setParams({ minPrice: null, maxPrice: null })}
         />
 
-        <ProductGrid
-          products={products}
-          currencySymbol={home.store.currencySymbol}
-          onOpen={(productId) => navigate(`/product/${productId}`)}
-        />
+        <div
+          className={`catalog-results${catalog.updating ? ' catalog-results--updating' : ''}`}
+          aria-busy={catalog.updating}
+        >
+          <ProductGrid
+            products={products}
+            currencySymbol={home.store.currencySymbol}
+            onOpen={(productId) => navigate(`/product/${productId}`)}
+          />
+          {catalog.updating ? (
+            <div
+              className="catalog-updating"
+              role="status"
+              aria-label="Обновление каталога"
+              data-testid="catalog-updating"
+            >
+              <span className="home-stream-spinner" aria-hidden />
+            </div>
+          ) : null}
+        </div>
         {products.length > 0 ? (
           catalog.nextPageError ? (
             <div className="home-stream-error" role="alert" data-testid="catalog-stream-error">
               <span className="home-stream-error__text">Не удалось загрузить ещё товары</span>
-              <button
-                type="button"
-                className="home-stream-error__retry"
-                onClick={catalog.loadMore}
-              >
+              <button type="button" className="home-stream-error__retry" onClick={catalog.loadMore}>
                 Повторить
               </button>
             </div>
@@ -278,6 +312,9 @@ export default function CatalogView() {
       <CatalogFilterSheet
         open={filterOpen}
         bounds={bounds}
+        loading={boundsLoading}
+        error={boundsError}
+        onRetry={refreshBounds}
         currencySymbol={home.store.currencySymbol}
         appliedMin={minPrice}
         appliedMax={maxPrice}
@@ -301,11 +338,7 @@ function parsePriceParam(value: string | null): number | null {
 }
 
 /** Подпись ценового фильтра: диапазон / «от» / «до». null — фильтра нет. */
-function buildPriceLabel(
-  min: number | null,
-  max: number | null,
-  symbol: string,
-): string | null {
+function buildPriceLabel(min: number | null, max: number | null, symbol: string): string | null {
   const fmt = (value: number) => formatMoneyMinor(value, symbol);
   if (min != null && max != null) return `${fmt(min)} – ${fmt(max)}`;
   if (min != null) return `от ${fmt(min)}`;

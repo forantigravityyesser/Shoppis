@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import type { StorefrontProductImage } from '../../../../application/read-models/storefront-product';
 import { getInitial } from '../../../../domain/rules/initial';
 import { useHaptic } from '../../../../application/hooks/useHaptic';
-import { useImageFallback } from '../../hooks/useImageFallback';
+import { useImageFallback } from '../../../shared/hooks/useImageFallback';
 import ProductImageViewer from './ProductImageViewer';
 
 interface Props {
@@ -12,8 +12,8 @@ interface Props {
 }
 
 /**
- * Галерея товара (docs/14 §4): главное фото заполняет блок по ширине (cover,
- * боковые отступы 20px) и миниатюры внутри блока фото — снизу по центру. Активное фото исключается из
+ * Галерея товара (docs/14 §4): главное фото показывается целиком (contain,
+ * без обрезки; боковые отступы 20px) и миниатюры внутри блока фото — снизу по центру. Активное фото исключается из
  * ряда и возвращается в него при выборе другого. Клик по главному фото открывает
  * fullscreen-просмотр. 0 фото → плейсхолдер, 1 → без миниатюр. Рассчитан на
  * `key={product.id}` у родителя (сброс при переходе на другой товар).

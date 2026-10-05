@@ -38,6 +38,8 @@ export interface ReviewApi {
   createReview(token: string, productId: string, rating: number, text: string): Promise<void>;
   hideReview(token: string, reviewId: string): Promise<void>;
   replyToReview(token: string, reviewId: string, text: string): Promise<void>;
+  /** Seller-чтение отзывов (в т.ч. ARCHIVED): owner-check на сервере, actor из сессии. */
+  loadSellerReviews(token: string, productId: string): Promise<unknown>;
 }
 
 /** question-actions: запись вопросов/ответов по валидной сессии (actor из сессии). */
@@ -45,6 +47,8 @@ export interface QuestionApi {
   createQuestion(token: string, productId: string, text: string): Promise<void>;
   hideQuestion(token: string, questionId: string): Promise<void>;
   answerQuestion(token: string, questionId: string, text: string): Promise<void>;
+  /** Seller-чтение вопросов (в т.ч. ARCHIVED): owner-check на сервере, actor из сессии. */
+  loadSellerQuestions(token: string, productId: string): Promise<unknown>;
 }
 
 /** order-actions: жизненный цикл заказа и инвентаря. */

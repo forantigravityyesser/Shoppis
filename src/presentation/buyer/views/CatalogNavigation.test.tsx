@@ -125,11 +125,16 @@ describe('Catalog navigation: Back сохраняет query', () => {
     // Back → каталог, фильтр категории сохранён.
     await userEvent.click(screen.getByRole('button', { name: 'назад' }));
     expect(screen.getByRole('button', { name: 'Убрать фильтр «Обувь»' })).toBeInTheDocument();
-    expect(useStorefrontCatalog).toHaveBeenLastCalledWith('pub1', {
-      categoryId: 'c1',
-      search: '',
-      minPrice: null,
-      maxPrice: null,
-    });
+    expect(useStorefrontCatalog).toHaveBeenLastCalledWith(
+      'pub1',
+      {
+        categoryId: 'c1',
+        search: '',
+        minPrice: null,
+        maxPrice: null,
+      },
+      undefined,
+      true,
+    );
   });
 });

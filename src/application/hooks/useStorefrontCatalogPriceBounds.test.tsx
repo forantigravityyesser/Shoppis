@@ -31,6 +31,15 @@ describe('useStorefrontCatalogPriceBounds', () => {
     expect(loadCatalogPriceBounds).not.toHaveBeenCalled();
   });
 
+  it('enabled=false не ходит в сеть (PAUSED магазин)', () => {
+    const { result } = renderHook(() => useStorefrontCatalogPriceBounds('pub1', false), {
+      wrapper,
+    });
+    expect(result.current.bounds).toBeNull();
+    expect(result.current.loading).toBe(false);
+    expect(loadCatalogPriceBounds).not.toHaveBeenCalled();
+  });
+
   it('загружает границы', async () => {
     loadCatalogPriceBounds.mockResolvedValue({ minPrice: 8000, maxPrice: 320000 });
 

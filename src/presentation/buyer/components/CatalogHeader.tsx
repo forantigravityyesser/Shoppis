@@ -1,6 +1,6 @@
 import { getInitial } from '../../../domain/rules/initial';
 import BackButton from '../../shared/components/BackButton';
-import SafeImage from './SafeImage';
+import SafeImage from '../../shared/components/SafeImage';
 
 interface Props {
   title: string;

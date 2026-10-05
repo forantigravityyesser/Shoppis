@@ -16,16 +16,16 @@ Severity: **P0** — обязательно перед закрытием эта
 
 | ID | Приоритет | Область | Суть | Статус |
 |---|---|---|---|---|
-| PD-H-01 | P0 | Security | `p_viewer_user_id` — клиентский identity для выдачи ARCHIVED social | TODO |
-| PD-H-02 | P0 | Backend logic | write-RPC не проверяют `product.status = ACTIVE` | TODO |
-| PD-H-03 | P0 | Backend logic | продавец может оставить отзыв/вопрос на свой товар | TODO |
-| PD-H-04 | P0 | CSS/визуал | `pd-gallery__main img` — `cover`, а док/комментарий обещают `contain` | TODO |
-| PD-H-05 | P1 | Presentation | seller импортирует buyer-компоненты и `buyer/product-detail.css` | TODO |
-| PD-H-06 | P1 | Boundaries | seller читает buyer storefront-read (нет `SellerProductSocialRepository`) | TODO |
-| PD-H-07 | P1 | Scaling | `relatedProducts` без верхней границы + рассинхрон чек-листа §12.6 | TODO |
-| PD-H-08 | P1 | Tests | нет тестов `ProductImageViewer`; gesture-логика не вынесена | TODO |
-| PD-H-09 | P2 | Robustness | mapper слишком permissive (`invalid → ACTIVE` / `→ 0`) | TODO |
-| PD-H-10 | P2 | DB integrity | `product_links` без DB-level tenant-инварианта | TODO |
+| PD-H-01 | P0 | Security | `p_viewer_user_id` — клиентский identity для выдачи ARCHIVED social | DONE (код; миграция 0028 + edge ждут применения) |
+| PD-H-02 | P0 | Backend logic | write-RPC не проверяют `product.status = ACTIVE` | DONE (объединено в миграцию 0029; ждёт применения + ручной SQL-прогон) |
+| PD-H-03 | P0 | Backend logic | продавец может оставить отзыв/вопрос на свой товар | DONE (объединено в миграцию 0029; ждёт применения + ручной SQL-прогон) |
+| PD-H-04 | P0 | CSS/визуал | `pd-gallery__main img` — `cover`, а док/комментарий обещают `contain` | DONE (нужна визуальная проверка desktop/mobile) |
+| PD-H-05 | P1 | Presentation | seller импортирует buyer-компоненты и `buyer/product-detail.css` | DONE (shared/product-social + SafeImage; seller→buyer нет) |
+| PD-H-06 | P1 | Boundaries | seller читает buyer storefront-read (нет `SellerProductSocialRepository`) | DONE (сделан вместе с PD-H-01) |
+| PD-H-07 | P1 | Scaling | `relatedProducts` без верхней границы + рассинхрон чек-листа §12.6 | DONE (миграция 0030, limit 8; доки §7/§12.3 синхронизированы) |
+| PD-H-08 | P1 | Tests | нет тестов `ProductImageViewer`; gesture-логика не вынесена | DONE (hook + pure helpers + 20 тестов) |
+| PD-H-09 | P2 | Robustness | mapper слишком permissive (`invalid → ACTIVE` / `→ 0`) | DONE (строгий `storefront-product-mappers`; тесты обновлены) |
+| PD-H-10 | P2 | DB integrity | `product_links` без DB-level tenant-инварианта | DONE (миграция 0031: composite FK; код без изменений) |
 | PD-H-11 | P2 | DB hardening | `search_path` без `pg_temp`; не единый convention `EXECUTE` | TODO |
 | PD-H-12 | P2 | CI | нет GitHub Actions (`typecheck/lint/test/build`) | TODO |
 | PD-H-13 | P2 | Docs | рассинхрон номеров миграций `0024/0025` и формулировки «QA закрыт» | TODO |
@@ -258,8 +258,11 @@ clamp + reset). Теста `ProductImageViewer.test.tsx` нет (есть тол
 ### PD-H-10. `product_links` без DB-level tenant-integrity
 Таблица хранит `store_id` + `product_id` + `related_product_id`
 (`migrations/0025:11-19`); согласованность магазина проверяется только в RPC
-(`0025:58-60,119-121`). **Решение (DECIDE):** либо убрать `store_id` (выводим из products),
-либо composite FK/constraint, гарантирующий `store_id = product.store_id = related.store_id`.
+(`0025:58-60,119-121`). **Решение (выбрано):** composite FK
+`(store_id, product_id)` / `(store_id, related_product_id) → products(store_id, id)` —
+миграция `0031`. Общий `store_id` + два composite FK гарантируют, что оба товара из
+одного магазина (уровень БД, не только RPC). Код приложения не меняется.
+(Альтернатива — убрать `store_id` — отклонена: она не добавляет DB-энфорсмента.)
 
 ### PD-H-11. `SECURITY DEFINER` hardening
 Сейчас везде `set search_path = public` (напр. `0017:23`, `0019:27`). Для строгого

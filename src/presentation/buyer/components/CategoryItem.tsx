@@ -1,5 +1,5 @@
 import { getInitial } from '../../../domain/rules/initial';
-import SafeImage from './SafeImage';
+import SafeImage from '../../shared/components/SafeImage';
 
 interface Props {
   id: string;

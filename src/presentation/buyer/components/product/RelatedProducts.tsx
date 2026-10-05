@@ -3,7 +3,7 @@ import type { StorefrontRelatedProduct } from '../../../../application/read-mode
 import { getInitial } from '../../../../domain/rules/initial';
 import { formatMoneyMinor } from '../../../../domain/rules/product-rules';
 import { useHaptic } from '../../../../application/hooks/useHaptic';
-import SafeImage from '../SafeImage';
+import SafeImage from '../../../shared/components/SafeImage';
 
 interface Props {
   products: StorefrontRelatedProduct[];

@@ -12,9 +12,12 @@ import type {
 
 /**
  * Публичный read карточки товара по opaque `public_id` + `product_id`.
- * RPC-функции (миграция 0015) сами проверяют boundary и отдают buyer-проекцию
- * (docs/14 §12). Detail: `null` — товар не найден/чужой/archived. Social-ленты
- * грузятся лениво и при невалидном ответе трактуются как пустые.
+ * RPC-функции сами проверяют boundary и отдают buyer-проекцию (docs/14 §12).
+ * Detail: `null` — товар не найден/чужой/archived. Social-ленты грузятся лениво
+ * и при невалидном ответе трактуются как пустые.
+ *
+ * `viewerUserId` — только неавторитетная UI-подсказка (`isOwn`/`canReview`),
+ * не identity для доступа: ARCHIVED публично недоступен никому (docs/18 PD-H-01).
  */
 export async function loadProductDetail(
   storePublicId: string,

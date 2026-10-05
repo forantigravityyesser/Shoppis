@@ -63,5 +63,5 @@
 
 ## AR — Архитектурные/продуктовые блоки (roadmap)
 
-- **Каталог server-side** — **сделан** (`17`, CAT-00…CAT-15): read-model `0026`, reorder категорий `0027`, application-контур, URL/поиск/фильтр/pagination/состояния. Осталось: ручная визуальная проверка в Telegram (`TELEGRAM VERIFIED`); RLS — отдельный гейт (`11 §S1`).
+- **Каталог server-side** — **сделан** (`17`, CAT-00…CAT-16): read-model `0026`, hardening `0030` (PAUSED-boundary + literal search), reorder категорий `0027`, application-контур, URL/поиск/фильтр/pagination/состояния. Осталось: ручная визуальная проверка в Telegram (`TELEGRAM VERIFIED`); RLS — отдельный гейт (`11 §S1`); trigram-индекс — по замеру (`17 §9.2`).
 - **Доставка / промокоды / рекомендации / чат с продавцом** — вне MVP.

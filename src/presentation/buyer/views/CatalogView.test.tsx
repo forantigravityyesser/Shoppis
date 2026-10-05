@@ -44,7 +44,9 @@ vi.mock('../../../application/hooks/useStorefrontCatalog', () => ({ useStorefron
 vi.mock('../../../application/hooks/useStorefrontCatalogPriceBounds', () => ({
   useStorefrontCatalogPriceBounds,
 }));
-vi.mock('../../../application/hooks/useHaptic', () => ({ useHaptic: () => ({ selectTick: vi.fn() }) }));
+vi.mock('../../../application/hooks/useHaptic', () => ({
+  useHaptic: () => ({ selectTick: vi.fn() }),
+}));
 
 import CatalogView from './CatalogView';
 import type {
@@ -103,6 +105,7 @@ function catalogState(overrides: Partial<StorefrontCatalogState> = {}): Storefro
     hasNextPage: false,
     loading: false,
     fetchingNextPage: false,
+    updating: false,
     initialError: null,
     nextPageError: null,
     loadMore: vi.fn(),
@@ -119,6 +122,16 @@ function lastParams(): URLSearchParams {
 function lastFilters(): StorefrontCatalogFilters {
   const calls = useStorefrontCatalog.mock.calls;
   return calls[calls.length - 1][1] as StorefrontCatalogFilters;
+}
+
+function lastCatalogEnabled(): boolean {
+  const calls = useStorefrontCatalog.mock.calls;
+  return calls[calls.length - 1][3] as boolean;
+}
+
+function lastBoundsEnabled(): boolean {
+  const calls = useStorefrontCatalogPriceBounds.mock.calls;
+  return calls[calls.length - 1][1] as boolean;
 }
 
 beforeEach(() => {
@@ -252,10 +265,7 @@ describe('CatalogView', () => {
   it('применённый ценовой фильтр → кнопка фильтров активна', () => {
     searchParamsRef.value = new URLSearchParams('minPrice=5000&maxPrice=100000');
     render(<CatalogView />);
-    expect(screen.getByRole('button', { name: 'Фильтры' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
+    expect(screen.getByRole('button', { name: 'Фильтры' })).toHaveAttribute('aria-pressed', 'true');
   });
 
   it('чипы фильтров: снятие категории не трогает цену', async () => {
@@ -272,9 +282,7 @@ describe('CatalogView', () => {
     searchParamsRef.value = new URLSearchParams('category=c1&minPrice=5000&maxPrice=100000');
     render(<CatalogView />);
 
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Убрать фильтр цены 50 $ – 1000 $' }),
-    );
+    await userEvent.click(screen.getByRole('button', { name: 'Убрать фильтр цены 50 $ – 1000 $' }));
     expect(lastParams().get('minPrice')).toBeNull();
     expect(lastParams().get('maxPrice')).toBeNull();
     expect(lastParams().get('category')).toBe('c1');
@@ -362,5 +370,70 @@ describe('CatalogView', () => {
     render(<CatalogView />);
     await userEvent.click(screen.getByRole('button', { name: 'Профиль' }));
     expect(navigate).toHaveBeenCalledWith('/account');
+  });
+
+  it('внешнее изменение URL q синхронизирует поле и фильтр', () => {
+    searchParamsRef.value = new URLSearchParams('q=nike');
+    const { rerender } = render(<CatalogView />);
+    expect(screen.getByLabelText('Поиск по названию')).toHaveValue('nike');
+
+    searchParamsRef.value = new URLSearchParams('q=adidas');
+    rerender(<CatalogView />);
+
+    expect(screen.getByLabelText('Поиск по названию')).toHaveValue('adidas');
+    expect(lastFilters().search).toBe('adidas');
+  });
+
+  it('ACTIVE → catalog и bounds enabled; PAUSED → disabled', () => {
+    render(<CatalogView />);
+    expect(lastCatalogEnabled()).toBe(true);
+    expect(lastBoundsEnabled()).toBe(true);
+
+    useStorefrontHome.mockReturnValue(
+      contextState({ home: { ...HOME, store: { ...HOME.store, status: 'PAUSED' } } }),
+    );
+    render(<CatalogView />);
+    expect(lastCatalogEnabled()).toBe(false);
+    expect(lastBoundsEnabled()).toBe(false);
+  });
+
+  it('обновление набора (stale) → индикатор и aria-busy, товары остаются', () => {
+    useStorefrontCatalog.mockReturnValue(catalogState({ updating: true }));
+    const { container } = render(<CatalogView />);
+
+    expect(screen.getByTestId('catalog-updating')).toBeInTheDocument();
+    expect(container.querySelector('.catalog-results')).toHaveAttribute('aria-busy', 'true');
+    expect(screen.getByText('Nike Air')).toBeInTheDocument();
+  });
+
+  it('ошибка bounds → отдельное сообщение и «Повторить»', async () => {
+    const refresh = vi.fn();
+    useStorefrontCatalogPriceBounds.mockReturnValue({
+      bounds: null,
+      loading: false,
+      error: 'boom',
+      refresh,
+    });
+    render(<CatalogView />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Фильтры' }));
+    expect(screen.getByText('Не удалось загрузить фильтр цены')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Повторить' }));
+    expect(refresh).toHaveBeenCalled();
+  });
+
+  it('bounds ещё грузятся → «Загрузка фильтра…», не «нет цен»', async () => {
+    useStorefrontCatalogPriceBounds.mockReturnValue({
+      bounds: null,
+      loading: true,
+      error: null,
+      refresh: vi.fn(),
+    });
+    render(<CatalogView />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Фильтры' }));
+    expect(screen.getByText('Загрузка фильтра…')).toBeInTheDocument();
+    expect(screen.queryByText('Пока нет доступных цен для фильтра.')).toBeNull();
   });
 });

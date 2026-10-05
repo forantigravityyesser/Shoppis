@@ -22,8 +22,8 @@ vi.mock('../../../application/store', () => ({
     }),
 }));
 
-vi.mock('../../../application/hooks/useStorefrontProduct', () => ({
-  useStorefrontProductQuestions: () => questionsState.current,
+vi.mock('../../../application/hooks/useSellerProductSocial', () => ({
+  useSellerProductQuestions: () => questionsState.current,
 }));
 
 vi.mock('../../../application/hooks/useQuestionActions', () => ({

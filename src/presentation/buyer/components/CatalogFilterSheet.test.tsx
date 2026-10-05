@@ -65,4 +65,24 @@ describe('CatalogFilterSheet', () => {
     expect(props.onApply).not.toHaveBeenCalled();
     expect(props.onClose).toHaveBeenCalled();
   });
+
+  it('границы грузятся → «Загрузка фильтра…» (не «нет цен»)', () => {
+    renderSheet({ bounds: null, loading: true });
+    expect(screen.getByText('Загрузка фильтра…')).toBeInTheDocument();
+    expect(screen.queryByText('Пока нет доступных цен для фильтра.')).toBeNull();
+  });
+
+  it('ошибка загрузки границ → сообщение и «Повторить»', () => {
+    const onRetry = vi.fn();
+    renderSheet({ bounds: null, error: 'boom', onRetry });
+    expect(screen.getByText('Не удалось загрузить фильтр цены')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Повторить' }));
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it('неокруглённые minor-границы → endpoints выставляются как есть', () => {
+    renderSheet({ bounds: { minPrice: 13266, maxPrice: 40123 } });
+    expect(valueOf('Цена от')).toBe('13266');
+    expect(valueOf('Цена до')).toBe('40123');
+  });
 });

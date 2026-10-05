@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { useParams } from 'react-router';
 import { useStore } from '../../../application/store';
-import { useStorefrontProductReviews } from '../../../application/hooks/useStorefrontProduct';
+import { useSellerProductReviews } from '../../../application/hooks/useSellerProductSocial';
 import { useReviewActions } from '../../../application/hooks/useReviewActions';
 import { useHaptic } from '../../../application/hooks/useHaptic';
-import ReviewsHistogram from '../../buyer/components/product/ReviewsHistogram';
-import ReviewCard from '../../buyer/components/product/ReviewCard';
+import ReviewsHistogram from '../../shared/product-social/ReviewsHistogram';
+import ReviewCard from '../../shared/product-social/ReviewCard';
 import { reviewErrorMessage } from '../../shared/review-error-message';
-import '../../buyer/product-detail.css';
+import '../../shared/product-social/product-social.css';
 
 /**
  * Вкладка «Отзывы» seller-карточки (nested route `/seller/inventory/product/:productId/reviews`).
@@ -19,10 +19,10 @@ import '../../buyer/product-detail.css';
 export default function ProductReviewsView() {
   const { productId = '' } = useParams();
   const publicId = useStore((s) => s.currentStore?.publicId ?? null);
-  const viewerUserId = useStore((s) => s.serverUser?.id ?? null);
 
-  const { summary, distribution, reviews, loading, error, refresh } =
-    useStorefrontProductReviews(publicId, productId || null, true, viewerUserId);
+  const { summary, distribution, reviews, loading, error, refresh } = useSellerProductReviews(
+    productId || null,
+  );
   const actions = useReviewActions(publicId, productId || null);
   const { notifySuccess, selectTick } = useHaptic();
 
@@ -36,6 +36,7 @@ export default function ProductReviewsView() {
       notifySuccess();
       setReplyTo(null);
       setReplyText('');
+      refresh();
     } catch {
       /* ошибка показана через actionError */
     }
@@ -46,6 +47,7 @@ export default function ProductReviewsView() {
     try {
       await actions.hideReview(reviewId);
       selectTick();
+      refresh();
     } catch {
       /* ошибка показана через actionError */
     }

@@ -6,6 +6,11 @@ import PriceRangeSlider from './PriceRangeSlider';
 interface Props {
   open: boolean;
   bounds: StorefrontCatalogPriceBounds | null;
+  /** Границы цен грузятся. */
+  loading?: boolean;
+  /** Границы цен не загрузились (отдельно от «нет цен»). */
+  error?: string | null;
+  onRetry?: () => void;
   currencySymbol: string;
   /** Применённые из URL значения (minor units); null — фильтр не задан. */
   appliedMin: number | null;
@@ -24,6 +29,9 @@ interface Props {
 export default function CatalogFilterSheet({
   open,
   bounds,
+  loading = false,
+  error = null,
+  onRetry,
   currencySymbol,
   appliedMin,
   appliedMax,
@@ -61,7 +69,20 @@ export default function CatalogFilterSheet({
     <BottomSheet open={open} onClose={onClose}>
       <h2 className="sheet__title">Фильтры</h2>
 
-      {hasBounds ? (
+      {loading ? (
+        <p className="filter-status" role="status">
+          Загрузка фильтра…
+        </p>
+      ) : error ? (
+        <div className="filter-error" role="alert">
+          <p className="filter-error__text">Не удалось загрузить фильтр цены</p>
+          {onRetry ? (
+            <button type="button" className="btn-ghost" onClick={onRetry}>
+              Повторить
+            </button>
+          ) : null}
+        </div>
+      ) : hasBounds ? (
         <div className="filter-block">
           <div className="filter-block__label">Цена</div>
           <PriceRangeSlider

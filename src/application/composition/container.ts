@@ -14,6 +14,7 @@ import type { IdentityProvider } from '../ports/identity';
 import type { OrderRepository } from '../ports/order-repository';
 import type { ProductRepository } from '../ports/product-repository';
 import type { ImageUploadPort, StoragePort } from '../ports/storage';
+import type { SellerProductSocialRepository } from '../ports/seller-product-social-repository';
 import type { StoreRepository } from '../ports/store-repository';
 import type { StorefrontProductRepository } from '../ports/storefront-product-repository';
 import type { StorefrontCatalogRepository } from '../ports/storefront-catalog-repository';
@@ -32,6 +33,7 @@ export interface AppContainer {
   storeRepository: StoreRepository;
   storefrontRepository: StorefrontRepository;
   storefrontProductRepository: StorefrontProductRepository;
+  sellerProductSocialRepository: SellerProductSocialRepository;
   storefrontCatalogRepository: StorefrontCatalogRepository;
   orderRepository: OrderRepository;
   storage: StoragePort;

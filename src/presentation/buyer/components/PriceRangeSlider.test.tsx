@@ -45,4 +45,25 @@ describe('PriceRangeSlider', () => {
     fireEvent.change(screen.getByLabelText('Цена до'), { target: { value: '700' } });
     expect(onChangeMax).toHaveBeenCalledWith(700);
   });
+
+  it('неокруглённые границы (не кратны step): min/max достижимы', () => {
+    render(
+      <PriceRangeSlider
+        min={13266}
+        max={40123}
+        valueMin={13266}
+        valueMax={40123}
+        symbol="€"
+        onChangeMin={vi.fn()}
+        onChangeMax={vi.fn()}
+      />,
+    );
+
+    const from = screen.getByLabelText('Цена от') as HTMLInputElement;
+    const to = screen.getByLabelText('Цена до') as HTMLInputElement;
+    expect(from.min).toBe('13266');
+    expect(to.max).toBe('40123');
+    expect(from.value).toBe('13266');
+    expect(to.value).toBe('40123');
+  });
 });

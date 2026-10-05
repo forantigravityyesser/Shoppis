@@ -17,11 +17,12 @@ progressive/cursor product loading вместо `slice(0,6)`, семантика
 крупный блок — Catalog (server-side) и Product Detail (`14`).
 
 **Актуализация (2026-10-04):** вкладка **Каталог** покупателя **реализована** (server-driven): RPC
-`storefront_catalog_products_read` + `storefront_catalog_price_bounds_read` (миграция `0026`),
-продавец управляет порядком категорий (`category_reorder_atomic`, миграция `0027`, edge
-`catalog-actions`), application-контур `StorefrontCatalogRepository`/`useStorefrontCatalog`
-(`useInfiniteQuery` + `keepPreviousData`), URL-состояние (`category`/`q`/`minPrice`/`maxPrice`),
-поиск с debounce, фильтр цены, чипсы, infinite loading, состояния. План/аудит — `17` (CAT-00…CAT-15).
+`storefront_catalog_products_read` + `storefront_catalog_price_bounds_read` (миграция `0026`,
+hardening `0030`: PAUSED-boundary + literal search), продавец управляет порядком категорий
+(`category_reorder_atomic`, миграция `0027`, edge `catalog-actions`), application-контур
+`StorefrontCatalogRepository`/`useStorefrontCatalog` (`useInfiniteQuery` + `keepPreviousData`),
+URL-состояние (`category`/`q`/`minPrice`/`maxPrice`), поиск с debounce, фильтр цены, чипсы,
+infinite loading, состояния. План/аудит — `17` (CAT-00…CAT-16).
 Осталось: ручная визуальная проверка в Telegram; RLS — вне scope.
 
 **Актуализация (2026-10-03):** следующий блок buyer-части — карточка товара: экран, галерея,
@@ -47,7 +48,7 @@ Spec §9.0.
 11. `14_SHOPPIS_PRODUCT_DETAIL_PLAN.md` — карточка товара покупателя: экран/галерея/варианты/цена/наличие/избранное/корзина, отзывы и вопросы (чтение), related (ProductGroup), публичный read layer `0015`, seller mini-stage; этапы PD-01…PD-14 (ЧТО+КАК).
 12. `15_SHOPPIS_BUYER_HOME_HARDENING_AUDIT.md` — hardening Главной покупателя: разбор аудита против кода, public store boundary, buyer avatar, progressive/cursor product loading, семантика `ProductCard`, image hardening, убрать `originalPrice` из Home; этапы HOME-HARDEN-01…11. Переопределяет `13` §3/§5/§9-10/§19/§28 — см. Приложение C.
 13. `16_SHOPPIS_REMAINING_WORK.md` — реестр незавершённого/отложенного (product follow-up'ы, roadmap, ссылки на hardening `11` и divergence `08`). Сюда перенесён редактор linking attributes (из `14` PD-14).
-14. `17_SHOPPIS_CATALOG_PLAN.md` — Каталог покупателя (server-driven): план реализации, единый контракт read-model/URL/React Query, переиспользование Home-фундамента; этапы CAT-00…CAT-15 (ЧТО+КАК).
+14. `17_SHOPPIS_CATALOG_PLAN.md` — Каталог покупателя (server-driven): план реализации, единый контракт read-model/URL/React Query, переиспользование Home-фундамента; этапы CAT-00…CAT-16 (ЧТО+КАК).
 
 ## Принцип двух сред проверки
 Telegram — не финальная интеграция, а целевая среда исполнения и проверки с первых этапов. Каждый глобальный этап имеет два состояния: `LOCAL VERIFIED` (браузер / локальный контур) и `TELEGRAM VERIFIED` (реальный Telegram Mini App на development-окружении). Этап не закрывается без обоих.

@@ -4,7 +4,7 @@ import { useStorefrontProductQuestions } from '../../../../application/hooks/use
 import { useQuestionActions } from '../../../../application/hooks/useQuestionActions';
 import { useHaptic } from '../../../../application/hooks/useHaptic';
 import SocialLayer from '../../components/product/SocialLayer';
-import QuestionCard from '../../components/product/QuestionCard';
+import QuestionCard from '../../../shared/product-social/QuestionCard';
 import QuestionComposer from '../../components/product/QuestionComposer';
 import { questionErrorMessage } from '../../../shared/question-error-message';
 

@@ -5,8 +5,8 @@ import { useStorefrontProductReviews } from '../../../../application/hooks/useSt
 import { useReviewActions } from '../../../../application/hooks/useReviewActions';
 import { useHaptic } from '../../../../application/hooks/useHaptic';
 import SocialLayer from '../../components/product/SocialLayer';
-import ReviewsHistogram from '../../components/product/ReviewsHistogram';
-import ReviewCard from '../../components/product/ReviewCard';
+import ReviewsHistogram from '../../../shared/product-social/ReviewsHistogram';
+import ReviewCard from '../../../shared/product-social/ReviewCard';
 import ReviewComposer from '../../components/product/ReviewComposer';
 import { reviewErrorMessage } from '../../../shared/review-error-message';
 

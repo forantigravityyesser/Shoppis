@@ -104,9 +104,7 @@ describe('useStorefrontCatalog', () => {
     expect(result.current.products.map((p) => p.id)).toEqual(['p1', 'p2']);
     expect(result.current.nextCursor).toBeNull();
     expect(result.current.hasNextPage).toBe(false);
-    expect(loadCatalogProducts).toHaveBeenLastCalledWith(
-      expect.objectContaining({ cursor: 'c1' }),
-    );
+    expect(loadCatalogProducts).toHaveBeenLastCalledWith(expect.objectContaining({ cursor: 'c1' }));
   });
 
   it('loadMore без следующей страницы — no-op', async () => {
@@ -173,8 +171,7 @@ describe('useStorefrontCatalog', () => {
     });
 
     const { result, rerender } = renderHook(
-      (props: { filters: StorefrontCatalogFilters }) =>
-        useStorefrontCatalog('pub1', props.filters),
+      (props: { filters: StorefrontCatalogFilters }) => useStorefrontCatalog('pub1', props.filters),
       { wrapper, initialProps: { filters: {} } },
     );
     await waitFor(() => expect(result.current.loading).toBe(false));
@@ -202,8 +199,7 @@ describe('useStorefrontCatalog', () => {
     });
 
     const { result, rerender } = renderHook(
-      (props: { filters: StorefrontCatalogFilters }) =>
-        useStorefrontCatalog('pub1', props.filters),
+      (props: { filters: StorefrontCatalogFilters }) => useStorefrontCatalog('pub1', props.filters),
       { wrapper, initialProps: { filters: {} } },
     );
     await waitFor(() => expect(result.current.loading).toBe(false));
@@ -212,8 +208,10 @@ describe('useStorefrontCatalog', () => {
     rerender({ filters: { categoryId: 'cat-a' } });
     await waitFor(() => expect(loadCatalogProducts).toHaveBeenCalledTimes(2));
 
-    // Пока новый набор грузится — предыдущие товары остаются, skeleton не включается.
+    // Пока новый набор грузится — предыдущие товары остаются, skeleton не включается,
+    // но updating=true (stale-контент).
     expect(result.current.loading).toBe(false);
+    expect(result.current.updating).toBe(true);
     expect(result.current.products.map((p) => p.id)).toEqual(['all1']);
 
     await act(async () => {
@@ -221,6 +219,7 @@ describe('useStorefrontCatalog', () => {
       await Promise.resolve();
     });
     await waitFor(() => expect(result.current.products.map((p) => p.id)).toEqual(['a1']));
+    expect(result.current.updating).toBe(false);
   });
 
   it('last-wins: ответ устаревшего фильтра не перетирает актуальный', async () => {
@@ -238,8 +237,7 @@ describe('useStorefrontCatalog', () => {
     });
 
     const { result, rerender } = renderHook(
-      (props: { filters: StorefrontCatalogFilters }) =>
-        useStorefrontCatalog('pub1', props.filters),
+      (props: { filters: StorefrontCatalogFilters }) => useStorefrontCatalog('pub1', props.filters),
       { wrapper, initialProps: { filters: {} } },
     );
     await waitFor(() => expect(result.current.loading).toBe(false));

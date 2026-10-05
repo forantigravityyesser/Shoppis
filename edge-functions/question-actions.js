@@ -50,6 +50,13 @@ function dispatch(client, action, session, body) {
         p_actor_user_id: session.uid,
         p_text: body.text ?? '',
       });
+    // Seller read (PD-H-01): owner-only projection, actor from session. Lets the
+    // store owner read questions of ARCHIVED products without trusting a client id.
+    case 'question-seller-read':
+      return client.database.rpc('seller_product_questions_read', {
+        p_product_id: body.productId,
+        p_actor_user_id: session.uid,
+      });
     default:
       return { data: null, error: { message: 'UNKNOWN_ACTION' } };
   }
@@ -81,7 +88,11 @@ export default async function (request) {
     const { data, error } = await dispatch(client, action, session, body);
     if (error) return errorToResponse(ERROR_STATUS, error.message || error, 'Question action failed');
     result = Array.isArray(data) ? data[0] : data;
-    if (!result?.success) return json({ success: false, error: 'Question action failed' }, 500);
+    // Read actions return the projection directly (no `success` envelope).
+    const isRead = action === 'question-seller-read';
+    if (!isRead && !result?.success) {
+      return json({ success: false, error: 'Question action failed' }, 500);
+    }
   } catch (e) {
     console.error('[question-actions] rpc error:', e);
     return errorToResponse(ERROR_STATUS, e?.message || e, 'Question action failed');

@@ -2,7 +2,7 @@ import { ShoppingCart } from 'lucide-react';
 import type { StorefrontProductCard } from '../../../application/read-models/storefront';
 import { formatMoneyMinor } from '../../../domain/rules/product-rules';
 import { getInitial } from '../../../domain/rules/initial';
-import SafeImage from './SafeImage';
+import SafeImage from '../../shared/components/SafeImage';
 import FavoriteButton from './FavoriteButton';
 
 interface Props {

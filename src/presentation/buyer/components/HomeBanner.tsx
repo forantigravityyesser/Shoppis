@@ -1,5 +1,5 @@
 import { Store } from 'lucide-react';
-import SafeImage from './SafeImage';
+import SafeImage from '../../shared/components/SafeImage';
 
 interface Props {
   bannerUrl: string | null;

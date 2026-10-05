@@ -4,7 +4,7 @@ const { invokeFunction } = vi.hoisted(() => ({ invokeFunction: vi.fn() }));
 
 vi.mock('../insforge/functions-gateway', () => ({ invokeFunction }));
 
-import { createReview, hideReview, replyToReview } from './review-api';
+import { createReview, hideReview, loadSellerReviews, replyToReview } from './review-api';
 
 beforeEach(() => invokeFunction.mockReset());
 
@@ -34,6 +34,19 @@ describe('review-api', () => {
       token: 'tok',
       body: { action: 'review-reply', reviewId: 'r1', text: 'Согласен' },
     });
+  });
+
+  it('loadSellerReviews → review-seller-read и возвращает result', async () => {
+    const projection = { summary: { average: 0, count: 0 }, reviews: [] };
+    invokeFunction.mockResolvedValue({ data: { success: true, result: projection }, error: null });
+
+    const result = await loadSellerReviews('tok', 'p1');
+
+    expect(invokeFunction).toHaveBeenCalledWith('review-actions', {
+      token: 'tok',
+      body: { action: 'review-seller-read', productId: 'p1' },
+    });
+    expect(result).toEqual(projection);
   });
 
   it('бросает код ошибки от edge', async () => {

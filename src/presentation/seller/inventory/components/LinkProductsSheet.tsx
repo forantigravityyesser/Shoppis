@@ -4,7 +4,7 @@ import type { InventoryProductItem } from '../../../../application/hooks/useInve
 import { currencySymbol } from '../../../../domain/constants/currencies';
 import { formatMoneyMinor } from '../../../../domain/rules/product-rules';
 import BottomSheet from '../../../shared/components/BottomSheet';
-import SafeImage from '../../../buyer/components/SafeImage';
+import SafeImage from '../../../shared/components/SafeImage';
 
 interface Props {
   open: boolean;

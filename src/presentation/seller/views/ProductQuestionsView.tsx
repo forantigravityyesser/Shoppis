@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { useParams } from 'react-router';
 import { useStore } from '../../../application/store';
-import { useStorefrontProductQuestions } from '../../../application/hooks/useStorefrontProduct';
+import { useSellerProductQuestions } from '../../../application/hooks/useSellerProductSocial';
 import { useQuestionActions } from '../../../application/hooks/useQuestionActions';
 import { useHaptic } from '../../../application/hooks/useHaptic';
-import QuestionCard from '../../buyer/components/product/QuestionCard';
+import QuestionCard from '../../shared/product-social/QuestionCard';
 import { questionErrorMessage } from '../../shared/question-error-message';
-import '../../buyer/product-detail.css';
+import '../../shared/product-social/product-social.css';
 
 /**
  * Вкладка «Вопросы» seller-карточки (nested route `/seller/inventory/product/:productId/questions`).
@@ -17,14 +17,8 @@ import '../../buyer/product-detail.css';
 export default function ProductQuestionsView() {
   const { productId = '' } = useParams();
   const publicId = useStore((s) => s.currentStore?.publicId ?? null);
-  const viewerUserId = useStore((s) => s.serverUser?.id ?? null);
 
-  const { questions, loading, error, refresh } = useStorefrontProductQuestions(
-    publicId,
-    productId || null,
-    true,
-    viewerUserId,
-  );
+  const { questions, loading, error, refresh } = useSellerProductQuestions(productId || null);
   const actions = useQuestionActions(publicId, productId || null);
   const { notifySuccess, selectTick } = useHaptic();
 
@@ -38,6 +32,7 @@ export default function ProductQuestionsView() {
       notifySuccess();
       setAnswerTo(null);
       setAnswerText('');
+      refresh();
     } catch {
       /* ошибка показана через actionError */
     }
@@ -47,6 +42,7 @@ export default function ProductQuestionsView() {
     try {
       await actions.hideQuestion(questionId);
       selectTick();
+      refresh();
     } catch {
       /* ошибка показана через actionError */
     }

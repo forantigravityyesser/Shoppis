@@ -10,10 +10,16 @@ interface ReviewResponse {
   error?: string;
 }
 
-async function callReview(token: string, body: Record<string, unknown>): Promise<void> {
+/** Общий вызов edge; возвращает payload чтения (`result`) для read-действий. */
+async function callReviewRaw(token: string, body: Record<string, unknown>): Promise<unknown> {
   const { data, error } = await invokeFunction<ReviewResponse>('review-actions', { body, token });
   if (error) throw new Error(error.message);
   if (!data?.success) throw new Error(data?.error ?? 'Review action failed');
+  return data.result;
+}
+
+async function callReview(token: string, body: Record<string, unknown>): Promise<void> {
+  await callReviewRaw(token, body);
 }
 
 export async function createReview(
@@ -31,4 +37,9 @@ export async function hideReview(token: string, reviewId: string): Promise<void>
 
 export async function replyToReview(token: string, reviewId: string, text: string): Promise<void> {
   await callReview(token, { action: 'review-reply', reviewId, text });
+}
+
+/** Seller-чтение отзывов (включая ARCHIVED); actor и owner-check — на сервере. */
+export async function loadSellerReviews(token: string, productId: string): Promise<unknown> {
+  return callReviewRaw(token, { action: 'review-seller-read', productId });
 }

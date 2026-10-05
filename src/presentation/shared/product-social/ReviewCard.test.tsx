@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import type { StorefrontProductReview } from '../../../../application/read-models/storefront-product';
+import type { StorefrontProductReview } from '../../../application/read-models/storefront-product';
 import ReviewCard from './ReviewCard';
 
 const review: StorefrontProductReview = {

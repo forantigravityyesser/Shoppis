@@ -1,6 +1,6 @@
 import { Send } from 'lucide-react';
 import { getInitial } from '../../../domain/rules/initial';
-import SafeImage from './SafeImage';
+import SafeImage from '../../shared/components/SafeImage';
 
 interface Props {
   variant: 'notFound' | 'paused';

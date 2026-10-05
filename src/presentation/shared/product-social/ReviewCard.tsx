@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
-import type { StorefrontProductReview } from '../../../../application/read-models/storefront-product';
-import { getInitial } from '../../../../domain/rules/initial';
+import type { StorefrontProductReview } from '../../../application/read-models/storefront-product';
+import { getInitial } from '../../../domain/rules/initial';
 import RatingStars from './RatingStars';
 
 interface Props {

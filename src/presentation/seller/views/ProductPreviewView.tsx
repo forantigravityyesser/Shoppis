@@ -6,7 +6,7 @@ import { useProducts } from '../../../application/hooks/useProducts';
 import { useHaptic } from '../../../application/hooks/useHaptic';
 import { currencySymbol } from '../../../domain/constants/currencies';
 import { formatMoneyMinor } from '../../../domain/rules/product-rules';
-import SafeImage from '../../buyer/components/SafeImage';
+import SafeImage from '../../shared/components/SafeImage';
 import LinkProductsSheet from '../inventory/components/LinkProductsSheet';
 import '../inventory/inventory.css';
 

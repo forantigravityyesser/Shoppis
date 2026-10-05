@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
-import type { StorefrontProductQuestion } from '../../../../application/read-models/storefront-product';
-import { getInitial } from '../../../../domain/rules/initial';
+import type { StorefrontProductQuestion } from '../../../application/read-models/storefront-product';
+import { getInitial } from '../../../domain/rules/initial';
 
 interface Props {
   question: StorefrontProductQuestion;

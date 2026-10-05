@@ -368,7 +368,8 @@ UI **не дублирует формулу** (`product-rules.ts` остаётс
 - Связь **двусторонняя** и **без транзитивности**: `A↔B` и `B↔C` → A видит только B,
   B видит A и C, C видит только B (никакой «свалки похожестей»).
 - Правила чтения: товары, связанные с текущим (в обе стороны), same store, `status = ACTIVE`,
-  исключая текущий; сортировка по `created_at` связи; **без limit** (показываем все связи).
+  исключая текущий; сортировка по `created_at` связи (**сначала новые**); **limit 8**
+  (`MAX_RELATED_PRODUCTS`) — scaling contract; «Показать ещё» — позже (docs/18 PD-H-07).
 - Нет связей → **пустое состояние** вкладки (не угадываем «похожие» искусственно).
 - UI: вкладка **«Похожее»** (`/product/:id/related`) — **сетка мини-карточек в 2 колонки**
   (вертикальный скролл панели): фото (`thumb ?? full`), название (2 строки), цена
@@ -565,9 +566,9 @@ product.status != 'ACTIVE' → null
 - `rating`: `avg(rating)` + `count(*)` по `reviews` c `status = 'ACTIVE'`;
   нет отзывов → `average = 0, count = 0` (клиент не показывает рейтинг при `count = 0`).
 - `questionsCount`: `count(*)` по `questions` c `status = 'ACTIVE'`.
-- `relatedProducts` (переопределено в миграции `0024`): явные связи из `product_links`
+- `relatedProducts` (переопределено в миграции `0025`, limit — в `0030`): явные связи из `product_links`
   (текущий товар с любой стороны пары), same store, `status = 'ACTIVE'`, `id <> p_product_id`,
-  `order by link.created_at asc`, **без limit**; изображение — первое по `sort_order`
+  `order by link.created_at desc`, **limit 8**; изображение — первое по `sort_order`
   (`coalesce(nullif(thumb,...), nullif(storage,...))`); цена — первого ACTIVE варианта (как в 0014);
   если связей нет → `[]`.
 - `categoryId`: `null`, если категория не ACTIVE (join по условию, `products.category_id` не мутируем).

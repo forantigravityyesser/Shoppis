@@ -1,7 +1,7 @@
 import type {
   StorefrontProductRating,
   StorefrontReviewDistribution,
-} from '../../../../application/read-models/storefront-product';
+} from '../../../application/read-models/storefront-product';
 import RatingStars from './RatingStars';
 
 interface Props {

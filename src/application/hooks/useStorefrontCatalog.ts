@@ -24,6 +24,11 @@ export interface StorefrontCatalogState {
   loading: boolean;
   /** Догрузка следующей страницы. */
   fetchingNextPage: boolean;
+  /**
+   * Идёт обновление набора при смене фильтра/поиска: показываются предыдущие
+   * товары (`keepPreviousData`), пока грузится новый запрос. Означает stale-контент.
+   */
+  updating: boolean;
   /** Ошибка первой загрузки (данных нет) — fatal для экрана. */
   initialError: string | null;
   /** Ошибка догрузки следующей страницы — локальная: товары сохраняются. */
@@ -95,6 +100,9 @@ export function useStorefrontCatalog(
     hasNextPage: hasNextPage === true,
     loading: queryEnabled && query.isLoading,
     fetchingNextPage: queryEnabled && isFetchingNextPage,
+    // keepPreviousData отдаёт предыдущий набор как placeholder, пока грузится новый:
+    // isPlaceholderData=true + isFetching=true — это и есть stale-состояние фильтра.
+    updating: queryEnabled && query.isPlaceholderData && query.isFetching,
     initialError: queryEnabled && isLoadingError ? errorMessage : null,
     nextPageError: queryEnabled && isFetchNextPageError ? errorMessage : null,
     loadMore,
