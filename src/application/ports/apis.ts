@@ -76,5 +76,6 @@ export interface OrderApi {
     variantId: string,
     quantity: number,
     reason?: string,
+    orderId?: string,
   ): Promise<unknown>;
 }

@@ -38,10 +38,12 @@
   (P0/P1) — `21_SHOPPIS_CART_COMMERCE_HARDENING_AUDIT.md`** (idempotency, quantity-contract,
   `held_quantity`, SQL-тесты).
 - **Favorites:** ✅ реализован (`FavoritesView`, storefront-hydration по id).
-- **Orders:** остаётся заглушкой (`OrdersView` → `null`). Фундамент готов: `fetchBuyerOrders` заполняет
-  `ordersByStore`, заказ создаётся атомарно, `lastOrder` доступен после оформления. Нужен экран
-  списка/деталей заказа.
-- **Док:** `08 §2.11`, `11` S3 «Placeholder-экраны покупателя», `18`.
+- **Orders:** план зафиксирован — `22_SHOPPIS_ORDERS_TECHNICAL_PLAN.md` (этапы `ORD-00…ORD-13`).
+  UI — заглушки (`OrdersView` → `null`, seller views — `PlaceholderScreen`). Фундамент готов:
+  command-path `order-actions`, checkout `create_order_atomic`, snapshots, `lastOrder` после
+  оформления. Реальная работа: authenticated read-контур (`order-queries` + `0042`), username snapshot
+  (`ORD-02`), React Query, shared UI списка/деталей, buyer/seller actions, security-тесты.
+- **Док:** `22`, `08 §2.11`, `11` S3 «Placeholder-экраны покупателя», `18`.
 
 ### FD-4. Social follow-ups — `DEFERRED`
 - Пагинация / фильтры / сортировка лент отзывов и вопросов.

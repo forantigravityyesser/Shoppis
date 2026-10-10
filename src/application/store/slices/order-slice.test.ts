@@ -32,6 +32,9 @@ const RECIPIENT: RecipientInfo = {
   address: 'Москва, ул. Ленина 1',
 };
 
+/** Обязательный ключ идемпотентности (docs/21 §3.1-3.2). */
+const KEY = 'attempt-key-1';
+
 function seedCart(): void {
   useStore.setState({
     storeId: 'store-a',
@@ -74,7 +77,7 @@ describe('order-slice — checkout foundation', () => {
       currencyCode: 'USD',
     });
 
-    const orderId = await useStore.getState().placeOrder(RECIPIENT);
+    const orderId = await useStore.getState().placeOrder(RECIPIENT, KEY);
     expect(orderId).toBe('o1');
 
     const s = useStore.getState();
@@ -101,7 +104,7 @@ describe('order-slice — checkout foundation', () => {
     });
     fetchBuyerOrders.mockRejectedValue(new Error('network'));
 
-    await expect(useStore.getState().placeOrder(RECIPIENT)).resolves.toBe('o2');
+    await expect(useStore.getState().placeOrder(RECIPIENT, KEY)).resolves.toBe('o2');
     const s = useStore.getState();
     expect(s.lastOrder?.orderId).toBe('o2');
     expect(s.cartByStore['store-a']).toHaveLength(1);
@@ -111,7 +114,7 @@ describe('order-slice — checkout foundation', () => {
   it('placeOrder: ошибка → корзина сохраняется, ошибка зафиксирована, lastOrder пуст', async () => {
     invokeCheckout.mockRejectedValue(new Error('INSUFFICIENT_STOCK'));
 
-    await expect(useStore.getState().placeOrder(RECIPIENT)).rejects.toThrow('INSUFFICIENT_STOCK');
+    await expect(useStore.getState().placeOrder(RECIPIENT, KEY)).rejects.toThrow('INSUFFICIENT_STOCK');
 
     const s = useStore.getState();
     expect(s.cartByStore['store-a']).toHaveLength(2);
@@ -121,7 +124,7 @@ describe('order-slice — checkout foundation', () => {
 
   it('placeOrder: невалидный получатель не доходит до сервера', async () => {
     await expect(
-      useStore.getState().placeOrder({ ...RECIPIENT, address: '   ' }),
+      useStore.getState().placeOrder({ ...RECIPIENT, address: '   ' }, KEY),
     ).rejects.toThrow();
     expect(invokeCheckout).not.toHaveBeenCalled();
   });
@@ -141,7 +144,7 @@ describe('order-slice — checkout foundation', () => {
     );
   });
 
-  it('placeOrder: без ключа не генерирует его в слайсе (fallback в infra)', async () => {
+  it('placeOrder: пустой ключ идёт на сервер как есть — генерации в слайсе нет (docs/21 P0-03)', async () => {
     invokeCheckout.mockResolvedValue({
       orderId: 'o1',
       orderNumber: 'SH-1',
@@ -149,11 +152,9 @@ describe('order-slice — checkout foundation', () => {
       currencyCode: 'USD',
     });
 
-    await useStore.getState().placeOrder(RECIPIENT);
+    await useStore.getState().placeOrder(RECIPIENT, '');
 
-    expect(invokeCheckout).toHaveBeenCalledWith(
-      expect.objectContaining({ idempotencyKey: undefined }),
-    );
+    expect(invokeCheckout).toHaveBeenCalledWith(expect.objectContaining({ idempotencyKey: '' }));
   });
 
   it('requestNotifications: согласие → фиксируется на сервере', async () => {
@@ -187,7 +188,7 @@ describe('order-slice — checkout foundation', () => {
       totalMinor: 1000,
       currencyCode: 'USD',
     });
-    await useStore.getState().placeOrder(RECIPIENT);
+    await useStore.getState().placeOrder(RECIPIENT, KEY);
     expect(useStore.getState().lastOrder).not.toBeNull();
 
     useStore.getState().resetCheckout();

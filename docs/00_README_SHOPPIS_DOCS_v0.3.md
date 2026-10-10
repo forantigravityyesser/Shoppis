@@ -85,6 +85,15 @@ reject duplicate variant: `_shared/checkout-items.js`, миграция `0039`, 
 `cart-rules`/`checkout-rules`), `CART-HARDEN-10…12` ✅ (`BuyerCartItem`, selection summary, финальный
 docs-sync/аудит). **Commerce-фундамент закрыт;** осталась ручная `LOCAL`/`TELEGRAM`-проверка за человеком.
 
+**Актуализация (2026-10-10) — пост-аудит регрессии commerce (`21` §13):** закрыты P0 №1 (`0039` заново
+вернула старый гейт цены, затёрв per-axis из `0037` → миграция **`0040`** пересоздаёт `create_order_atomic`
+один раз с независимыми осями и обязательным idempotency key `IDEMPOTENCY_KEY_REQUIRED`), P0 №2
+(`inventory_reconcile` стал order-aware: миграция **`0041`**, `p_order_id` + `INVENTORY_RESERVED_BY_ORDERS`),
+P0 №3 (ключ идемпотентности обязателен на клиенте/edge/RPC) и P1 (`useBuyerCart.resolved` — нет ложного
+экран ошибки при полном удалении устаревших позиций). Harness расширен **Test 10** (4 комбинации осей —
+800/960/900/1080 в Product Detail / Cart / `order_items`) + Test 11/12. Гейт: `test` **816/816**,
+`migrations:check` 0001..0041, `commerce:harness` **44/44**.
+
 **Актуализация (2026-10-05) — hardening Seller Inventory:** повторный аудит после `19` перенесён в
 `20_SHOPPIS_SELLER_INVENTORY_HARDENING_AUDIT.md` (этапы `INV-HARDEN-01…09`). Ключевое: P0 — независимые
 оси custom-цены и custom-скидки варианта, причём **шире внешнего аудита** (не только seller-маппинг и
@@ -103,6 +112,17 @@ derived data вынесена из `InventoryView`, `INV-HARDEN-08` ✅ — lint
 полный гейт зелёный (`typecheck`/`lint` 0/0/`test` 812/`build`/`migrations:check`), открыто — ручная
 `LOCAL`/`TELEGRAM`-сверка. Зависимость: `0038` (`21`) не должна откатывать per-axis логику
 `create_order_atomic`.
+
+**Актуализация (2026-10-10) — Orders (заказы покупателя и продавца):** внешний технический план
+Orders перенесён в формат проекта и сверен с кодом — `22_SHOPPIS_ORDERS_TECHNICAL_PLAN.md` (этапы
+`ORD-00…ORD-13`). Сверка показала: idempotency (reserve-before-order `0038`/`0040`), серверный
+quantity-contract (`0039`) и инварианты инвентаря (harness Test 2/3/7/8/9/11/12) уже закрыты `21` —
+в `22` помечены `⏭️` и не дублируются. Реальная работа: authenticated order read-контур
+(`order-queries` + миграция `0042` с проекциями и keyset-cursor), серверный резолв Telegram username
+при checkout (`process-checkout.js:92` сейчас `null`), вывод Orders server state из Zustand в React
+Query, чистка dead bypass-helpers (`order-repository.ts:159/189/199`), shared UI списка/деталей,
+buyer/seller actions через существующий `order-actions`. Вкладки Orders — по-прежнему заглушки
+(`OrdersView` → `null`, seller — `PlaceholderScreen`); `16` FD-3 синхронизирован.
 
 **Актуализация (2026-10-03):** следующий блок buyer-части — карточка товара: экран, галерея,
 варианты/цена/наличие, избранное, корзина, «О товаре / Отзывы / Вопросы» (чтение), related
@@ -132,6 +152,7 @@ Spec §9.0.
 16. `19_SHOPPIS_SELLER_INVENTORY_RECONSTRUCTION_SPEC_v0.1.md` — реконструкция Seller Inventory: план исправлений и рефакторинга (секции Товары/Категории, explicit variant inheritance, mutation lifecycle, чистка ProductView, полноширинные строки категорий); этапы INV-R-01…INV-R-37, Приложение A — разбор относительно кода.
 17. `20_SHOPPIS_SELLER_INVENTORY_HARDENING_AUDIT.md` — повторный hardening-audit Seller Inventory после `19`: независимые оси custom-цены/скидки (JS + 7 живых SQL-функций + checkout; `INV-HARDEN-01/02` ✅, миграция `0037` применена), единый mutation API (throw), тесты категорий/responsive, переименование `CategoryGrid/CategoryCard` → `InventoryCategoryList`/`InventoryCategoryRow` (`INV-HARDEN-06` ✅), derived data, lint-гигиена; этапы INV-HARDEN-01…09, deferred-производительность 100+ с триггером.
 18. `21_SHOPPIS_CART_COMMERCE_HARDENING_AUDIT.md` — commerce hardening Cart/Checkout/Order: idempotency (retry + SQL reserve-before-order), серверный quantity-contract, `held_quantity` custody, SQL/integration/concurrency тесты, checkout-error → reconciliation, `MAX_CART_ITEMS`, split `cart-rules`/`checkout-rules`; этапы CART-HARDEN-01…12, deferred realtime с триггером. Владелец P0 независимых осей цены — `20` INV-HARDEN-02 (общая зависимость).
+19. `22_SHOPPIS_ORDERS_TECHNICAL_PLAN.md` — Заказы и Детали заказа (покупатель + продавец): перенос внешнего технического плана в формат проекта — аудит фундамента по коду, разбор внешнего плана (что уже закрыто `21`, что остаётся), целевая архитектура read/command (`order-queries` + миграция `0042`, cursor-пагинация, store-scope), read models `OrderListItem`/`OrderDetails`, security/PII, контакты, shared UI, матрица lifecycle-действий, тесты и DoD; этапы ORD-00…ORD-13 (ЧТО+КАК).
 
 ## Принцип двух сред проверки
 Telegram — не финальная интеграция, а целевая среда исполнения и проверки с первых этапов. Каждый глобальный этап имеет два состояния: `LOCAL VERIFIED` (браузер / локальный контур) и `TELEGRAM VERIFIED` (реальный Telegram Mini App на development-окружении). Этап не закрывается без обоих.

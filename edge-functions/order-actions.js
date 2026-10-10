@@ -41,6 +41,10 @@ const ERROR_STATUS = {
   VARIANT_NOT_FOUND: 404,
   INVENTORY_NOT_FOUND: 409,
   INSUFFICIENT_HELD: 409,
+  INVENTORY_RESERVED_BY_ORDERS: 409,
+  ORDER_NOT_FOUND: 404,
+  ORDER_VARIANT_MISMATCH: 400,
+  ORDER_NOT_RECONCILABLE: 409,
 };
 
 function dispatch(client, action, session, body) {
@@ -72,6 +76,7 @@ function dispatch(client, action, session, body) {
         p_actor_user_id: session.uid,
         p_quantity: Number(body.quantity),
         p_reason: body.reason ?? null,
+        p_order_id: body.orderId ?? null,
       });
     default:
       return { data: null, error: { message: 'UNKNOWN_ACTION' } };

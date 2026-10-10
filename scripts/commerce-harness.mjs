@@ -13,6 +13,9 @@
 //   Test 7  buyer cancel NEW → held освобождается
 //   Test 8  seller cancel IN_TRANSIT → held остаётся
 //   Test 9  REFUSED → held остаётся до reconcile
+//   Test 10 независимые оси variant price/discount: Cart / Product Detail / RPC / order_items
+//   Test 11 held активного NEW защищён от variant-wide reconcile (P0-04)
+//   Test 12 order-aware reconcile REFUSED освобождает только held заказа
 //
 // Admin raw-SQL маскирует RAISE-сообщения в INTERNAL_ERROR, поэтому вызовы RPC
 // идут через временный `public._harness_try(text)`, который ловит SQL-исключение
@@ -93,6 +96,7 @@ function check(name, cond, detail = '') {
 }
 
 let store = null;
+let storePublic = null;
 let owner = null;
 let buyerA = null;
 let buyerB = null;
@@ -103,9 +107,10 @@ async function seedUser() {
 
 async function seedStore() {
   const ownerId = await seedUser();
+  storePublic = `harness_${S}`;
   const r = await rows(
     `insert into public.stores (owner_telegram_id, name, owner_user_id, public_id, status, currency, currency_symbol)
-     values (${q(`tg_harness_${S}`)}, ${q(`Harness ${S}`)}, ${q(ownerId)}, ${q(`harness_${S}`)}, 'ACTIVE', 'USD', '$')
+     values (${q(`tg_harness_${S}`)}, ${q(`Harness ${S}`)}, ${q(ownerId)}, ${q(storePublic)}, 'ACTIVE', 'USD', '$')
      returning id`,
   );
   return { ownerId, storeId: idOf(r) };
@@ -299,6 +304,112 @@ async function run() {
     check('Test 9: REFUSED → held остаётся (available=3, held=2)', isInv(await inventoryOf(t.variant), 3, 2));
     await callFn('inventory_reconcile', `${q(t.variant)}, ${q(owner)}, 2, 'HARNESS'`);
     check('Test 9: reconcile → available=5, held=0', isInv(await inventoryOf(t.variant), 5, 0));
+  }
+
+  // Test 10 — независимые оси variant price/discount (docs/20 §4.3, docs/21 P0-05):
+  // одна и та же эффективная цена во всех чтениях + снапшот заказа.
+  {
+    const t = await seedProduct({ price: 1000, discount: 20, available: 20 });
+
+    const setAxes = async (mode, cprice, cdisc) => {
+      await raw(
+        `update public.variants set price_mode = ${q(mode)},
+           custom_original_amount_minor = ${cprice === null ? 'null' : cprice},
+           custom_discount_percent = ${cdisc === null ? 'null' : cdisc}
+         where id = ${q(t.variant)}`,
+      );
+    };
+    const detailPrice = async () => {
+      const d = await json(
+        `select public.storefront_product_detail_read(${q(storePublic)}, ${q(t.product)})`,
+      );
+      const v = (d?.variants ?? []).find((x) => x.id === t.variant);
+      return v ? num(v.price) : null;
+    };
+    const cartPrice = async () => {
+      const items = JSON.stringify([{ productId: t.product, variantId: t.variant }]);
+      const d = await json(
+        `select public.storefront_cart_items_read(${q(storePublic)}, ${q(items)}::jsonb)`,
+      );
+      return d?.items?.[0] ? num(d.items[0].unitPrice) : null;
+    };
+    const orderPrice = async (key) => {
+      const o = await callFn(
+        'create_order_atomic',
+        checkoutArgs(buyerA, key, [{ variantId: t.variant, quantity: 1 }]),
+      );
+      return num(
+        await scalar(
+          `select unit_price_minor from public.order_items where order_id = ${q(o.result.orderId)}`,
+        ),
+      );
+    };
+
+    const cases = [
+      { name: 'A inherited price + inherited discount', mode: 'USE_PRODUCT_PRICE', price: null, disc: null, expected: 800 },
+      { name: 'B custom price + inherited discount', mode: 'CUSTOM_PRICE', price: 1200, disc: null, expected: 960 },
+      { name: 'C inherited price + custom discount', mode: 'CUSTOM_PRICE', price: null, disc: 10, expected: 900 },
+      { name: 'D custom price + custom discount', mode: 'CUSTOM_PRICE', price: 1200, disc: 10, expected: 1080 },
+    ];
+    for (let i = 0; i < cases.length; i += 1) {
+      const c = cases[i];
+      await setAxes(c.mode, c.price, c.disc);
+      const detail = await detailPrice();
+      const cart = await cartPrice();
+      const order = await orderPrice(`t10_${i}_${S}`);
+      check(`Test 10 ${c.name}: Product Detail = ${c.expected}`, detail === c.expected, `got ${detail}`);
+      check(`Test 10 ${c.name}: Cart = ${c.expected}`, cart === c.expected, `got ${cart}`);
+      check(`Test 10 ${c.name}: order_items = ${c.expected}`, order === c.expected, `got ${order}`);
+    }
+  }
+
+  // Test 11 — held активного заказа защищён от variant-wide reconcile (P0-04)
+  {
+    const t = await seedProduct({ available: 5 });
+    const o = await callFn('create_order_atomic', checkoutArgs(buyerA, `t11_${S}`, [{ variantId: t.variant, quantity: 2 }]));
+    check('Test 11: после checkout available=3, held=2', isInv(await inventoryOf(t.variant), 3, 2));
+
+    const r = await callFn('inventory_reconcile', `${q(t.variant)}, ${q(owner)}, 2, 'HARNESS'`);
+    check(
+      'Test 11: variant-wide reconcile активного NEW → INVENTORY_RESERVED_BY_ORDERS',
+      !r?.ok && /INVENTORY_RESERVED_BY_ORDERS/.test(String(r.error)),
+      r?.error,
+    );
+    check('Test 11: held не изменён (3,2)', isInv(await inventoryOf(t.variant), 3, 2));
+
+    const orderAware = await callFn(
+      'inventory_reconcile',
+      `${q(t.variant)}, ${q(owner)}, 2, 'HARNESS', ${q(o.result.orderId)}`,
+    );
+    check(
+      'Test 11: order-aware reconcile NEW → ORDER_NOT_RECONCILABLE',
+      !orderAware?.ok && /ORDER_NOT_RECONCILABLE/.test(String(orderAware.error)),
+      orderAware?.error,
+    );
+
+    await callFn('order_cancel', `${q(o.result.orderId)}, ${q(buyerA)}, 'buyer'`);
+    check('Test 11: cancel NEW без underflow → available=5, held=0', isInv(await inventoryOf(t.variant), 5, 0));
+  }
+
+  // Test 12 — order-aware reconcile REFUSED освобождает только held заказа
+  {
+    const t = await seedProduct({ available: 5 });
+    const o = await callFn('create_order_atomic', checkoutArgs(buyerA, `t12_${S}`, [{ variantId: t.variant, quantity: 2 }]));
+    await callFn('order_transition', `${q(o.result.orderId)}, ${q(owner)}, 'IN_TRANSIT'`);
+    await callFn('order_transition', `${q(o.result.orderId)}, ${q(owner)}, 'DELIVERED'`);
+    await callFn('order_delivery_outcome', `${q(o.result.orderId)}, ${q(owner)}, 'REFUSED', 'DAMAGED'`);
+    const r = await callFn(
+      'inventory_reconcile',
+      `${q(t.variant)}, ${q(owner)}, 2, 'HARNESS', ${q(o.result.orderId)}`,
+    );
+    check('Test 12: order-aware reconcile REFUSED → ok', r?.ok === true, r?.error);
+    check('Test 12: available=5, held=0', isInv(await inventoryOf(t.variant), 5, 0));
+    const linked = num(
+      await scalar(
+        `select count(*) from public.inventory_movements where order_id = ${q(o.result.orderId)} and movement_type = 'MANUAL_RECONCILE'`,
+      ),
+    );
+    check('Test 12: movement привязан к order_id', linked === 1, `n=${linked}`);
   }
 }
 

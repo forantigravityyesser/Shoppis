@@ -7,7 +7,12 @@ export interface CheckoutPayload {
   recipientInfo: RecipientInfo;
   storeId: string;
   sessionToken: string;
-  idempotencyKey?: string;
+  /**
+   * Обязательный ключ идемпотентности (docs/21 §3.1-3.2): один attempt = один
+   * ключ. Сервер (`process-checkout` / `create_order_atomic`) отвергает пустой
+   * ключ, поэтому fallback-генерация здесь запрещена.
+   */
+  idempotencyKey: string;
 }
 
 /** Результат оформления заказа. */

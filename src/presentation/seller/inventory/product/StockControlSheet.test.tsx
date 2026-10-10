@@ -70,6 +70,16 @@ describe('StockControlSheet — held custody (docs/21 §3.4)', () => {
     expect(mocks.updateVariantStock).not.toHaveBeenCalled();
   });
 
+  it('held активного заказа → понятная ошибка, сток не переносится (order-aware reconcile)', async () => {
+    mocks.moveHeldToAvailable.mockRejectedValue(new Error('INVENTORY_RESERVED_BY_ORDERS'));
+    renderSheet();
+    expandRow();
+    fireEvent.click(screen.getByText('Всё в наличии'));
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent(/зарезервирована активными заказами/),
+    );
+  });
+
   it('save пишет только availableQuantity (held не трогаем)', async () => {
     renderSheet();
     expandRow();

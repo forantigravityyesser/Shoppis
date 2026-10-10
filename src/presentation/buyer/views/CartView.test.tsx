@@ -104,6 +104,7 @@ function cartState(overrides: Partial<BuyerCartState> = {}): BuyerCartState {
     storePaused: false,
     hasUnavailable: false,
     hasUnavailableSelected: false,
+    resolved: true,
     isEmpty: false,
     hasSelection: true,
     selectionState: 'all',
@@ -160,12 +161,19 @@ describe('CartView', () => {
 
   it('ошибка → экран ошибки с повтором', async () => {
     const refresh = vi.fn();
-    useBuyerCart.mockReturnValue(cartState({ error: 'boom', refresh }));
+    useBuyerCart.mockReturnValue(cartState({ error: 'boom', resolved: false, refresh }));
     renderCart();
 
     expect(screen.getByText('Не удалось загрузить корзину')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Повторить' }));
     expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('все позиции удалены реконсиляцией → пустое состояние, не экран ошибки', () => {
+    useBuyerCart.mockReturnValue(cartState({ resolved: true, isEmpty: true, items: [] }));
+    renderCart();
+    expect(screen.getByText('Корзина пуста')).toBeInTheDocument();
+    expect(screen.queryByText('Не удалось загрузить корзину')).not.toBeInTheDocument();
   });
 
   it('пустая корзина → сообщение и переход в каталог', () => {

@@ -145,6 +145,29 @@ describe('useBuyerCart', () => {
     await waitFor(() => expect(h.removeByKeys).toHaveBeenCalledWith([cartItemKey('p1', 'v1')]));
   });
 
+  it('проекция удалила все позиции → resolved=true, isEmpty=true (без error-flash)', async () => {
+    // Локальный Cart ещё не очищен эффектом removeByKeys (мок не мутирует state).
+    h.state.items = [item()];
+    h.loadCartItems.mockResolvedValue(read(STORE, [projection({ productAvailable: false })]));
+
+    const { result } = renderHook(() => useBuyerCart('pub1'), { wrapper });
+
+    await waitFor(() => expect(result.current.resolved).toBe(true));
+    expect(result.current.items).toEqual([]);
+    expect(result.current.isEmpty).toBe(true);
+    expect(result.current.error).toBeNull();
+  });
+
+  it('ошибка проекции → resolved=false (экран ошибки), не пустое состояние', async () => {
+    h.state.items = [item()];
+    h.loadCartItems.mockRejectedValue(new Error('boom'));
+
+    const { result } = renderHook(() => useBuyerCart('pub1'), { wrapper });
+
+    await waitFor(() => expect(result.current.error).toBe('boom'));
+    expect(result.current.resolved).toBe(false);
+  });
+
   it('распроданная выбранная позиция снимается с оформления', async () => {
     h.state.items = [item({ selected: true, quantity: 1 })];
     h.loadCartItems.mockResolvedValue(read(STORE, [projection({ availableQuantity: 0 })]));

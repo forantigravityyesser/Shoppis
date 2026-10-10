@@ -134,7 +134,8 @@ export default function CartView() {
   }
 
   // Локальные позиции есть, но проекция не разрешилась (ошибка/недоступный магазин).
-  if (cart.items.length === 0) {
+  // Реконсиляция, удалившая все ссылки, даёт `isEmpty`, а не эту ветку (docs/18 §10).
+  if (!cart.resolved) {
     return page(shell(errorScreen));
   }
 

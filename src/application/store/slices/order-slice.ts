@@ -32,13 +32,19 @@ export interface OrderSlice {
     outcome: DeliveryOutcome,
     reason?: RefusalReasonCode,
   ) => Promise<void>;
-  reconcileInventory: (variantId: string, quantity: number, reason?: string) => Promise<void>;
+  reconcileInventory: (
+    variantId: string,
+    quantity: number,
+    reason?: string,
+    orderId?: string,
+  ) => Promise<void>;
   /**
-   * Оформить заказ. `idempotencyKey` задаёт владелец checkout-попытки
-   * (`useCheckout`): один attempt = один ключ, повтор использует тот же
-   * (docs/21 §3.1). Если не передан — fallback в `checkout-api`.
+   * Оформить заказ. `idempotencyKey` обязателен (docs/21 §3.1-3.2): ключ задаёт
+   * владелец checkout-попытки (`useCheckout`), один attempt = один ключ, повтор
+   * использует тот же. Сервер отвергает пустой ключ — fallback в `checkout-api`
+   * больше не генерирует его.
    */
-  placeOrder: (recipient: RecipientInfo, idempotencyKey?: string) => Promise<string>;
+  placeOrder: (recipient: RecipientInfo, idempotencyKey: string) => Promise<string>;
   /**
    * Opt-in Telegram-уведомлений — ОТДЕЛЬНО и ПОСЛЕ успешного заказа.
    * Запрашивает write access и, при согласии, фиксирует его на сервере и шлёт
@@ -160,14 +166,19 @@ export const createOrderSlice: StateCreator<RootStore, [], [], OrderSlice> = (se
       }
     },
 
-    reconcileInventory: async (variantId: string, quantity: number, reason?: string) => {
+    reconcileInventory: async (
+      variantId: string,
+      quantity: number,
+      reason?: string,
+      orderId?: string,
+    ) => {
       const { sessionToken, storeId } = get();
       if (!sessionToken) throw new Error('Not authenticated');
-      await deps().orderApi.reconcileInventory(sessionToken, variantId, quantity, reason);
+      await deps().orderApi.reconcileInventory(sessionToken, variantId, quantity, reason, orderId);
       if (storeId) await get().fetchCatalog(storeId);
     },
 
-    placeOrder: async (recipient: RecipientInfo, idempotencyKey?: string) => {
+    placeOrder: async (recipient: RecipientInfo, idempotencyKey: string) => {
       const { storeId, sessionToken, cartByStore } = get();
       if (!storeId) throw new Error('No store selected');
       if (!sessionToken) throw new Error('Not authenticated');

@@ -54,6 +54,13 @@ export function reconcileInventory(
   variantId: string,
   quantity: number,
   reason?: string,
+  orderId?: string,
 ): Promise<unknown> {
-  return callOrderAction(sessionToken, { action: 'reconcile', variantId, quantity, reason });
+  return callOrderAction(sessionToken, {
+    action: 'reconcile',
+    variantId,
+    quantity,
+    reason,
+    orderId,
+  });
 }

@@ -33,7 +33,13 @@ export interface BuyerCartState {
   hasUnavailable: boolean;
   /** Есть выбранные, но неоформляемые позиции. */
   hasUnavailableSelected: boolean;
-  /** Нет локальных позиций (пустая корзина). */
+  /** Проекция успешно разрешилась (reconciliation не null); false → сеть/магазин. */
+  resolved: boolean;
+  /**
+   * Показывать пустое состояние: локальных позиций нет **или** проекция
+   * разрешилась без валидных позиций (все ссылки удалены). Не путать с ошибкой
+   * проекции — та даёт `resolved = false` (docs/18 §10).
+   */
   isEmpty: boolean;
   hasSelection: boolean;
   selectionState: CartSelectionState;
@@ -145,7 +151,10 @@ export function useBuyerCart(publicId: string | null, enabled = true): BuyerCart
     storePaused: reconciliation?.storePaused ?? false,
     hasUnavailable: reconciliation?.hasUnavailable ?? false,
     hasUnavailableSelected: hasUnavailableSelected(reconciliation),
-    isEmpty: items.length === 0,
+    resolved: reconciliation !== null,
+    // Проекция удалила все ссылки → пустое состояние, а не экран ошибки, даже если
+    // локальный Cart ещё не успел очиститься эффектом removeByKeys (docs/18 §10).
+    isEmpty: items.length === 0 || reconciliation?.items.length === 0,
     hasSelection: hasSelectedItems(items),
     selectionState,
     canCheckout: canCheckoutReconciled(reconciliation) && !reconciling,

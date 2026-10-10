@@ -30,6 +30,7 @@ const ERROR_STATUS = {
   INVALID_CART_ITEM: 400,
   INVALID_QUANTITY: 400,
   VARIANT_DUPLICATE: 400,
+  IDEMPOTENCY_KEY_REQUIRED: 400,
   STORE_NOT_FOUND: 404,
   STORE_PAUSED: 409,
   VARIANT_NOT_FOUND: 404,
@@ -64,6 +65,10 @@ export default async function (request) {
   const address = String(body?.recipient?.address || '').trim();
 
   if (!storeId) return json({ success: false, error: 'storeId is required' }, 400);
+  // Idempotency обязателен (docs/21 §3.1-3.2): без ключа нет защиты от дублей.
+  if (!idempotencyKey) {
+    return json({ success: false, error: 'IDEMPOTENCY_KEY_REQUIRED' }, 400);
+  }
   if (!name || !phone || !address) {
     return json({ success: false, error: 'Recipient name, phone and address are required' }, 400);
   }

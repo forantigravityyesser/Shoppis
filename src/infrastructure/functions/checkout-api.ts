@@ -13,10 +13,11 @@ interface CheckoutResponse {
 /**
  * Оформление заказа через edge-функцию process-checkout.
  * Сервер проверяет сессию, заново считает цену/остаток и создаёт заказ атомарно.
- * idempotencyKey защищает от дублей при повторном клике/ретрае.
+ * idempotencyKey обязателен (docs/21 §3.1-3.2): fallback не генерируем, иначе
+ * ретрай потерянного ответа создал бы второй заказ. ключ задаёт вызывающий слой.
  */
 export async function invokeCheckout(payload: CheckoutPayload): Promise<CheckoutResult> {
-  const idempotencyKey = payload.idempotencyKey ?? crypto.randomUUID();
+  const { idempotencyKey } = payload;
   const items = payload.items
     .filter((i) => i.selected)
     .map((i) => ({ variantId: i.productVariantId ?? '', quantity: i.quantity }))

@@ -513,6 +513,59 @@ HELD remains; только reconcile → HELD → AVAILABLE
 
 ---
 
+## 13. Пост-аудит регрессии (2026-10-10) — P0 №1/№2/№3 + P1
+
+Внешний аудит после `CART-HARDEN` нашёл регрессию и остаточные дыры. Закрыты отдельным заходом; нумерация миграций продолжена (`0040`, `0041`).
+
+### P0 №1 — `0039` заново вернула старую логику цены (денежная целостность)
+
+**Проблема.** `0039_checkout_item_contract.sql` пересоздала `create_order_atomic` ради quantity/idempotency-hardening, но скопировала ценовой блок из `0038` (`price_mode = 'CUSTOM_PRICE' AND custom_original_amount_minor IS NOT NULL`), затёрв независимые оси из `0037`. Read-модели остались правильными → checkout/order расходились с Cart/Product Detail:
+- custom price + inherited discount → 1200 вместо 960 (терялась скидка);
+- inherited price + custom discount → 800 вместо 900 (терялась custom-скидка).
+
+**Решение.** Миграция **`0040_checkout_price_axes_idempotency.sql`** — один recreate `create_order_atomic`, сохранивший reserve-before-order, `VARIANT_DUPLICATE`, `1..99`, и вернувший per-axis `coalesce` из `0037`. Классический drift «migration B пересоздаёт функцию A и восстанавливает старую бизнес-логику» — поэтому впредь один recreate на функцию.
+
+### P0 №2 — `held` активного заказа можно было освободить
+
+**Проблема.** `inventory_reconcile` (`0007`) был variant-wide и не знал заказов: «Всё в наличии» в `StockControlSheet` могло освободить held заказа `NEW`, а последующий `order_cancel NEW` делал `held -= qty` → нарушение `inventory_held_check`.
+
+**Решение.** Миграция **`0041_inventory_reconcile_order_aware.sql`**: старый 4-арг дропнут, добавлен `p_order_id uuid default null`.
+- `p_order_id` задан → только `REFUSED`/`CANCELLED` заказ отдаёт свой held (`ORDER_NOT_RECONCILABLE`/`ORDER_VARIANT_MISMATCH`/`INSUFFICIENT_HELD` иначе), движение пишется с `order_id`.
+- `p_order_id is null` (variant-wide) → `protected_held` (NEW/IN_TRANSIT/DELIVERED без исхода) неприкосновенен; при заходе в резерв — `INVENTORY_RESERVED_BY_ORDERS`, ничего не двигается.
+
+### P0 №3 — idempotency key был необязательным
+
+**Проблема.** `CheckoutPayload.idempotencyKey?`, `checkout-api.ts` fallback `crypto.randomUUID()`, edge принимал `''`, RPC проверял ключ только «если задан» → checkout можно было вызвать без ключа и создать дубли.
+
+**Решение.** Ключ — обязательный server-side контракт: `contracts/checkout.ts` (`string`), `checkout-api.ts` без fallback, `order-slice.placeOrder(recipient, idempotencyKey)`, edge `process-checkout` → 400 `IDEMPOTENCY_KEY_REQUIRED`, RPC `0040` — `raise IDEMPOTENCY_KEY_REQUIRED` и безусловная ветка идемпотентности.
+
+### P1 — ложный error-экран при полном удалении устаревших позиций
+
+**Проблема.** `useBuyerCart.isEmpty` смотрел на локальный Cart, а `CartView` показывал errorScreen при `cart.items.length === 0` (реконсилированные). При архивации всех позиций до эффекта `removeByKeys` мелькал «Не удалось загрузить корзину».
+
+**Решение.** `useBuyerCart` отдаёт `resolved` (`reconciliation !== null`); `isEmpty = items.length === 0 || reconciliation?.items.length === 0`; `CartView` показывает errorScreen по `!cart.resolved`. «Проекция удалась, позиций 0» → пустое состояние.
+
+### Тест-дыра закрыта
+
+Test 10 harness — 4 комбинации осей (`inherited/inherited` = 800, `custom price/inherited` = 960, `inherited/custom discount` = 900, `custom/custom` = 1080) проверяются одновременно в `storefront_product_detail_read`, `storefront_cart_items_read` и `order_items.unit_price_minor`. Плюс Test 11/12 — защита held активного заказа и order-aware release.
+
+| Артефакт | Изменение |
+|---|---|
+| `0040_checkout_price_axes_idempotency.sql` | `create_order_atomic`: per-axis `coalesce` (`0037`) + обязательный idempotency key |
+| `0041_inventory_reconcile_order_aware.sql` | `inventory_reconcile`: `p_order_id`, `INVENTORY_RESERVED_BY_ORDERS` |
+| `edge-functions/process-checkout.js` | 400 `IDEMPOTENCY_KEY_REQUIRED` (deploy) |
+| `edge-functions/order-actions.js` | passthrough `p_order_id` + коды (deploy) |
+| `contracts/checkout.ts`, `checkout-api.ts`, `order-slice.ts` | `idempotencyKey` обязателен |
+| `ports/apis.ts`, `order-api.ts` | `reconcileInventory(..., orderId?)` |
+| `StockControlSheet.tsx` | сообщение при `INVENTORY_RESERVED_BY_ORDERS` |
+| `useBuyerCart.ts`, `CartView.tsx` | `resolved` / `isEmpty` (P1) |
+| `scripts/commerce-harness.mjs` | Test 10/11/12 |
+
+**Гейт:** `typecheck` ✅ · `lint` ✅ · `test` **816/816** ✅ · `migrations:check` 0001..0041 ✅ · `commerce:harness` **44/44** ✅.
+
+---
+
+
 # Приложение A. Разбор относительно кода (2026-10-05)
 
 ## A.1 Метод
@@ -619,3 +672,4 @@ HELD remains; только reconcile → HELD → AVAILABLE
 | 2026-10-05 | `CART-HARDEN-06` выполнен: гейт Phase A — `typecheck` ✅, `lint` 0 errors, `test` **804/804**, `build` ✅, `migrations:check` 0001..0039 ✅; `0037` (`20 INV-HARDEN-02`) записана → `P0-05` снят. |
 | 2026-10-05 | `CART-HARDEN-07…09` (Phase B) выполнены: checkout-конфликт → invalidate `buyer-cart`; select-all только orderable + `MAX_CART_ITEMS` (enforcement + chunked read); split `canCheckoutCart`/`validateRecipient`. Гейт: `typecheck` ✅, `lint` 0 errors, `test` **812/812**, `build` ✅. |
 | 2026-10-05 | `CART-HARDEN-10…12` (Phase C) выполнены: `BuyerCartItem` (non-null вариант), selection toolbar «Выбрано N», docs-sync + финальный аудит (§12). Commerce-фундамент закрыт; осталась ручная `LOCAL`/`TELEGRAM`-проверка. |
+| 2026-10-10 | Пост-аудит регрессии (§13). **P0 №1:** `0039` заново вернула старый гейт цены, затёрв per-axis из `0037` (checkout/order ≠ Cart/Product Detail) → миграция **`0040`** пересоздаёт `create_order_atomic` один раз, возвращая независимые оси. **P0 №3:** idempotency key стал обязательным (`IDEMPOTENCY_KEY_REQUIRED` в `0040`, `process-checkout`, `contracts`/`checkout-api`/`order-slice`). **P0 №2:** миграция **`0041`** делает `inventory_reconcile` order-aware (`p_order_id`, `INVENTORY_RESERVED_BY_ORDERS`; старый 4-арг дропнут). **P1:** `useBuyerCart.resolved` + `CartView` errorScreen по `resolved` (нет ложного экрана при полном удалении). Harness + Test 10 (4 комбинации осей: 800/960/900/1080 в Product Detail / Cart / order_items) + Test 11/12. Гейт: `typecheck` ✅ · `lint` ✅ · `test` **816/816** · `migrations:check` 0001..0041 · `commerce:harness` **44/44**. |

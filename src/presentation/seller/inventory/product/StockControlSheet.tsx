@@ -94,7 +94,14 @@ export default function StockControlSheet({
       await moveHeldToAvailable(id);
     } catch (e) {
       console.error('[inventory] move held failed', e);
-      setSaveError('Не удалось перенести остатки. Попробуйте ещё раз.');
+      // held принадлежит активным заказам — освободить нельзя, пока заказ не
+      // отменён/отказан (docs/21 §3.4, inventory_reconcile order-aware).
+      const message = (e as Error).message ?? '';
+      setSaveError(
+        message.includes('INVENTORY_RESERVED_BY_ORDERS')
+          ? 'Часть остатков зарезервирована активными заказами. Освободить их можно только после отмены или отказа заказа.'
+          : 'Не удалось перенести остатки. Попробуйте ещё раз.',
+      );
     } finally {
       setMovingId(null);
     }
