@@ -590,21 +590,28 @@ Test 10 harness — 4 комбинации осей (`inherited/inherited` = 800
 
 **Решение.** Миграция **`0044_inventory_reconcile_variant_wide_attribution.sql`**: после обновления остатка variant-wide ветка распределяет освобождение по релизабельным заказам (`REFUSED`/`CANCELLED`) с положительным нетто-резервом (детерминированно по `created_at, id`), записывая по одному `MANUAL_RECONCILE` движению на заказ; остаток (орфан/legacy) — одно движение с `order_id = null`. Сумма движений всегда равна `p_quantity`. Бизнес-правило релизабельности не менялось; order-aware ветка не менялась. Теперь `order_cancel`-освобождения и variant-wide-освобождения одинаково видны в нетто-журнале заказа.
 
+### Defect 2 (завершение) — единый порядок блокировок (deadlock)
+
+`order_cancel` лочит `orders` FOR UPDATE, затем трогает `inventory`; `inventory_reconcile` (order-aware) до `0045` делал наоборот — лочил `inventory`, затем `orders`. Противоположный порядок открывал окно дедлока (`40P01` → 500) даже когда одна из операций в итоге отклонялась по статусу (проверка статуса идёт после захвата обоих рядов).
+
+**Решение.** Миграция **`0045_inventory_reconcile_lock_order.sql`**: order-aware ветка теперь лочит `orders` **до** `inventory` — единый канонический порядок `orders → inventory` со всеми lifecycle-RPC (`order_cancel`, `order_delivery_outcome`). Variant-wide (без `p_order_id`) ряд заказа не лочит и работает только с релизабельными статусами, которые lifecycle-RPC инвентарь не мутируют, — пересечения нет. Поведение идентично `0044`.
+
 ### Тесты
 
-`scripts/commerce-harness.mjs`: Test 10 расширен кейсом `E` (`custom price + zero custom discount` = 1200, ноль не подменяется) и проверкой `Cart == order_items` для всех осей; добавлены Test 14 (отмена A не крадёт резерв B, повторная order-aware сверка A → `INSUFFICIENT_HELD`), Test 15 (повторная отмена → `ORDER_TERMINAL`, новых движений нет), Test 16 (конкурентные order-aware сверки двух `REFUSED`), Test 17 (заказ из нескольких позиций), Test 18 (повторная order-aware сверка того же `REFUSED` → `INSUFFICIENT_HELD`, одно движение), Test 19 (variant-wide атрибутирует освобождение отменённому IN_TRANSIT-заказу; повторная order-aware сверка → `INSUFFICIENT_HELD`, резерв активного заказа не тронут), Test 20 (variant-wide распределяет освобождение по двум `REFUSED`-заказам).
+`scripts/commerce-harness.mjs`: Test 10 расширен кейсом `E` (`custom price + zero custom discount` = 1200, ноль не подменяется) и проверкой `Cart == order_items` для всех осей; добавлены Test 14 (отмена A не крадёт резерв B, повторная order-aware сверка A → `INSUFFICIENT_HELD`), Test 15 (повторная отмена → `ORDER_TERMINAL`, новых движений нет), Test 16 (конкурентные order-aware сверки двух `REFUSED`), Test 17 (заказ из нескольких позиций), Test 18 (повторная order-aware сверка того же `REFUSED` → `INSUFFICIENT_HELD`, одно движение), Test 19 (variant-wide атрибутирует освобождение отменённому IN_TRANSIT-заказу; повторная order-aware сверка → `INSUFFICIENT_HELD`, резерв активного заказа не тронут), Test 20 (variant-wide распределяет освобождение по двум `REFUSED`-заказам), Test 21/22 (конкурентные `order_cancel` ∥ order-aware `inventory_reconcile` одного заказа — NEW и REFUSED — без дедлока).
 
 | Артефакт | Изменение |
 |---|---|
 | `0042_inventory_reconcile_order_held_movements.sql` | order-held из нетто журнала движений |
 | `0043_variant_price_axis_invariant.sql` | CHECK-инвариант `price_mode` + `create_order_atomic` (валидация оси) |
 | `0044_inventory_reconcile_variant_wide_attribution.sql` | variant-wide освобождение атрибутируется заказам |
+| `0045_inventory_reconcile_lock_order.sql` | единый порядок блокировок `orders → inventory` (нет дедлока с `order_cancel`) |
 | `edge-functions/process-checkout.js` | `INVALID_PRICE`/`INVALID_DISCOUNT` → 400 |
-| `scripts/commerce-harness.mjs` | Test 10 (E + Cart==order), Test 14–20 |
+| `scripts/commerce-harness.mjs` | Test 10 (E + Cart==order), Test 14–22 |
 
-**Гейт:** `typecheck` ✅ · `lint` ✅ · `test` **816/816** ✅ · `build` ✅ · `migrations:check` 0001..0044 ✅ · `commerce:harness` **85/85** ✅.
+**Гейт:** `typecheck` ✅ · `lint` ✅ · `test` **816/816** ✅ · `build` ✅ · `migrations:check` 0001..0045 ✅ · `commerce:harness` **93/93** ✅.
 
-**Вне правки (не дефект):** порядок блокировок (`inventory_reconcile`: inventory→order; `order_cancel`: order→inventory) не менялся — потенциальный deadlock-порядок оставлен как есть (предсуществующее свойство). Атрибуция variant-wide закрыта в `0044`.
+**Получатель заказа:** контракт — ФИО / телефон / **адрес доставки** (`buyer_address_snapshot`), email не запрашивается/не хранится (`00` стр. 38–42; `18` §23–25, §1223–1227). Изменений не требуется.
 
 ---
 

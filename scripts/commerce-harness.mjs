@@ -24,6 +24,8 @@
 //   Test 18 повторная order-aware сверка того же заказа идемпотентна
 //   Test 19 variant-wide атрибутирует освобождение заказу (нет повторного освобождения)
 //   Test 20 variant-wide распределяет освобождение по нескольким релизабельным заказам
+//   Test 21 конкурентные order_cancel ∥ order-aware reconcile (NEW): нет дедлока
+//   Test 22 конкурентные order_cancel ∥ order-aware reconcile (REFUSED): нет дедлока
 //
 // Admin raw-SQL маскирует RAISE-сообщения в INTERNAL_ERROR, поэтому вызовы RPC
 // идут через временный `public._harness_try(text)`, который ловит SQL-исключение
@@ -665,6 +667,56 @@ async function run() {
       again?.error,
     );
     check('Test 20: сток не изменился (6,0)', isInv(await inventoryOf(t.variant), 6, 0));
+  }
+
+  // Test 21 — конкурентные order_cancel и order-aware inventory_reconcile одного
+  // заказа не образуют дедлок (единый порядок блокировок orders -> inventory, 0045).
+  {
+    const t = await seedProduct({ available: 5 });
+    const o = await callFn('create_order_atomic', checkoutArgs(buyerA, `t21_${S}`, [{ variantId: t.variant, quantity: 2 }]));
+
+    const [cancel, reconcile] = await Promise.all([
+      callFn('order_cancel', `${q(o.result.orderId)}, ${q(buyerA)}, 'buyer'`),
+      callFn('inventory_reconcile', `${q(t.variant)}, ${q(owner)}, 2, 'HARNESS', ${q(o.result.orderId)}`),
+    ]);
+
+    const deadlock = [cancel, reconcile].some((r) => !r?.ok && /deadlock/i.test(String(r.error)));
+    check(
+      'Test 21: нет дедлока между отменой и сверкой',
+      deadlock === false,
+      `${cancel?.error} | ${reconcile?.error}`,
+    );
+    check('Test 21: отмена NEW прошла', cancel?.ok === true, cancel?.error);
+    check(
+      'Test 21: сверка не освободила повторно',
+      !reconcile?.ok && /ORDER_NOT_RECONCILABLE|INSUFFICIENT_HELD/.test(String(reconcile.error)),
+      reconcile?.error,
+    );
+    check('Test 21: сток консистентен (available=5, held=0)', isInv(await inventoryOf(t.variant), 5, 0));
+  }
+
+  // Test 22 — те же две операции на REFUSED-заказе: без дедлока.
+  {
+    const t = await seedProduct({ available: 5 });
+    const o = await callFn('create_order_atomic', checkoutArgs(buyerA, `t22_${S}`, [{ variantId: t.variant, quantity: 2 }]));
+    await callFn('order_transition', `${q(o.result.orderId)}, ${q(owner)}, 'IN_TRANSIT'`);
+    await callFn('order_transition', `${q(o.result.orderId)}, ${q(owner)}, 'DELIVERED'`);
+    await callFn('order_delivery_outcome', `${q(o.result.orderId)}, ${q(owner)}, 'REFUSED', 'DAMAGED'`);
+
+    const [cancel, reconcile] = await Promise.all([
+      callFn('order_cancel', `${q(o.result.orderId)}, ${q(owner)}, 'seller'`),
+      callFn('inventory_reconcile', `${q(t.variant)}, ${q(owner)}, 2, 'HARNESS', ${q(o.result.orderId)}`),
+    ]);
+
+    const deadlock = [cancel, reconcile].some((r) => !r?.ok && /deadlock/i.test(String(r.error)));
+    check('Test 22: нет дедлока (REFUSED)', deadlock === false, `${cancel?.error} | ${reconcile?.error}`);
+    check('Test 22: сверка REFUSED прошла', reconcile?.ok === true, reconcile?.error);
+    check(
+      'Test 22: отмена терминального → ORDER_TERMINAL',
+      !cancel?.ok && /ORDER_TERMINAL/.test(String(cancel.error)),
+      cancel?.error,
+    );
+    check('Test 22: сток консистентен (available=5, held=0)', isInv(await inventoryOf(t.variant), 5, 0));
   }
 }
 
