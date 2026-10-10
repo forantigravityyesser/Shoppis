@@ -23,20 +23,165 @@ interface RawUser {
 
 let initialized = false;
 
-/** Инициализация Mini App: mount, expand на весь экран, ready. Вне Telegram — no-op. */
+interface TelegramInsets {
+  top?: number;
+  bottom?: number;
+}
+
+interface RawViewportWebApp {
+  safeAreaInset?: TelegramInsets;
+  contentSafeAreaInset?: TelegramInsets;
+  isFullscreen?: boolean;
+  isVersionAtLeast?: (version: string) => boolean;
+  requestFullscreen?: () => void;
+  onEvent?: (event: string, handler: () => void) => void;
+}
+
+/** Инициализация Mini App: mount, expand, fullscreen, ready. Вне Telegram — no-op. */
 export function initApp(): void {
   if (initialized) return;
   initialized = true;
+  let sdkReady = false;
   try {
     init();
+    sdkReady = true;
+  } catch {
+    // SDK не инициализировался — уходим на классический Telegram.WebApp
+  }
+  if (!sdkReady) {
+    setupRawViewport();
+    return;
+  }
+  try {
     miniApp.mount();
-    viewport
-      .mount()
-      .then(() => viewport.expand())
-      .catch(() => {});
     miniApp.ready();
   } catch {
-    // Браузер вне Telegram: работаем с фолбэками (startapp из URL)
+    // ignore
+  }
+  setupViewport();
+}
+
+/** Настройка viewport через SDK: раскрытие, fullscreen, реактивные safe-area инсеты. */
+function setupViewport(): void {
+  try {
+    if (!viewport.mount.isAvailable()) {
+      setupRawViewport();
+      return;
+    }
+    viewport
+      .mount()
+      .then(onSdkViewportMounted)
+      .catch(() => setupRawViewport());
+  } catch {
+    setupRawViewport();
+  }
+}
+
+function onSdkViewportMounted(): void {
+  try {
+    viewport.expand();
+    const sync = () => writeInsets(viewport.safeAreaInsets(), viewport.contentSafeAreaInsets());
+    sync();
+    viewport.safeAreaInsets.sub(sync);
+    viewport.contentSafeAreaInsets.sub(sync);
+  } catch {
+    // ignore
+  }
+  void requestSdkFullscreen().then(logViewportDiagnostics);
+}
+
+/** Fullscreen (Bot API 8.0+); на старых клиентах — тихо остаёмся в обычном режиме. */
+async function requestSdkFullscreen(): Promise<void> {
+  try {
+    if (viewport.requestFullscreen.isAvailable()) {
+      await viewport.requestFullscreen();
+    }
+  } catch {
+    // fullscreen не поддерживается
+  }
+}
+
+/** Фолбэк на классический Telegram.WebApp, когда SDK не смонтировал viewport. */
+function setupRawViewport(): void {
+  const tg = rawViewportWebApp();
+  if (!tg) return;
+  const sync = () => writeInsets(tg.safeAreaInset, tg.contentSafeAreaInset);
+  sync();
+  for (const event of ['safeAreaChanged', 'contentSafeAreaChanged', 'fullscreenChanged']) {
+    try {
+      tg.onEvent?.(event, sync);
+    } catch {
+      // ignore
+    }
+  }
+  try {
+    if (tg.isVersionAtLeast?.('8.0') && typeof tg.requestFullscreen === 'function') {
+      tg.requestFullscreen();
+      logViewportDiagnostics();
+    }
+  } catch {
+    // fullscreen не поддерживается
+  }
+}
+
+function rawViewportWebApp(): RawViewportWebApp | undefined {
+  try {
+    return (window as unknown as { Telegram?: { WebApp?: RawViewportWebApp } }).Telegram?.WebApp;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Инсеты Telegram → CSS-переменные. `safe` — системная область (вырез, статус-бар),
+ * `content` — область поверх плавающего UI Telegram (актуальна в fullscreen).
+ */
+function writeInsets(safe?: TelegramInsets, content?: TelegramInsets): void {
+  try {
+    const root = document.documentElement;
+    root.style.setProperty('--tg-safe-area-top', `${safe?.top ?? 0}px`);
+    root.style.setProperty('--tg-safe-area-bottom', `${safe?.bottom ?? 0}px`);
+    root.style.setProperty('--tg-content-safe-area-top', `${content?.top ?? 0}px`);
+    root.style.setProperty('--tg-content-safe-area-bottom', `${content?.bottom ?? 0}px`);
+  } catch {
+    // вне браузера — нечего писать
+  }
+}
+
+/** Текущее viewport-состояние: fullscreen + safe-area инсеты. SDK, иначе raw-фолбэк. */
+function viewportDiagnostics(): Record<string, unknown> {
+  try {
+    return {
+      isFullscreen: viewport.isFullscreen(),
+      safeArea: viewport.safeAreaInsets(),
+      contentSafeArea: viewport.contentSafeAreaInsets(),
+    };
+  } catch {
+    const tg = rawViewportWebApp();
+    if (!tg) return { available: false };
+    return {
+      isFullscreen: tg.isFullscreen ?? null,
+      safeArea: tg.safeAreaInset ?? null,
+      contentSafeArea: tg.contentSafeAreaInset ?? null,
+    };
+  }
+}
+
+/** Диагностика viewport для проверки fullscreen на устройстве (без секретов). */
+export function logViewportDiagnostics(): void {
+  try {
+    const root = document.documentElement.style;
+    console.log('[shoppis] viewport:', {
+      ...viewportDiagnostics(),
+      css: {
+        safeTop: root.getPropertyValue('--tg-safe-area-top').trim(),
+        safeBottom: root.getPropertyValue('--tg-safe-area-bottom').trim(),
+        contentTop: root.getPropertyValue('--tg-content-safe-area-top').trim(),
+        contentBottom: root.getPropertyValue('--tg-content-safe-area-bottom').trim(),
+      },
+    });
+  } catch {
+    // ignore
   }
 }
 
@@ -210,6 +355,7 @@ export function logTelegramDiagnostics(): void {
     } catch (e) {
       console.log('[shoppis] sdk signals fail:', String((e as Error)?.message ?? e).slice(0, 200));
     }
+    logViewportDiagnostics();
   } catch {
     // ignore
   }

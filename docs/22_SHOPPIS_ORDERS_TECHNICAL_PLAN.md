@@ -120,8 +120,8 @@ Severity этапов: **H1** обязательно · **H2** высоко · *
 | Domain-тесты матрицы переходов | `src/domain/rules/order-rules.test.ts` | ✅ |
 | Command-edge: сессия → dispatch → RPC → best-effort уведомления | `edge-functions/order-actions.js:50-177` | ✅ |
 | RPC lifecycle: `order_cancel` / `order_transition` / `order_delivery_outcome` | `migrations/0007_inventory_lifecycle.sql:8,103,154` | ✅ |
-| `inventory_reconcile` (order-aware, held-custody) | `migrations/0041_inventory_reconcile_order_aware.sql:29` | ✅ |
-| Checkout: reserve-before-order idempotency, обязательный ключ, `VARIANT_DUPLICATE`, границы 1..99, независимые оси цены | `migrations/0040_checkout_price_axes_idempotency.sql:30-263` | ✅ |
+| `inventory_reconcile` (order-aware, held-custody, order-held из нетто движений, variant-wide атрибутирует освобождение) | `migrations/0041_...:29`, `0042_...`, `0044_inventory_reconcile_variant_wide_attribution.sql` | ✅ |
+| Checkout: reserve-before-order idempotency, обязательный ключ, `VARIANT_DUPLICATE`, границы 1..99, независимые оси цены + CHECK-инвариант | `migrations/0040_checkout_price_axes_idempotency.sql:30-263`, `0043_variant_price_axis_invariant.sql` | ✅ |
 | Edge checkout (серверная валидация, уведомления вне транзакции) | `edge-functions/process-checkout.js:43-164` | ✅ |
 | Application-граница команд (уже через edge, не прямой UPDATE) | `src/infrastructure/functions/order-api.ts:25-66`; `src/application/store/slices/order-slice.ts:117-179` | ✅ |
 | Checkout-контракт (`idempotencyKey` обязателен; `CheckoutResult`) | `src/application/contracts/checkout.ts:5-24` | ✅ |

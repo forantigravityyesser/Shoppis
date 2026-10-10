@@ -16,6 +16,14 @@
 //   Test 10 независимые оси variant price/discount: Cart / Product Detail / RPC / order_items
 //   Test 11 held активного NEW защищён от variant-wide reconcile (P0-04)
 //   Test 12 order-aware reconcile REFUSED освобождает только held заказа
+//   Test 13 IN_TRANSIT held защищён (variant-wide и order-aware reconcile запрещены)
+//   Test 14 повторная сверка отменённого заказа не крадёт резерв другого заказа
+//   Test 15 повторная отмена терминального заказа → нет новых движений
+//   Test 16 конкурентные order-aware сверки двух REFUSED → нет овер-релиза
+//   Test 17 заказ с несколькими позициями: отмена/сверка по каждой
+//   Test 18 повторная order-aware сверка того же заказа идемпотентна
+//   Test 19 variant-wide атрибутирует освобождение заказу (нет повторного освобождения)
+//   Test 20 variant-wide распределяет освобождение по нескольким релизабельным заказам
 //
 // Admin raw-SQL маскирует RAISE-сообщения в INTERNAL_ERROR, поэтому вызовы RPC
 // идут через временный `public._harness_try(text)`, который ловит SQL-исключение
@@ -350,6 +358,8 @@ async function run() {
       { name: 'B custom price + inherited discount', mode: 'CUSTOM_PRICE', price: 1200, disc: null, expected: 960 },
       { name: 'C inherited price + custom discount', mode: 'CUSTOM_PRICE', price: null, disc: 10, expected: 900 },
       { name: 'D custom price + custom discount', mode: 'CUSTOM_PRICE', price: 1200, disc: 10, expected: 1080 },
+      // Zero is a valid custom discount and must NOT fall back to the product discount.
+      { name: 'E custom price + zero custom discount', mode: 'CUSTOM_PRICE', price: 1200, disc: 0, expected: 1200 },
     ];
     for (let i = 0; i < cases.length; i += 1) {
       const c = cases[i];
@@ -360,6 +370,8 @@ async function run() {
       check(`Test 10 ${c.name}: Product Detail = ${c.expected}`, detail === c.expected, `got ${detail}`);
       check(`Test 10 ${c.name}: Cart = ${c.expected}`, cart === c.expected, `got ${cart}`);
       check(`Test 10 ${c.name}: order_items = ${c.expected}`, order === c.expected, `got ${order}`);
+      // Same product data in Cart and checkout → unit price must match exactly.
+      check(`Test 10 ${c.name}: Cart == order_items`, cart === order, `cart ${cart} vs order ${order}`);
     }
   }
 
@@ -410,6 +422,249 @@ async function run() {
       ),
     );
     check('Test 12: movement привязан к order_id', linked === 1, `n=${linked}`);
+  }
+
+  // Test 13 — IN_TRANSIT: held защищён (variant-wide и order-aware reconcile запрещены)
+  {
+    const t = await seedProduct({ available: 5 });
+    const o = await callFn('create_order_atomic', checkoutArgs(buyerA, `t13_${S}`, [{ variantId: t.variant, quantity: 2 }]));
+    await callFn('order_transition', `${q(o.result.orderId)}, ${q(owner)}, 'IN_TRANSIT'`);
+    check('Test 13: IN_TRANSIT → available=3, held=2', isInv(await inventoryOf(t.variant), 3, 2));
+
+    const wide = await callFn('inventory_reconcile', `${q(t.variant)}, ${q(owner)}, 2, 'HARNESS'`);
+    check(
+      'Test 13: variant-wide reconcile IN_TRANSIT → INVENTORY_RESERVED_BY_ORDERS',
+      !wide?.ok && /INVENTORY_RESERVED_BY_ORDERS/.test(String(wide.error)),
+      wide?.error,
+    );
+
+    const aware = await callFn(
+      'inventory_reconcile',
+      `${q(t.variant)}, ${q(owner)}, 2, 'HARNESS', ${q(o.result.orderId)}`,
+    );
+    check(
+      'Test 13: order-aware reconcile IN_TRANSIT → ORDER_NOT_RECONCILABLE',
+      !aware?.ok && /ORDER_NOT_RECONCILABLE/.test(String(aware.error)),
+      aware?.error,
+    );
+
+    check('Test 13: held не изменён (3,2)', isInv(await inventoryOf(t.variant), 3, 2));
+  }
+
+  // Test 14 — повторная сверка отменённого заказа не крадёт резерв другого (P0 №2).
+  {
+    const t = await seedProduct({ available: 5 });
+    const oA = await callFn('create_order_atomic', checkoutArgs(buyerA, `t14a_${S}`, [{ variantId: t.variant, quantity: 2 }]));
+    const oB = await callFn('create_order_atomic', checkoutArgs(buyerB, `t14b_${S}`, [{ variantId: t.variant, quantity: 3 }]));
+    check('Test 14: A(2)+B(3) → available=0, held=5', isInv(await inventoryOf(t.variant), 0, 5));
+
+    await callFn('order_cancel', `${q(oA.result.orderId)}, ${q(buyerA)}, 'buyer'`);
+    check('Test 14: cancel A освободил 2 (available=2, held=3 = резерв B)', isInv(await inventoryOf(t.variant), 2, 3));
+
+    // ORDER_CANCEL_RELEASE уже вернул held A; order-aware сверка A должна быть no-op.
+    const r = await callFn(
+      'inventory_reconcile',
+      `${q(t.variant)}, ${q(owner)}, 2, 'HARNESS', ${q(oA.result.orderId)}`,
+    );
+    check(
+      'Test 14: order-aware reconcile отменённого A → INSUFFICIENT_HELD',
+      !r?.ok && /INSUFFICIENT_HELD/.test(String(r.error)),
+      r?.error,
+    );
+    check('Test 14: резерв B не тронут (available=2, held=3)', isInv(await inventoryOf(t.variant), 2, 3));
+  }
+
+  // Test 15 — повторная отмена терминального заказа не создаёт новых движений.
+  {
+    const t = await seedProduct({ available: 5 });
+    const o = await callFn('create_order_atomic', checkoutArgs(buyerA, `t15_${S}`, [{ variantId: t.variant, quantity: 2 }]));
+    await callFn('order_cancel', `${q(o.result.orderId)}, ${q(buyerA)}, 'buyer'`);
+    const before = num(
+      await scalar(`select count(*) from public.inventory_movements where order_id = ${q(o.result.orderId)}`),
+    );
+
+    const again = await callFn('order_cancel', `${q(o.result.orderId)}, ${q(buyerA)}, 'buyer'`);
+    check(
+      'Test 15: повторная отмена → ORDER_TERMINAL',
+      !again?.ok && /ORDER_TERMINAL/.test(String(again.error)),
+      again?.error,
+    );
+    const after = num(
+      await scalar(`select count(*) from public.inventory_movements where order_id = ${q(o.result.orderId)}`),
+    );
+    check('Test 15: новых движений нет', after === before, `${before} → ${after}`);
+    check('Test 15: сток остаётся available=5, held=0', isInv(await inventoryOf(t.variant), 5, 0));
+  }
+
+  // Test 16 — конкурентные order-aware сверки двух REFUSED-заказов: без овер-релиза.
+  {
+    const t = await seedProduct({ available: 5 });
+    const oA = await callFn('create_order_atomic', checkoutArgs(buyerA, `t16a_${S}`, [{ variantId: t.variant, quantity: 2 }]));
+    const oB = await callFn('create_order_atomic', checkoutArgs(buyerB, `t16b_${S}`, [{ variantId: t.variant, quantity: 3 }]));
+    for (const o of [oA, oB]) {
+      await callFn('order_transition', `${q(o.result.orderId)}, ${q(owner)}, 'IN_TRANSIT'`);
+      await callFn('order_transition', `${q(o.result.orderId)}, ${q(owner)}, 'DELIVERED'`);
+      await callFn('order_delivery_outcome', `${q(o.result.orderId)}, ${q(owner)}, 'REFUSED', 'DAMAGED'`);
+    }
+    check('Test 16: оба REFUSED → available=0, held=5', isInv(await inventoryOf(t.variant), 0, 5));
+
+    const [rA, rB] = await Promise.all([
+      callFn('inventory_reconcile', `${q(t.variant)}, ${q(owner)}, 2, 'HARNESS', ${q(oA.result.orderId)}`),
+      callFn('inventory_reconcile', `${q(t.variant)}, ${q(owner)}, 3, 'HARNESS', ${q(oB.result.orderId)}`),
+    ]);
+    const okN = [rA, rB].filter((r) => r?.ok === true).length;
+    check('Test 16: обе конкурентные сверки прошли', okN === 2, `ok=${okN}`);
+    check('Test 16: суммарно освобождено ровно 5 (available=5, held=0)', isInv(await inventoryOf(t.variant), 5, 0));
+  }
+
+  // Test 17 — заказ с несколькими позициями: отмена освобождает каждую; сверка отменённого no-op.
+  {
+    const t1 = await seedProduct({ available: 5 });
+    const t2 = await seedProduct({ available: 5 });
+    const o = await callFn(
+      'create_order_atomic',
+      checkoutArgs(buyerA, `t17_${S}`, [
+        { variantId: t1.variant, quantity: 2 },
+        { variantId: t2.variant, quantity: 1 },
+      ]),
+    );
+    check(
+      'Test 17: после checkout t1(3,2), t2(4,1)',
+      isInv(await inventoryOf(t1.variant), 3, 2) && isInv(await inventoryOf(t2.variant), 4, 1),
+    );
+
+    await callFn('order_cancel', `${q(o.result.orderId)}, ${q(buyerA)}, 'buyer'`);
+    check(
+      'Test 17: cancel NEW освободил обе позиции',
+      isInv(await inventoryOf(t1.variant), 5, 0) && isInv(await inventoryOf(t2.variant), 5, 0),
+    );
+
+    const r = await callFn(
+      'inventory_reconcile',
+      `${q(t1.variant)}, ${q(owner)}, 2, 'HARNESS', ${q(o.result.orderId)}`,
+    );
+    check(
+      'Test 17: order-aware reconcile отменённой позиции → INSUFFICIENT_HELD',
+      !r?.ok && /INSUFFICIENT_HELD/.test(String(r.error)),
+      r?.error,
+    );
+    check(
+      'Test 17: оба стока не тронуты',
+      isInv(await inventoryOf(t1.variant), 5, 0) && isInv(await inventoryOf(t2.variant), 5, 0),
+    );
+  }
+
+  // Test 18 — повторная order-aware сверка того же REFUSED-заказа идемпотентна.
+  {
+    const t = await seedProduct({ available: 5 });
+    const o = await callFn('create_order_atomic', checkoutArgs(buyerA, `t18_${S}`, [{ variantId: t.variant, quantity: 2 }]));
+    await callFn('order_transition', `${q(o.result.orderId)}, ${q(owner)}, 'IN_TRANSIT'`);
+    await callFn('order_transition', `${q(o.result.orderId)}, ${q(owner)}, 'DELIVERED'`);
+    await callFn('order_delivery_outcome', `${q(o.result.orderId)}, ${q(owner)}, 'REFUSED', 'DAMAGED'`);
+
+    const first = await callFn(
+      'inventory_reconcile',
+      `${q(t.variant)}, ${q(owner)}, 2, 'HARNESS', ${q(o.result.orderId)}`,
+    );
+    check('Test 18: первая сверка REFUSED → ok', first?.ok === true, first?.error);
+    check('Test 18: available=5, held=0', isInv(await inventoryOf(t.variant), 5, 0));
+
+    const second = await callFn(
+      'inventory_reconcile',
+      `${q(t.variant)}, ${q(owner)}, 2, 'HARNESS', ${q(o.result.orderId)}`,
+    );
+    check(
+      'Test 18: повторная сверка → INSUFFICIENT_HELD',
+      !second?.ok && /INSUFFICIENT_HELD/.test(String(second.error)),
+      second?.error,
+    );
+    check('Test 18: сток не изменился (5,0)', isInv(await inventoryOf(t.variant), 5, 0));
+
+    const moves = num(
+      await scalar(
+        `select count(*) from public.inventory_movements
+         where order_id = ${q(o.result.orderId)} and movement_type = 'MANUAL_RECONCILE'`,
+      ),
+    );
+    check('Test 18: ровно одно MANUAL_RECONCILE движение', moves === 1, `n=${moves}`);
+  }
+
+  // Test 19 — variant-wide атрибутирует освобождение заказу (0044): после отмены
+  // IN_TRANSIT-заказа variant-wide не даёт повторно освободить его резерв и не
+  // трогает резерв активного заказа.
+  {
+    const t = await seedProduct({ available: 5 });
+    await callFn('create_order_atomic', checkoutArgs(buyerB, `t19b_${S}`, [{ variantId: t.variant, quantity: 3 }]));
+    const oA = await callFn('create_order_atomic', checkoutArgs(buyerA, `t19a_${S}`, [{ variantId: t.variant, quantity: 2 }]));
+    await callFn('order_transition', `${q(oA.result.orderId)}, ${q(owner)}, 'IN_TRANSIT'`);
+    await callFn('order_cancel', `${q(oA.result.orderId)}, ${q(owner)}, 'seller'`);
+    check('Test 19: A(IN_TRANSIT cancel)+B → available=0, held=5', isInv(await inventoryOf(t.variant), 0, 5));
+
+    // variant-wide «Всё в наличии»: релизабельно только held A (2), B активен (3).
+    const wide = await callFn('inventory_reconcile', `${q(t.variant)}, ${q(owner)}, 2, 'HARNESS'`);
+    check(
+      'Test 19: variant-wide освободил 2 → available=2, held=3',
+      wide?.ok === true && isInv(await inventoryOf(t.variant), 2, 3),
+      wide?.error,
+    );
+
+    const attributed = num(
+      await scalar(
+        `select coalesce(sum(quantity),0) from public.inventory_movements
+         where order_id = ${q(oA.result.orderId)} and movement_type = 'MANUAL_RECONCILE'`,
+      ),
+    );
+    check('Test 19: движение атрибутировано заказу A', attributed === 2, `n=${attributed}`);
+
+    const again = await callFn(
+      'inventory_reconcile',
+      `${q(t.variant)}, ${q(owner)}, 2, 'HARNESS', ${q(oA.result.orderId)}`,
+    );
+    check(
+      'Test 19: order-aware сверка A → INSUFFICIENT_HELD',
+      !again?.ok && /INSUFFICIENT_HELD/.test(String(again.error)),
+      again?.error,
+    );
+    check('Test 19: резерв B не тронут (available=2, held=3)', isInv(await inventoryOf(t.variant), 2, 3));
+  }
+
+  // Test 20 — variant-wide распределяет освобождение по нескольким релизабельным заказам.
+  {
+    const t = await seedProduct({ available: 6 });
+    const oA = await callFn('create_order_atomic', checkoutArgs(buyerA, `t20a_${S}`, [{ variantId: t.variant, quantity: 2 }]));
+    const oB = await callFn('create_order_atomic', checkoutArgs(buyerB, `t20b_${S}`, [{ variantId: t.variant, quantity: 2 }]));
+    for (const o of [oA, oB]) {
+      await callFn('order_transition', `${q(o.result.orderId)}, ${q(owner)}, 'IN_TRANSIT'`);
+      await callFn('order_transition', `${q(o.result.orderId)}, ${q(owner)}, 'DELIVERED'`);
+      await callFn('order_delivery_outcome', `${q(o.result.orderId)}, ${q(owner)}, 'REFUSED', 'DAMAGED'`);
+    }
+    check('Test 20: два REFUSED → available=2, held=4', isInv(await inventoryOf(t.variant), 2, 4));
+
+    const wide = await callFn('inventory_reconcile', `${q(t.variant)}, ${q(owner)}, 4, 'HARNESS'`);
+    check(
+      'Test 20: variant-wide освободил 4 → available=6, held=0',
+      wide?.ok === true && isInv(await inventoryOf(t.variant), 6, 0),
+      wide?.error,
+    );
+
+    const attributed = num(
+      await scalar(
+        `select count(*) from public.inventory_movements
+         where variant_id = ${q(t.variant)} and movement_type = 'MANUAL_RECONCILE'`,
+      ),
+    );
+    check('Test 20: два атрибутированных движения (по заказу)', attributed === 2, `n=${attributed}`);
+
+    const again = await callFn(
+      'inventory_reconcile',
+      `${q(t.variant)}, ${q(owner)}, 2, 'HARNESS', ${q(oA.result.orderId)}`,
+    );
+    check(
+      'Test 20: повторная order-aware A → INSUFFICIENT_HELD',
+      !again?.ok && /INSUFFICIENT_HELD/.test(String(again.error)),
+      again?.error,
+    );
+    check('Test 20: сток не изменился (6,0)', isInv(await inventoryOf(t.variant), 6, 0));
   }
 }
 

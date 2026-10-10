@@ -565,6 +565,49 @@ Test 10 harness — 4 комбинации осей (`inherited/inherited` = 800
 
 ---
 
+## 14. Пост-аудит (2026-10-10, второй заход) — целостность цены и резерва
+
+Внешний аудит после `0040`/`0041` отметил два дефекта (оценки 7/10 и 7.5/10). Сверка с кодом и живой БД показала: **Defect 2 реален**, **Defect 1** как «расхождение Cart ↔ checkout» на актуальном коде не воспроизводится (per-axis `coalesce` уже в `0040` + `0037`); осталась структурная дыра — инвариант `price_mode` не был защищён БД.
+
+### Defect 2 — повторное освобождение резерва (`ORDER_CANCEL_RELEASE` игнорировался)
+
+`0041` считал остаток held заказа как `Σ order_items − Σ MANUAL_RECONCILE`, не учитывая автоматическое освобождение при отмене `NEW`-заказа (`ORDER_CANCEL_RELEASE`). Сценарий A(2)/B(3): после отмены A (held→held−2) order-aware `inventory_reconcile(A, 2)` считал, что A всё ещё держит 2, и освобождал 2 из резерва B.
+
+**Решение.** Миграция **`0042_inventory_reconcile_order_held_movements.sql`** — тот же 5-арг `inventory_reconcile`, но остаток резерва заказа считается **нетто по журналу движений** `order_id + variant_id`: `+quantity` при `to_bucket='HELD' and from_bucket<>'HELD'`, `−quantity` при `from_bucket='HELD' and to_bucket<>'HELD'`. Покрывает `ORDER_RESERVE`, `ORDER_CANCEL_RELEASE`, `ORDER_CANCEL_HELD` (нетто 0), `ORDER_DELIVERED`, `MANUAL_RECONCILE`. Повторная/конкурентная сверка идемпотентна (существующий `inventory … for update` + нетто → `INSUFFICIENT_HELD`); сверка A не может задеть резерв B (расчёт привязан к `order_id`). Variant-wide branch на этом шаге не изменён (закрыт отдельно в `0044`, ниже).
+
+### Defect 1 — независимость цены/скидки от `price_mode`
+
+Актуальный код (`create_order_atomic` из `0040`, `effectivePrice`, все read-RPC из `0037`) уже использует единый per-axis `coalesce` с гейтом `price_mode='CUSTOM_PRICE'` (`docs/20 §3.1`). `USE_PRODUCT_PRICE` подразумевает «обе оси наследуются», но БД этого не гарантировала — строка с `USE_PRODUCT_PRICE` и non-null custom-полем молча теряла бы custom-значение во всех путях.
+
+**Решение.** Миграция **`0043_variant_price_axis_invariant.sql`**:
+- CHECK `variants_use_product_price_no_custom_check` (`USE_PRODUCT_PRICE` ⇒ оба custom-поля `null`; `NOT VALID` → `VALIDATE`; на dev 0 нарушений). Ноль остаётся валидной custom-скидкой (никаких `NULLIF`/truthiness).
+- Один recreate `create_order_atomic` — тело байт-в-байт из `0040` + явная серверная валидация `INVALID_PRICE` / `INVALID_DISCOUNT` перед расчётом. Per-axis `coalesce` и обязательный idempotency key сохранены.
+- `process-checkout.js`: маппинг `INVALID_PRICE`/`INVALID_DISCOUNT` → 400.
+
+### Defect 2 (продолжение) — атрибуция variant-wide освобождений
+
+Ранее (в `0041`/`0042`) variant-wide ветка («Всё в наличии») писала движение с `order_id = null`, поэтому освобождение не привязывалось к заказу, и последующая order-aware сверка того же заказа могла освободить чужой резерв повторно.
+
+**Решение.** Миграция **`0044_inventory_reconcile_variant_wide_attribution.sql`**: после обновления остатка variant-wide ветка распределяет освобождение по релизабельным заказам (`REFUSED`/`CANCELLED`) с положительным нетто-резервом (детерминированно по `created_at, id`), записывая по одному `MANUAL_RECONCILE` движению на заказ; остаток (орфан/legacy) — одно движение с `order_id = null`. Сумма движений всегда равна `p_quantity`. Бизнес-правило релизабельности не менялось; order-aware ветка не менялась. Теперь `order_cancel`-освобождения и variant-wide-освобождения одинаково видны в нетто-журнале заказа.
+
+### Тесты
+
+`scripts/commerce-harness.mjs`: Test 10 расширен кейсом `E` (`custom price + zero custom discount` = 1200, ноль не подменяется) и проверкой `Cart == order_items` для всех осей; добавлены Test 14 (отмена A не крадёт резерв B, повторная order-aware сверка A → `INSUFFICIENT_HELD`), Test 15 (повторная отмена → `ORDER_TERMINAL`, новых движений нет), Test 16 (конкурентные order-aware сверки двух `REFUSED`), Test 17 (заказ из нескольких позиций), Test 18 (повторная order-aware сверка того же `REFUSED` → `INSUFFICIENT_HELD`, одно движение), Test 19 (variant-wide атрибутирует освобождение отменённому IN_TRANSIT-заказу; повторная order-aware сверка → `INSUFFICIENT_HELD`, резерв активного заказа не тронут), Test 20 (variant-wide распределяет освобождение по двум `REFUSED`-заказам).
+
+| Артефакт | Изменение |
+|---|---|
+| `0042_inventory_reconcile_order_held_movements.sql` | order-held из нетто журнала движений |
+| `0043_variant_price_axis_invariant.sql` | CHECK-инвариант `price_mode` + `create_order_atomic` (валидация оси) |
+| `0044_inventory_reconcile_variant_wide_attribution.sql` | variant-wide освобождение атрибутируется заказам |
+| `edge-functions/process-checkout.js` | `INVALID_PRICE`/`INVALID_DISCOUNT` → 400 |
+| `scripts/commerce-harness.mjs` | Test 10 (E + Cart==order), Test 14–20 |
+
+**Гейт:** `typecheck` ✅ · `lint` ✅ · `test` **816/816** ✅ · `build` ✅ · `migrations:check` 0001..0044 ✅ · `commerce:harness` **85/85** ✅.
+
+**Вне правки (не дефект):** порядок блокировок (`inventory_reconcile`: inventory→order; `order_cancel`: order→inventory) не менялся — потенциальный deadlock-порядок оставлен как есть (предсуществующее свойство). Атрибуция variant-wide закрыта в `0044`.
+
+---
+
 
 # Приложение A. Разбор относительно кода (2026-10-05)
 

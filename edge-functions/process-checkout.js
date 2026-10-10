@@ -38,6 +38,8 @@ const ERROR_STATUS = {
   PRODUCT_NOT_ACTIVE: 409,
   INVENTORY_NOT_FOUND: 409,
   INSUFFICIENT_STOCK: 409,
+  INVALID_PRICE: 400,
+  INVALID_DISCOUNT: 400,
 };
 
 export default async function (request) {

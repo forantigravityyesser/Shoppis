@@ -73,10 +73,18 @@
 
   /* --- Layout shell --- */
   --navbar-height: 64px;
-  /* Нижний safe-area: Telegram кладёт --tg-safe-area-bottom, вне Telegram — env() */
-  --safe-bottom: max(env(safe-area-inset-bottom), var(--tg-safe-area-bottom, 0px));
-  /* Верхний safe-area (Home header): Telegram кладёт --tg-safe-area-top, вне Telegram — env() */
-  --safe-top: max(env(safe-area-inset-top), var(--tg-safe-area-top, 0px));
+  /* Нижний safe-area: Telegram кладёт инсеты, вне Telegram — env() */
+  --safe-bottom: max(
+    env(safe-area-inset-bottom),
+    var(--tg-safe-area-bottom, 0px),
+    var(--tg-content-safe-area-bottom, 0px)
+  );
+  /* Верхний safe-area (Home header): система + плавающий UI Telegram (fullscreen) */
+  --safe-top: max(
+    env(safe-area-inset-top),
+    var(--tg-safe-area-top, 0px),
+    var(--tg-content-safe-area-top, 0px)
+  );
   /* Высота плавающего нижнего навбара: bar (44 + 12) + вертикальные отступы обёртки + safe-area */
   --bottom-nav-space: calc(88px + var(--safe-bottom));
 }
