@@ -10,6 +10,7 @@ import { configureDependencies, type AppContainer } from './application/composit
 import * as productRepository from './infrastructure/repositories/product-repository';
 import * as categoryRepository from './infrastructure/repositories/category-repository';
 import * as orderRepository from './infrastructure/repositories/order-repository';
+import * as orderRealtime from './infrastructure/realtime/order-realtime';
 import * as storefrontRepository from './infrastructure/repositories/storefront-repository';
 import * as storefrontProductRepository from './infrastructure/repositories/storefront-product-repository';
 import * as sellerProductSocialRepository from './infrastructure/repositories/seller-product-social-repository';
@@ -45,6 +46,7 @@ const container: AppContainer = {
   productRepository,
   categoryRepository,
   orderRepository,
+  orderRealtime,
   storefrontRepository,
   storefrontProductRepository,
   sellerProductSocialRepository,
@@ -77,6 +79,8 @@ const container: AppContainer = {
     getBuyerAppShortname: telegramApp.getBuyerAppShortname,
     openTelegramLink: telegramApp.openTelegramLink,
     requestMessagesAccess: telegramShare.requestMessagesAccess,
+    getViewportSnapshot: telegramApp.getViewportSnapshot,
+    subscribeViewport: telegramApp.subscribeViewport,
   },
 };
 

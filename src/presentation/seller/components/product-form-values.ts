@@ -17,6 +17,18 @@ export interface ProductFormValues {
   variants: VariantForm[];
 }
 
+/** Пустые значения формы создания (один пустой вариант), категория — по умолчанию или заданная. */
+export function emptyFormValues(categoryId: string = UNCATEGORIZED_ID): ProductFormValues {
+  return {
+    title: '',
+    description: '',
+    categoryId,
+    images: [],
+    attributes: [],
+    variants: [emptyVariant()],
+  };
+}
+
 /**
  * Плоские данные товара → значения формы (для режима редактирования).
  * Вынесено из `ProductForm.tsx`, чтобы файл экспортировал только компонент

@@ -117,12 +117,28 @@ derived data вынесена из `InventoryView`, `INV-HARDEN-08` ✅ — lint
 Orders перенесён в формат проекта и сверен с кодом — `22_SHOPPIS_ORDERS_TECHNICAL_PLAN.md` (этапы
 `ORD-00…ORD-13`). Сверка показала: idempotency (reserve-before-order `0038`/`0040`), серверный
 quantity-contract (`0039`) и инварианты инвентаря (harness Test 2/3/7/8/9/11/12) уже закрыты `21` —
-в `22` помечены `⏭️` и не дублируются. Реальная работа: authenticated order read-контур
-(`order-queries` + миграция `0042` с проекциями и keyset-cursor), серверный резолв Telegram username
-при checkout (`process-checkout.js:92` сейчас `null`), вывод Orders server state из Zustand в React
-Query, чистка dead bypass-helpers (`order-repository.ts:159/189/199`), shared UI списка/деталей,
-buyer/seller actions через существующий `order-actions`. Вкладки Orders — по-прежнему заглушки
-(`OrdersView` → `null`, seller — `PlaceholderScreen`); `16` FD-3 синхронизирован.
+в `22` помечены `⏭️` и не дублируются. Работа закрыта полностью (**ORD-01…ORD-13 ✅**):
+authenticated order read-контур (`0046` + edge `order-queries` + repository на RPC), серверный
+резолв Telegram username в checkout (`_shared/checkout-identity.js`), read models/mappers,
+React Query hooks (`useOrders`/`useOrderDetails`/`useOrderActions`, server state выведен из Zustand),
+shared UI списка/деталей + actions (buyer cancel, 6 seller-действий), routing/compat, QA.
+Гейты: `typecheck`/`lint`/`test` 940/940 · `commerce:harness` 102/102 · `build`. Экран Orders
+реализован (buyer `OrdersView` + shared detail; seller `SellerOrdersView` + detail); остаётся
+ручной `LOCAL`/`TELEGRAM` smoke. `16` FD-3 синхронизирован.
+
+**Актуализация (2026-10-10) — Product Copy (независимые черновики):** добавлено ТЗ «+ Создать копию»
+поверх существующих форм создания/редактирования — `23_SHOPPIS_PRODUCT_COPY_TECHNICAL_PLAN.md`
+(этапы `PC-00…PC-08`). Копирование — локальное преобразование данных формы; сохранение — существующий
+сценарий create/update; фото, остатки и резервы не переносятся; связи между карточками нет; лимит 6 —
+клиентская сессия. Решения `Q1–Q6`/`R1–R9` **приняты** и зафиксированы (Приложение C): пустой остаток = `0`;
+возврат `productId` из create-цепочки (вариант A); минимальный exit-guard; `crypto.randomUUID`;
+локальный application-контроллер без нового Zustand-среза; существующее подтверждение удаления.
+Stage 0 (карта кода `файл:строка`, расхождения и короткий аудит) — §2; `PC-00` учтён в плане.
+**Прогресс:** `PC-00…PC-08` ✅ LOCAL — копирование черновиков реализовано (`createProductCopy`,
+`product-draft-session` + `useProductDraftSession`/`useProductDraftSave`, `ProductDraftEditor`,
+`useUnsavedChangesGuard`; сквозной возврат `productId` create-цепочки; `ProductForm` управляемый;
+удаление черновика и уход карточки из списка после сохранения); гейт `typecheck`/`lint`/`test`
+1011/1011/`build`/`migrations:check` зелёный; отчёт — `23 §14.1`; осталось ручное `TELEGRAM`-smoke.
 
 **Актуализация (2026-10-03):** следующий блок buyer-части — карточка товара: экран, галерея,
 варианты/цена/наличие, избранное, корзина, «О товаре / Отзывы / Вопросы» (чтение), related
@@ -153,6 +169,7 @@ Spec §9.0.
 17. `20_SHOPPIS_SELLER_INVENTORY_HARDENING_AUDIT.md` — повторный hardening-audit Seller Inventory после `19`: независимые оси custom-цены/скидки (JS + 7 живых SQL-функций + checkout; `INV-HARDEN-01/02` ✅, миграция `0037` применена), единый mutation API (throw), тесты категорий/responsive, переименование `CategoryGrid/CategoryCard` → `InventoryCategoryList`/`InventoryCategoryRow` (`INV-HARDEN-06` ✅), derived data, lint-гигиена; этапы INV-HARDEN-01…09, deferred-производительность 100+ с триггером.
 18. `21_SHOPPIS_CART_COMMERCE_HARDENING_AUDIT.md` — commerce hardening Cart/Checkout/Order: idempotency (retry + SQL reserve-before-order), серверный quantity-contract, `held_quantity` custody, SQL/integration/concurrency тесты, checkout-error → reconciliation, `MAX_CART_ITEMS`, split `cart-rules`/`checkout-rules`; этапы CART-HARDEN-01…12, deferred realtime с триггером. Владелец P0 независимых осей цены — `20` INV-HARDEN-02 (общая зависимость).
 19. `22_SHOPPIS_ORDERS_TECHNICAL_PLAN.md` — Заказы и Детали заказа (покупатель + продавец): перенос внешнего технического плана в формат проекта — аудит фундамента по коду, разбор внешнего плана (что уже закрыто `21`, что остаётся), целевая архитектура read/command (`order-queries` + миграция `0042`, cursor-пагинация, store-scope), read models `OrderListItem`/`OrderDetails`, security/PII, контакты, shared UI, матрица lifecycle-действий, тесты и DoD; этапы ORD-00…ORD-13 (ЧТО+КАК).
+20. `23_SHOPPIS_PRODUCT_COPY_TECHNICAL_PLAN.md` — Копирование карточки товара (независимые черновики): «+ Создать копию» поверх существующих форм создания/редактирования — сессия независимых черновиков, переключение, независимое сохранение, лимит 6, сброс фото/остатков, независимые цены/опции, отсутствие связи карточек; Stage 0 — карта кода (`файл:строка`) и расхождения ТЗ с кодом (R1–R9), этапы PC-00…PC-08, тестовая матрица, DoD; этап PC-00 (подтверждение) — до кода.
 
 ## Принцип двух сред проверки
 Telegram — не финальная интеграция, а целевая среда исполнения и проверки с первых этапов. Каждый глобальный этап имеет два состояния: `LOCAL VERIFIED` (браузер / локальный контур) и `TELEGRAM VERIFIED` (реальный Telegram Mini App на development-окружении). Этап не закрывается без обоих.

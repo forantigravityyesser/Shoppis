@@ -775,6 +775,171 @@
   height: 40px;
 }
 
+/* ---- Product copy: «+ Создать копию» + навигация по черновикам (docs/23 §7) ---- */
+.inv-copy-btn {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(108, 92, 231, 0.18);
+  border-radius: var(--radius-md);
+  /* Полупрозрачный, чтобы не мешать заполнению формы, но оставаться под рукой. */
+  background: rgba(108, 92, 231, 0.12);
+  color: var(--color-accent);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    transform 0.1s,
+    opacity 0.15s;
+}
+
+.inv-copy-btn:active {
+  transform: scale(0.94);
+  background: rgba(108, 92, 231, 0.2);
+}
+
+.inv-copy-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.draft-nav {
+  display: flex;
+  gap: var(--spacing-2);
+  overflow-x: auto;
+  padding-bottom: var(--spacing-2);
+  margin-bottom: var(--spacing-3);
+  scrollbar-width: none;
+}
+
+.draft-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.draft-chip {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 8px 12px;
+  border: 1px solid var(--color-input-border);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+
+.draft-chip--active {
+  border-color: var(--color-accent);
+  background: rgba(108, 92, 231, 0.12);
+}
+
+.draft-chip__name {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.draft-chip__status {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+.draft-chip-wrap {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.draft-chip__remove {
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-full);
+  background: rgba(255, 59, 48, 0.12);
+  color: var(--color-danger);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    transform 0.1s;
+}
+
+.draft-chip__remove:active {
+  transform: scale(0.9);
+  background: rgba(255, 59, 48, 0.2);
+}
+
+.draft-nav__limit {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  margin-bottom: var(--spacing-3);
+}
+
+/* ---- Exit-guard: подтверждение ухода без сохранения (docs/23 §7.6) ---- */
+.draft-exit-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-3);
+  padding: var(--spacing-4);
+  margin-bottom: var(--spacing-3);
+  border-radius: 20px;
+  background: var(--color-bg-card);
+  box-shadow: 0 4px 16px rgba(108, 92, 231, 0.08);
+}
+
+.draft-exit-confirm__text {
+  margin: 0;
+  font-size: var(--font-size-md);
+  line-height: 1.4;
+  color: var(--color-text-primary);
+}
+
+.draft-exit-confirm__actions {
+  display: flex;
+  gap: var(--spacing-2);
+}
+
+.draft-exit-confirm__cancel,
+.draft-exit-confirm__danger {
+  flex: 1 1 0;
+  padding: 12px 16px;
+  border: none;
+  border-radius: var(--radius-full);
+  font-family: inherit;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  cursor: pointer;
+  transition: transform 0.12s ease;
+}
+
+.draft-exit-confirm__cancel {
+  background: var(--color-input-bg);
+  color: var(--color-text-primary);
+}
+
+.draft-exit-confirm__danger {
+  background: var(--color-danger);
+  color: #fff;
+}
+
+.draft-exit-confirm__cancel:active,
+.draft-exit-confirm__danger:active {
+  transform: scale(0.97);
+}
+
 .photo-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);

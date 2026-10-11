@@ -163,6 +163,9 @@ export function useCheckout(): CheckoutState {
     try {
       await placeOrder(recipient, idempotencyKey);
       idempotencyKeyRef.current = null;
+      // Новый заказ → обновляем server-cache списка заказов (docs/22 ORD-04):
+      // list живёт в React Query, отдельного post-checkout refresh в slice больше нет.
+      void queryClient.invalidateQueries({ queryKey: ['orders'] });
       setDefaultRecipient(recipient);
       setStatus('success');
     } catch (e) {

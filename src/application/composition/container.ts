@@ -13,6 +13,7 @@ import type { CategoryRepository } from '../ports/category-repository';
 import type { I18nPort } from '../ports/i18n';
 import type { IdentityProvider } from '../ports/identity';
 import type { OrderRepository } from '../ports/order-repository';
+import type { OrderRealtimePort } from '../ports/order-realtime';
 import type { ProductRepository } from '../ports/product-repository';
 import type { ImageUploadPort, StoragePort } from '../ports/storage';
 import type { SellerProductSocialRepository } from '../ports/seller-product-social-repository';
@@ -38,6 +39,7 @@ export interface AppContainer {
   storefrontCatalogRepository: StorefrontCatalogRepository;
   cartRepository: CartRepository;
   orderRepository: OrderRepository;
+  orderRealtime: OrderRealtimePort;
   storage: StoragePort;
   imageUpload: ImageUploadPort;
   authApi: AuthApi;

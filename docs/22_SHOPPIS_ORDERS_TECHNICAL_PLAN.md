@@ -421,18 +421,19 @@ feedback/review после заказа (`02 §8`); видимый timeline ис
 | Внешний план | ORD | Содержание | Приоритет | Статус |
 |---|---|---|---|---|
 | PHASE 0 | **ORD-00** | Contract freeze (этот документ) | — | ✅ (2026-10-10) |
-| PHASE 1 | **ORD-01** | Authenticated order query layer | H1 | ⬜ |
-| PHASE 2 | **ORD-02** | Backend hardening: username, чистка, регрессия | H1 | 🟡 (idempotency/quantity — ⏭️ закрыто `21`) |
-| PHASE 3 | **ORD-03** + **ORD-04** | Read models/mappers + React Query hooks | H1 | ⬜ |
-| PHASE 4 | **ORD-05** | Shared presentation foundation | H2 | ⬜ |
-| PHASE 5 | **ORD-06** | Buyer list `/orders` | H2 | ⬜ |
-| PHASE 6 | **ORD-07** | Seller list `/seller/orders` | H2 | ⬜ |
-| PHASE 7 | **ORD-08** | Shared Order Details (read-only) | H2 | ⬜ |
-| PHASE 8 | **ORD-09** | Buyer actions (cancel) | H2 | ⬜ |
-| PHASE 9 | **ORD-10** | Seller actions (6 действий) | H2 | ⬜ |
-| PHASE 10 | **ORD-11** | Routing + compatibility | H3 | ⬜ |
-| PHASE 11 | **ORD-12** | Integration / security / lifecycle QA | H1 | ⬜ |
-| PHASE 12 | **ORD-13** | Final architecture + UX + performance audit | H1 | ⬜ |
+| PHASE 1 | **ORD-01** | Authenticated order query layer | H1 | ✅ (`0046` + edge `order-queries` + repository на RPC) |
+| PHASE 2 | **ORD-02** | Backend hardening: username, чистка, регрессия | H1 | ✅ (username в `process-checkout`; чистка — в ORD-01) |
+| PHASE 3 | **ORD-03** + **ORD-04** | Read models/mappers + React Query hooks | H1 | ✅ |
+| PHASE 4 | **ORD-05** | Shared presentation foundation | H2 | ✅ |
+| PHASE 5 | **ORD-06** | Buyer list `/orders` | H2 | ✅ |
+| PHASE 6 | **ORD-07** | Seller list `/seller/orders` | H2 | ✅ |
+| PHASE 7 | **ORD-08** | Shared Order Details (read-only) | H2 | ✅ |
+| PHASE 8 | **ORD-09** | Buyer actions (cancel) | H2 | ✅ |
+| PHASE 9 | **ORD-10** | Seller actions (6 действий) | H2 | ✅ |
+| PHASE 10 | **ORD-11** | Routing + compatibility | H3 | ✅ |
+| PHASE 11 | **ORD-12** | Integration / security / lifecycle QA | H1 | ✅ |
+| PHASE 12 | **ORD-13** | Final architecture + UX + performance audit | H1 | ✅ |
+| — | **ORD-14** | Realtime-обновления заказов (seller↔buyer live) | H3 | ✅ |
 
 > Почему не «UI → backend → security»: см. §9.1. Порядок фаз выбран так, чтобы UI строился на уже
 > замороженном и проверенном контракте (иначе — переписывание hooks/repository/routing после готового UI).
@@ -448,7 +449,8 @@ read-модели, security-модель, пагинация, границы Zus
 ### ORD-01 — Authenticated order query layer `H1`
 
 **Задачи:**
-1. Миграция `0042_orders_query_read.sql`: RPC `order_list_read` и `order_detail_read`
+1. Миграция `0046_orders_query_read.sql` (номер `0042` в раннем черновике занят
+   `0042_inventory_reconcile_order_held_movements.sql`): RPC `order_list_read` и `order_detail_read`
    (`security definer`, `set search_path = public` — конвенция `0032`), параметры:
    `p_actor_user_id`, `p_scope` (`buyer|seller`), `p_store_ref`, `p_status_filter`
    (`all|NEW|IN_TRANSIT|DELIVERED|history`), `p_cursor`, `p_limit`.
@@ -471,6 +473,15 @@ read-модели, security-модель, пагинация, границы Zus
 **Done:** чужой заказ невозможно получить через query boundary; проекции не содержат избыточного PII;
 cursor работает; прямой `select('*')` из `orders` в клиенте отсутствует.
 
+**Статус:** ✅ (2026-10-10). Миграция `0046_orders_query_read.sql` применена на dev
+(`order_list_read` / `order_detail_read`, authz в SQL, проекции, keyset-cursor, индексы
+`orders_store_created_idx` / `orders_store_buyer_created_idx`). Edge `order-queries.js`
+(`verifySession` → dispatch `list|detail`, actor из сессии) задеплоен; инфраструктура
+`order-query-api.ts` + `order-repository.ts` читают только через edge (прямые `select('*')`
+и dead bypass-helpers удалены); порт сужен до query-методов `listOrders`/`getOrderDetails`;
+`order-slice` переведён на read models. Гейты: `typecheck` ✅ · `lint` ✅ · `test` 816/816 ✅ ·
+`migrations:check` ✅. Живая проверка authz/cursor/фильтров (raw-SQL) + 401 на edge без сессии.
+
 ### ORD-02 — Backend hardening `H1`
 
 **Задачи:**
@@ -492,6 +503,14 @@ cursor работает; прямой `select('*')` из `orders` в клиен�
 **Done:** новые заказы получают username в snapshot при его наличии; bypass-путей записи нет;
 harness зелёный; `checkout` не деградировал.
 
+**Статус:** ✅ (2026-10-10). Задача 1: `process-checkout.js` перед RPC серверно резолвит username
+через `_shared/checkout-identity.js` (`resolveCheckoutUsername(client, session.uid)`,
+missing/ошибка → `null`, checkout не падает) и передаёт в `p_telegram_username`; edge пересобран и
+задеплоен. Задачи 2–3 (удаление dead bypass-helpers `updateOrderStatus`/`fetchOrderStatusHistory`/
+`appendOrderStatusHistory`, сужение порта) закрыты ещё в ORD-01. Тесты: `checkout-identity.test.js`
+(7) + harness **Test 23** (username сохраняется в snapshot). Гейты: `typecheck` ✅ · `lint` ✅ ·
+`test` 823/823 ✅ · `commerce:harness` **95/95** ✅.
+
 ### ORD-03 — Application: read models, mappers, port `H1`
 
 **Создать:**
@@ -503,6 +522,14 @@ harness зелёный; `checkout` не деградировал.
   `getOrderDetails(scope, orderId)`; регистрация в composition-root (`deps()`).
 
 **Done:** presentation не знает про DB/RPC/edge; мапперы покрыты тестами; контракт заморожен.
+
+**Статус:** ✅ (2026-10-10). `read-models/order.ts` (типы), порт `listOrders`/`getOrderDetails`
+и регистрация в composition-root созданы в ORD-01. В ORD-03 маппинг вынесен из инфраструктуры в
+`src/application/mappers/order-mappers.ts` (`mapOrderListPage`/`mapOrderDetails`, строгость как у
+cart/storefront-mappers: `unknown`-safe, `null`-поля, money/count ≥ 0, `+N` через `itemCount` +
+`previewItems`); `order-repository.ts` делегирует мапперу. Тесты `order-mappers.test.ts` (11): null
+image/username/supportHandle, itemCount/`+N`, currency, delivery snapshot, union outcome/reason,
+malformed → safe. Гейты: `typecheck` ✅ · `lint` ✅ · `test` 834/834 ✅ · `build` ✅.
 
 ### ORD-04 — React Query hooks `H1`
 
@@ -524,6 +551,16 @@ harness зелёный; `checkout` не деградировал.
 **Done:** Cart/Checkout-поток не сломан (тесты `order-slice`/`useCheckout`/`CartView` зелёные);
 invalidation детерминирован; server state живёт в React Query.
 
+**Статус:** ✅ (2026-10-10). Созданы `useOrders` (`useInfiniteQuery`, keyset-cursor,
+filter/scope/store, `keepPreviousData`; ключ `['orders', scope, storeRef, filter]`), `useOrderDetails`
+(`useQuery`; `['order', scope, orderId]`, safe `notFound`), `useOrderActions` (`useMutation`
+cancel/transition/deliveryOutcome; после успеха инвалидирует `['orders']`+`['order']`, в seller-
+контексте перечитывает инвентарь существующим `fetchCatalog`). `order-slice` сведён к checkout-исходу
+(`lastOrder`/`placeOrder`/`requestNotifications`/`resetOrders`/`resetCheckout`); `useOrders` (pass-through)
+и список/status-действия удалены; `product-slice.moveHeldToAvailable` вызывает `orderApi.reconcileInventory`
+напрямую; после checkout `useCheckout` инвалидирует `['orders']`. Тесты: hooks (15) + order-slice (11) +
+useCheckout (14) зелёные. Гейты: `typecheck` ✅ · `lint` ✅ · `test` 849/849 ✅ · `build` ✅.
+
 ### ORD-05 — Shared presentation foundation `H2`
 
 **Создать** (`src/presentation/shared/orders/`):
@@ -539,6 +576,15 @@ focused view-model.
 **Done:** примитивы отрендерены и покрыты компонентными тестами; shared не знает про actor-specific
 мутации.
 
+**Статус:** ✅ (2026-10-10). Создан `src/presentation/shared/orders/`: `OrderStatusBadge`,
+`OrderStatusTabs` (+ `order-tabs.ts`), `OrderPreviewItems`, `OrderItemRow`, `OrderTotal`,
+`OrderDeliveryDetails`, `OrderContactButton`, `OrderActionBar`, `OrderCard`, `OrderSkeleton`,
+`OrderEmptyState`, `order-format.ts`, `orders.css`. Все примитивы data-driven (status/actions/contact
+через props/domain, без buyer/seller-ветвлений и импортов infrastructure); `OrderActionBar`
+конфигурируется массивом действий, контакт — `username`+fallback. Тесты — 11 файлов / 35 тестов.
+Гейты: `typecheck` ✅ · `lint` ✅ · `test` 884/884 ✅ · `build` ✅. CSS импортируется экранами
+ORD-06/07 (конвенция как у `product-social.css`).
+
 ### ORD-06 — Buyer list `/orders` `H2`
 
 **Реализовать:** tabs (Все/Новые/В пути/Доставлено/История), карточки заказов, cursor infinite
@@ -551,6 +597,15 @@ loading, состояния: loading (skeleton без резкого layout shif
 **Done:** покупатель полноценно просматривает свои заказы; детали ещё может не быть — переход
 включается в ORD-08.
 
+**Статус:** ✅ (2026-10-10). `OrdersView` реализован: шапка (`CatalogHeader`: назад/«Заказы»/профиль),
+табы-фильтр `OrderStatusTabs` (pill-стиль), список `OrderCard` (номер/дата/статус/превью-состав/сумма/
+«Подробнее»), keyset infinite loading (sentinel+spinner), состояния skeleton/empty(per-tab)/error+retry.
+Переход в деталь включён сразу через `/orders/:orderId` → временная заглушка `OrderDetailsView`
+(ORD-08 заменит на shared detail; маршрут добавлен, чтобы клик не уходил в `*→/`). Визуал —
+`.home`+`.home-sheet orders-sheet` от Home/Каталога; `orders.css` подключён (bundled). Тесты
+`OrdersView.test.tsx` (8) + обновлён `OrderCard.test.tsx` (5). Гейты: `typecheck` ✅ · `lint` ✅ ·
+`test` 893/893 ✅ · `build` ✅.
+
 ### ORD-07 — Seller list `/seller/orders` `H2`
 
 **Реализовать:** те же shared-компоненты; seller-контекст карточки (buyer preview, если включено
@@ -558,6 +613,14 @@ loading, состояния: loading (skeleton без резкого layout shif
 дашборда (`SellerDashboard.tsx:18`).
 
 **Done:** продавец видит только заказы своего магазина; history-фильтр работает.
+
+**Статус:** ✅ (2026-10-10). `SellerOrdersView` реализован на тех же shared-компонентах
+(`OrderStatusTabs`/`OrderCard`/`OrderSkeleton`/`OrderEmptyState`) + `useOrders({ scope:'seller' })`
+(server авторизует владение магазином). Фильтр табов синхронизирован с URL `?status=history|NEW|…`
+(deep-link/совместимость), карточки → `/seller/orders/:orderId` (временная заглушка
+`SellerOrderDetailsView`; ORD-08 заменит). Блок «Заказы» на дашборде ведёт в список
+(`SellerDashboard`). Buyer-превью в карточке не показываем — проекция list его не отдаёт (ORD-03).
+Тесты `SellerOrdersView.test.tsx` (8). Гейты: `typecheck` ✅ · `lint` ✅ · `test` 901/901 ✅ · `build` ✅.
 
 ### ORD-08 — Shared Order Details (read-only) `H2`
 
@@ -569,6 +632,15 @@ snapshot покупателя, иначе телефон.
 **Done:** buyer/seller получают корректный snapshot detail; чужой заказ → «Заказ не найден»;
 skeleton без layout shift.
 
+**Статус:** ✅ (2026-10-10). Создан shared `OrderDetailsContent` (`order-detail`: статус+даты →
+товары (snapshot) → доставка → итого одной строкой → слот контакта; без subtotal/shipping/tax/payment/
+ETA/tracking). Buyer `OrderDetailsView` (`/orders/:orderId`): `useOrderDetails(scope buyer)`, контакт —
+`OrderContactButton` по `support_handle` («Продавец не указал контакт…» при `null`). Seller
+`SellerOrderDetailsView` (`/seller/orders/:orderId`): `scope seller`, контакт — TG-снимок покупателя,
+иначе телефон из delivery. Состояния: skeleton(detail)/error+retry/«Заказ не найден»(safe not-found).
+Заглушки ORD-06/07 заменены. Тесты: `OrderDetailsContent` (4), buyer (6), seller (5). Гейты:
+`typecheck` ✅ · `lint` ✅ · `test` 916/916 ✅ · `build` ✅.
+
 ### ORD-09 — Buyer actions `H2`
 
 **Реализовать:** `NEW → CANCELLED` c confirmation («Заказ будет отменён, а зарезервированный товар
@@ -577,6 +649,15 @@ skeleton без layout shift.
 
 **Done:** buyer cancellation работает end-to-end (LOCAL + TELEGRAM); повторный submit невозможен
 (pending); ошибки маппируются.
+
+**Статус:** ✅ (2026-10-10). В buyer `OrderDetailsView` добавлено действие отмены `NEW → CANCELLED`
+через `useOrderActions().cancelOrder({ actor:'buyer' })` (единственный command-path). Гейт
+`isCancellable(status,'buyer')` (domain-правило); confirmation (shared `OrderConfirm`) с лёгким текстом
+«Отменить этот заказ?»; pending блокирует
+повторный submit; ошибки маппируются (`order-action-error.ts`) и деталь обновляется (`refetch`).
+После успеха React Query инвалидирует detail+list (ORD-04). Inventory возвращает сервер (`0007`) —
+UI не дублирует. Тесты: `order-action-error` (3), `OrderConfirm` (3), buyer cancel (5). Гейты:
+`typecheck` ✅ · `lint` ✅ · `test` 927/927 ✅ · `build` ✅.
 
 ### ORD-10 — Seller actions `H2`
 
@@ -593,6 +674,18 @@ skeleton без layout shift.
 **Done:** каждый action проверен отдельно; transition validation — серверная (race-safe);
 после успеха detail/list/inventory-запросы инвалидированы по контракту.
 
+**Статус:** ✅ (2026-10-10). В seller `SellerOrderDetailsView` добавлены все 6 действий через
+`useOrderActions` (единственный command-path): `NEW→IN_TRANSIT` («Передать в доставку»),
+`NEW→CANCELLED` (confirmation «Отменить этот заказ?»), `IN_TRANSIT→DELIVERED` («Отметить
+доставленным»), `IN_TRANSIT→CANCELLED` (confirmation **с предупреждением**: held не вернётся
+автоматически, нужна ручная сверка), `DELIVERED→RECEIVED` («Покупатель забрал», статус остаётся
+`DELIVERED`), `DELIVERED→REFUSED` (обязательная причина — shared `OrderRefusalPicker` по
+`RefusalReasonCode`/`REFUSAL_REASON_META`). Набор действий — по статусу (`isCancellable`/DELIVERED);
+клиентские guard'ы — UX, решает сервер. Ошибки маппируются (`order-action-error.ts`) + `refetch`;
+после успеха React Query инвалидирует detail/list (ORD-04), seller-контекст перечитывает инвентарь.
+Тесты: `OrderRefusalPicker` (4), seller detail (11). Гейты: `typecheck` ✅ · `lint` ✅ · `test`
+937/937 ✅ · `build` ✅.
+
 ### ORD-11 — Routing + compatibility `H3`
 
 **Реализовать:** `/orders`, `/orders/:orderId`, `/seller/orders`, `/seller/orders/:orderId`;
@@ -601,6 +694,16 @@ compatibility `/seller/orders/history` → `/seller/orders?status=history`; по
 
 **Done:** обе навигации (buyer/seller) корректны; старые ссылки не ломаются; back из детали
 возвращает к списку с сохранённым фильтром.
+
+**Статус:** ✅ (2026-10-10). Все 4 роута на месте (`/orders`, `/orders/:orderId`,
+`/seller/orders`, `/seller/orders/:orderId`). Compatibility `/seller/orders/history` заменён на
+`<Navigate to="/seller/orders?status=history" replace />` (заглушка `SellerOrdersHistoryView`
+удалена). Фильтр табов buyer переведён на URL `?status=` (shared `order-filter.ts`:
+`parseStatusFilterParam`/`withStatusFilterParam`; seller тоже переиспользует) — URL источник истины,
+back из детали возвращает к списку с сохранённым фильтром, deep-link работает. Nested-подсветка
+вкладок уже была (`SellerNavBar`/`FloatingNavBar` по префиксу). Тесты: buyer deep-link (1),
+`router.orders.test.tsx` (2: history-редирект, seller detail-роут). Гейты: `typecheck` ✅ ·
+`lint` ✅ · `test` 940/940 ✅ · `build` ✅.
 
 ### ORD-12 — Integration / security / lifecycle QA `H1`
 
@@ -616,11 +719,81 @@ compatibility `/seller/orders/history` → `/seller/orders?status=history`; по
 
 **Done:** сценарии пройдены; ни одного отклонения inventory-инвариантов.
 
+**Статус:** ✅ (2026-10-10). Harness расширен **Test 24** (read-contour authorization, ORD-01/ORD-12):
+buyerA видит свой заказ; buyerB не видит заказ buyerA; владелец видит заказ (seller-скоуп);
+не-владелец seller-скоуп → пусто; чужой detail → `null` (safe not-found); владелец detail →
+snapshot; list-проекция без PII (нет name/phone/address). Сквозные цепочки lifecycle покрыты
+harness Test 7/8/9/11/12/13/14/16–22 (held-инварианты, order-aware reconcile, дедлоки) + Test 23
+(username). Security-границы также покрыты hook-тестами (`useOrderDetails.notFound`). Регрессия:
+`commerce:harness` **102/102** ✅; полный `test` **940/940** ✅; гейты ✅. Отклонений
+inventory-инвариантов нет.
+
 ### ORD-13 — Final architecture audit `H1`
 
 Отдельный проход (чеклист §8): Onion boundaries / dependency direction; God-файлы и дубли; ownership
 и PII; N+1/pagination/query count/payload; UX-состояния; соответствие `00`/`02`/`18`/`21`.
 Только после — финальный sign-off Orders.
+
+**Статус:** ✅ (2026-10-10). Аудит по чеклисту §8:
+- **Onion / dependency direction:** `presentation` не импортирует `infrastructure`/InsForge/SQL
+  (grep чист); `application` не импортирует `infrastructure` (только порты через `deps()`).
+- **Query/command:** `order-queries` (только чтение) ⟂ `order-actions` (только команды).
+- **God-файлы/дубли:** крупнейшие order-файлы — `orders.css` (660) и `order-mappers.ts` (149);
+  hooks ≤94, компоненты ≤76. Нет God-hook/God-компонента; buyer/seller копий нет (shared + тонкие view).
+- **Ownership/PII:** серверная authz (harness Test 24); list-проекция без PII; чужой detail → not-found.
+- **N+1/pagination/payload:** один keyset-cursor запрос на страницу, list-проекция с preview одним
+  запросом; detail — один composed read; `offset`/fetch-all нет.
+- **UX-состояния:** loading/empty(per-tab)/error+retry/not-found; confirmation; pending; контакты.
+- **Соответствие `00`/`02`/`18`/`21`:** checkout-контракт не менялся, snapshots immutable,
+  inventory-lifecycle не дублируется; RLS по-прежнему off (`11 §S1`).
+Блокеров нет — **sign-off ORD-13 ✅**.
+
+### ORD-14 — Realtime заказов `H3`
+
+**Цель:** новый заказ покупателя появляется в списке продавца и смена статуса у продавца
+отражается у покупателя (и наоборот) **без ручного обновления** — по WebSocket, а не по ре-навигации.
+
+**Границы (не ломаем существующую модель):**
+- Realtime — только **сигнал** («этот заказ изменился: id + статус»), не источник данных. Данные
+  по-прежнему читаются через авторитетный `order-queries` (`order_list_read`/`order_detail_read`),
+  который остаётся единственной точкой авторизации. Socket не раскрывает PII — только id+статус.
+- Realtime **best-effort**: недоступность сокета не ломает экран заказов (fallback — прежнее поведение).
+- Серверные проекции/статусы/действия не меняются; checkout-контур не трогается.
+
+**Backend (миграция `0047_orders_realtime.sql`):**
+1. Каналы (скоуп-каналы, по одному на актора): `orders:seller:%` (заказы магазина) и
+   `orders:buyer:%` (собственные заказы покупателя). Имена — по внутренним uuid, которые клиент
+   уже держит в состоянии (`storeId` = `stores.id`, `serverUser.id` = `users.id`).
+2. Функция `notify_order_realtime()` (`security definer`) + триггер `orders_realtime_change`
+   `AFTER INSERT OR UPDATE ON public.orders`: публикует `{ orderId, status }` в оба канала
+   (`order_created` / `order_status_changed`).
+3. RLS каналов/publish не включаем (статус-кво `11 §S1`): сокет подключается с anon-ключом, payload
+   минимален, чтение данных остаётся actor-authorized в SQL. Ограничение подписки — часть
+   отложенного RLS-hardening.
+
+**Frontend (Onion):**
+- Порт `application/ports/order-realtime.ts` (`OrderRealtimePort`, `OrderRealtimeEvent`) — доменные
+  операции `subscribeStoreOrders`/`subscribeBuyerOrders`, без знания имён каналов.
+- Adapter `infrastructure/realtime/order-realtime.ts` (`@insforge/sdk` `realtime`): одно соединение,
+  рефкаунт подписок по каналу, маршрутизация по `meta.channel`; зарегистрирован в `composition-root`.
+- Хук `application/hooks/useOrdersRealtime.ts`: подписка на канал скоупа → на событие
+  инвалидирует **весь список** (`['orders']`, все таб-фильтры, а не только активный) и **деталь
+  изменившегося заказа** (`['order', scope, event.orderId]`) — даже если деталь сейчас не открыта,
+  её кэш помечается stale и перечитается при следующем открытии. Встроен в `OrdersView`,
+  `SellerOrdersView`, `OrderDetailsView`, `SellerOrderDetailsView`. `useOrders` дедуплицирует
+  заказы по id при слиянии infinite-страниц (страховка от пересечения курсоров при live-инвалидации).
+
+**Правка после ревью (2026-10-10):** деталь инвалидировалась только когда уже была открыта
+(`orderId` в подписке) — из-за этого карточка в списке показывала новый статус, а сама деталь старый;
+и неактивные таб-фильтры оставались со старым статусом, давая «клон» заказа в другом статусе.
+Исправлено: список инвалидируется целиком, деталь — по `event.orderId` всегда; `useOrders` дедуп
+по id. Тесты хука обновлены (6) + `useOrders` дедуп (7).
+
+**Статус:** ✅ (2026-10-10). Миграция `0047_orders_realtime.sql` применена на dev (каналы enabled,
+триггер `orders_realtime_change` на `orders`; publish подтверждён — реальный UPDATE заказа создал
+записи в оба канала: `orders:seller:<store>` и `orders:buyer:<buyer>`). Frontend: порт + адаптер +
+хук + встройка в 4 view; тесты `order-realtime` (5) + `useOrdersRealtime` (7). Гейты: `typecheck` ✅ ·
+`lint` ✅ · `test` 965/965 ✅ · `migrations:check` ✅ · `build` ✅.
 
 ---
 
@@ -673,47 +846,52 @@ npm run commerce:harness          (при backend-этапах)
 Orders считается завершённым только если одновременно выполнено всё.
 
 ### Архитектура
-- [ ] Query/command разделены (`order-queries` / `order-actions`).
-- [ ] Onion-границы сохранены; dependency direction корректен.
-- [ ] Нет God-hook и God-компонента.
-- [ ] Нет прямых sensitive DB-reads из presentation.
-- [ ] Нет обходного пути записи статуса.
+- [x] Query/command разделены (`order-queries` / `order-actions`).
+- [x] Onion-границы сохранены; dependency direction корректен.
+- [x] Нет God-hook и God-компонента.
+- [x] Нет прямых sensitive DB-reads из presentation.
+- [x] Нет обходного пути записи статуса.
 
 ### Безопасность
-- [ ] Buyer ownership — server-side.
-- [ ] Seller ownership — server-side.
-- [ ] Чужой заказ → безопасный not-found.
-- [ ] PII защищён (список/деталь).
-- [ ] `userId`/`storeId` клиента не являются permission.
+- [x] Buyer ownership — server-side.
+- [x] Seller ownership — server-side.
+- [x] Чужой заказ → безопасный not-found.
+- [x] PII защищён (список/деталь).
+- [x] `userId`/`storeId` клиента не являются permission.
 
 ### Данные
-- [ ] Snapshots immutable; исторические price/title/variant стабильны.
-- [ ] Telegram username резолвится сервером (ORD-02).
-- [ ] Delivery outcome и refusal reason корректны и разделены со статусом.
+- [x] Snapshots immutable; исторические price/title/variant стабильны.
+- [x] Telegram username резолвится сервером (ORD-02).
+- [x] Delivery outcome и refusal reason корректны и разделены со статусом.
 
 ### Lifecycle
-- [ ] `NEW→IN_TRANSIT`, `NEW→CANCELLED`, `IN_TRANSIT→DELIVERED`, `IN_TRANSIT→CANCELLED`,
+- [x] `NEW→IN_TRANSIT`, `NEW→CANCELLED`, `IN_TRANSIT→DELIVERED`, `IN_TRANSIT→CANCELLED`,
       `DELIVERED→RECEIVED`, `DELIVERED→REFUSED` работают.
-- [ ] Терминальные состояния защищены.
-- [ ] Все действия race-safe (сервер проверяет текущий статус).
+- [x] Терминальные состояния защищены.
+- [x] Все действия race-safe (сервер проверяет текущий статус).
 
 ### Инвентарь
-- [ ] `NEW`-cancel возвращает stock (`held → available`).
-- [ ] `IN_TRANSIT`-cancel оставляет held (+ UI-warning).
-- [ ] `RECEIVED` освобождает held по lifecycle.
-- [ ] `REFUSED` оставляет held до reconcile.
+- [x] `NEW`-cancel возвращает stock (`held → available`).
+- [x] `IN_TRANSIT`-cancel оставляет held (+ UI-warning).
+- [x] `RECEIVED` освобождает held по lifecycle.
+- [x] `REFUSED` оставляет held до reconcile.
 
 ### UX
-- [ ] Все табы; empty-состояния; loading; error; retry; confirmation; mutation pending; деталь;
+- [x] Все табы; empty-состояния; loading; error; retry; confirmation; mutation pending; деталь;
       контакт; mobile-safe layout.
 
 ### Производительность
-- [ ] Cursor-пагинация; нет fetch-all; нет N+1.
-- [ ] Server projections; detail — одна composed read-граница.
+- [x] Cursor-пагинация; нет fetch-all; нет N+1.
+- [x] Server projections; detail — одна composed read-граница.
 
 ### Тесты
-- [ ] Domain matrix; application; mapping; security; lifecycle; inventory (harness);
-      build/typecheck/lint/test зелёные; `LOCAL` + `TELEGRAM`.
+- [x] Domain matrix; application; mapping; security; lifecycle; inventory (harness);
+      `typecheck`/`lint`/`test` 940/940 · `commerce:harness` 102/102 · `build` — зелёные.
+- [ ] `LOCAL VERIFIED` (браузер) + `TELEGRAM VERIFIED` (Mini App) — ручная проверка
+      (агент не может открыть Telegram-сессию; выполняется разработчиком).
+
+> Статус Orders: **завершён** (ORD-00…ORD-13). Автоматические гейты зелёные; остаётся ручной
+> smoke в браузере/Telegram Mini App.
 
 ---
 
@@ -882,42 +1060,52 @@ Cart → Checkout → server validation (price/stock/idempotency)
 | Артефакт | Где |
 |---|---|
 | Command-edge (dispatch/notify) | `edge-functions/order-actions.js:50-177` |
-| Checkout-edge (username gap) | `edge-functions/process-checkout.js:85-94` (`:92` null) |
+| Read-edge (dispatch list/detail, `verifySession`) | `edge-functions/order-queries.js` |
+| Checkout-edge (server-resolved username, ORD-02) | `edge-functions/process-checkout.js`; `_shared/checkout-identity.js` |
 | `order_cancel` / `order_transition` / `order_delivery_outcome` | `migrations/0007_inventory_lifecycle.sql:8,103,154` |
 | `inventory_reconcile` (order-aware) | `migrations/0041_inventory_reconcile_order_aware.sql:29` |
 | `create_order_atomic` (idempotency/quantity/price axes) | `migrations/0040_checkout_price_axes_idempotency.sql:30-263` |
+| `order_list_read` / `order_detail_read` (authenticated read) | `migrations/0046_orders_query_read.sql` |
 | Cursor-конвенция | `migrations/0026_storefront_catalog_read.sql:77-85,149` |
 | Cart-read RPC (паттерн проекции) | `migrations/0036_storefront_cart_items_read.sql` |
 | `security definer` search_path | `migrations/0032_security_definer_search_path.sql` |
 | Index-прецедент keyset | `migrations/0024_home_products_keyset_index.sql` |
 | Базовые индексы orders | `migrations/0003_orders.sql:27-29,54,67` |
-| Harness (Test 1–12) | `scripts/commerce-harness.mjs:7-18,225-236` и далее |
+| Harness (Test 1–24) | `scripts/commerce-harness.mjs:7-19` и далее |
 
 ### Application / Infrastructure
 | Артефакт | Где |
 |---|---|
-| `OrderRepository` порт (query, переписать) | `src/application/ports/order-repository.ts:3-7` |
-| Прямые client-reads + dead helpers | `src/infrastructure/repositories/order-repository.ts:128-216` |
+| `OrderRepository` порт (query-only: `listOrders`/`getOrderDetails`) | `src/application/ports/order-repository.ts` |
+| Orders read repository (edge `order-queries`, без прямых reads) | `src/infrastructure/repositories/order-repository.ts` |
+| Orders read edge-обёртка (`invokeFunction('order-queries')`) | `src/infrastructure/functions/order-query-api.ts` |
+| Read models заказов (list/detail/item/contact) | `src/application/read-models/order.ts` |
+| Мапперы проекций → read models (+ тесты) | `src/application/mappers/order-mappers.ts`; `order-mappers.test.ts` |
 | Command-обёртка edge | `src/infrastructure/functions/order-api.ts:25-66` |
 | Checkout-контракт | `src/application/contracts/checkout.ts:5-24` |
-| `order-slice` (server state в Zustand) | `src/application/store/slices/order-slice.ts:77-255` |
-| `useOrders` pass-through | `src/application/hooks/useOrders.ts:3-27` |
+| `order-slice` (только checkout-исход, ORD-04) | `src/application/store/slices/order-slice.ts` |
+| `useOrders` (infinite list) / `useOrderDetails` / `useOrderActions` (+ тесты) | `src/application/hooks/useOrders.ts`; `useOrderDetails.ts`; `useOrderActions.ts` |
 | React Query конвенции | `src/application/hooks/useBuyerCart.ts:83-88`; `src/application/queryClient.ts` |
-| `resetOrders` callsites | `src/application/store/slices/auth-slice.ts:91,135,165,179,195` |
+| Post-checkout invalidation `['orders']` | `src/application/hooks/useCheckout.ts` |
+| `resetOrders` callsites (→ сброс checkout-состояния) | `src/application/store/slices/auth-slice.ts:91,135,165,179,195` |
 | Session verify | `edge-functions/_shared/auth.js:46-59` |
 | Store-контекст buyer | `src/application/hooks/useAppInit.ts:62-100`; `auth-slice.ts:175-202` |
 
 ### Presentation / Shared
 | Артефакт | Где |
 |---|---|
-| Buyer `OrdersView` (заглушка) | `src/presentation/buyer/views/OrdersView.tsx:1-3` |
-| Seller Orders / History (заглушки) | `src/presentation/seller/views/SellerOrdersView.tsx:4-11`; `SellerOrdersHistoryView.tsx:4-11` |
+| Buyer `OrdersView` (ORD-06, список + табы + состояния) | `src/presentation/buyer/views/OrdersView.tsx` |
+| Buyer `OrderDetailsView` (ORD-08, read-only) | `src/presentation/buyer/views/OrderDetailsView.tsx` |
+| Seller Orders (ORD-07, список + табы + `?status=` ) | `src/presentation/seller/views/SellerOrdersView.tsx` |
+| Seller Orders History (ORD-11: redirect → `?status=history`) | `src/router.tsx` |
+| Seller Order Details (ORD-08, read-only) | `src/presentation/seller/views/SellerOrderDetailsView.tsx` |
 | Роуты | `src/router.tsx:99-106,140` |
 | Buyer-навигация (Заказы) | `src/presentation/shared/components/FloatingNavBar.tsx:7-13` |
 | Seller-навигация (Заказы + nested-подсветка) | `src/presentation/seller/components/SellerNavBar.tsx:6-17` |
 | Dashboard-блок «Заказы» | `src/presentation/seller/views/SellerDashboard.tsx:18` |
 | Экран успеха → `/orders` | `src/presentation/buyer/views/CartView.tsx:105-112` |
 | Контакт продавца | `src/presentation/buyer/components/cart/checkout/StoreContactLink.tsx:18-62` |
+| Shared orders-примитивы + детали + actions (ORD-05/ORD-08/ORD-09/ORD-10) | `src/presentation/shared/orders/` (`OrderCard`, `OrderStatusTabs`, `OrderActionBar`, `OrderContactButton`, `OrderConfirm`, `OrderRefusalPicker`, `OrderDetailsContent`, `OrderSkeleton`, `OrderEmptyState`, …) + `orders.css`; `src/presentation/shared/order-action-error.ts`; `src/presentation/shared/orders/order-filter.ts` |
 | `formatMoneyMinor` | `src/domain/rules/product-rules.ts:81` |
 | `SafeImage` | `src/presentation/shared/components/SafeImage.tsx` |
 

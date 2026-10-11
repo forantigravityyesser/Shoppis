@@ -268,8 +268,10 @@
 }
 
 /* ---- Screens (панели и заглушки) ---- */
+/* Верхний safe-area общий для всех экранов продавца: шапка/«назад» уезжает
+   ниже системных и плавающих элементов Telegram, высота самой шапки не растёт. */
 .screen {
-  padding: var(--spacing-4);
+  padding: calc(var(--spacing-4) + var(--safe-top, 0px)) var(--spacing-4) var(--spacing-4);
 }
 
 .screen__title {
@@ -346,6 +348,21 @@
   box-shadow: var(--shadow-card);
   padding: var(--spacing-4);
   margin-bottom: var(--spacing-3);
+}
+
+/* Кликабельная карточка-блок (дашборд продавца): кнопка в роли карточки. */
+button.card {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  font-family: inherit;
+  cursor: pointer;
+  transition: transform 0.12s ease;
+}
+
+button.card:active {
+  transform: scale(0.99);
 }
 
 .card__title {

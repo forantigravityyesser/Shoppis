@@ -59,8 +59,8 @@ function variantPayload(v: NewVariantInput) {
   };
 }
 
-export async function createProduct(token: string, input: NewProductInput): Promise<void> {
-  await callCatalog(token, {
+export async function createProduct(token: string, input: NewProductInput): Promise<string> {
+  const result = await callCatalog(token, {
     action: 'product-create',
     storeId: input.storeId,
     product: {
@@ -76,6 +76,8 @@ export async function createProduct(token: string, input: NewProductInput): Prom
     linkAttributes: attributesPayload(input.linkAttributes),
     variants: input.variants.map(variantPayload),
   });
+  if (!result.productId) throw new Error('Product create returned no id');
+  return result.productId;
 }
 
 export async function updateProduct(

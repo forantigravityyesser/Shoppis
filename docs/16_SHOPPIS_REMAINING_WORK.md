@@ -39,10 +39,21 @@
   `held_quantity`, SQL-тесты).
 - **Favorites:** ✅ реализован (`FavoritesView`, storefront-hydration по id).
 - **Orders:** план зафиксирован — `22_SHOPPIS_ORDERS_TECHNICAL_PLAN.md` (этапы `ORD-00…ORD-13`).
-  UI — заглушки (`OrdersView` → `null`, seller views — `PlaceholderScreen`). Фундамент готов:
-  command-path `order-actions`, checkout `create_order_atomic`, snapshots, `lastOrder` после
-  оформления. Реальная работа: authenticated read-контур (`order-queries` + `0042`), username snapshot
-  (`ORD-02`), React Query, shared UI списка/деталей, buyer/seller actions, security-тесты.
+  **ORD-01 ✅** — authenticated read-контур: миграция `0046`
+  (`order_list_read`/`order_detail_read`), edge `order-queries`, repository на RPC (прямые reads
+  удалены). **ORD-02 ✅** — серверный резолв Telegram username в checkout
+  (`_shared/checkout-identity.js`), harness Test 23. **ORD-03 ✅** — read models + mappers
+  (`mappers/order-mappers.ts`, тесты). **ORD-04 ✅** — React Query hooks (`useOrders`/`useOrderDetails`/
+  `useOrderActions`), server state выведен из Zustand (order-slice = checkout-исход). **ORD-05 ✅** —
+  shared orders-примитивы (`src/presentation/shared/orders/`, тесты). **ORD-06 ✅** — buyer `/orders`
+  (шапка/табы/карточки/infinite/states; деталь — временная заглушка). **ORD-07 ✅** — seller
+  `/seller/orders` (те же shared-компоненты, `?status=history`, ссылка с дашборда). **ORD-08 ✅** —
+  shared read-only детали (`OrderDetailsContent`; buyer/seller контакты). **ORD-09 ✅** — buyer cancel
+  (confirmation, `useOrderActions`). **ORD-10 ✅** — seller actions (6 действий: transition/cancel/
+  outcome/refusal). **ORD-11 ✅** — routing/compat (`/seller/orders/history` → `?status=history`,
+  URL-фильтр buyer). **ORD-12 ✅** — harness Test 24 (read-authz/PII), регрессия зелёная.
+  **ORD-13 ✅** — финальный аудит (гейты: `test` 940/940, `commerce:harness` 102/102). Блок Orders
+  завершён (ORD-00…ORD-13); остаётся ручной `LOCAL`/`TELEGRAM` smoke.
 - **Док:** `22`, `08 §2.11`, `11` S3 «Placeholder-экраны покупателя», `18`.
 
 ### FD-4. Social follow-ups — `DEFERRED`

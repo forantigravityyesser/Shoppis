@@ -1,23 +1,16 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { invokeCheckout, fetchBuyerOrders, requestMessagesAccess, enableTelegramNotifications } =
-  vi.hoisted(() => ({
-    invokeCheckout: vi.fn(),
-    fetchBuyerOrders: vi.fn(),
-    requestMessagesAccess: vi.fn(),
-    enableTelegramNotifications: vi.fn(),
-  }));
+const { invokeCheckout, requestMessagesAccess, enableTelegramNotifications } = vi.hoisted(() => ({
+  invokeCheckout: vi.fn(),
+  requestMessagesAccess: vi.fn(),
+  enableTelegramNotifications: vi.fn(),
+}));
 
 vi.mock('../../composition/container', () => ({
   deps: () => ({
     i18n: { getAppLanguage: () => 'ru', setAppLanguage: () => {} },
     checkoutApi: { invokeCheckout },
-    orderRepository: {
-      fetchBuyerOrders,
-      fetchStoreOrders: vi.fn(),
-      fetchOrderItems: vi.fn(),
-    },
     telegram: { requestMessagesAccess },
     notificationApi: { enableTelegramNotifications },
   }),
@@ -55,21 +48,18 @@ function seedCart(): void {
     },
     lastOrder: null,
     lastOrderId: null,
-    ordersError: null,
   });
 }
 
 beforeEach(() => {
   invokeCheckout.mockReset();
-  fetchBuyerOrders.mockReset();
   requestMessagesAccess.mockReset();
   enableTelegramNotifications.mockReset();
-  fetchBuyerOrders.mockResolvedValue([]);
   seedCart();
 });
 
-describe('order-slice — checkout foundation', () => {
-  it('placeOrder: сохраняет lastOrder, удаляет только оформленные позиции, обновляет заказы', async () => {
+describe('order-slice — checkout foundation (docs/22 ORD-04: только checkout-исход)', () => {
+  it('placeOrder: сохраняет lastOrder и удаляет только оформленные позиции', async () => {
     invokeCheckout.mockResolvedValue({
       orderId: 'o1',
       orderNumber: 'SH-251005-ABC',
@@ -92,34 +82,19 @@ describe('order-slice — checkout foundation', () => {
     expect(s.cartByStore['store-a']).toEqual([
       { productId: 'p2', productVariantId: 'v2', quantity: 1, price: 500, selected: false },
     ]);
-    expect(fetchBuyerOrders).toHaveBeenCalledTimes(1);
   });
 
-  it('placeOrder: сбой обновления списка заказов не делает успешный заказ ошибкой', async () => {
-    invokeCheckout.mockResolvedValue({
-      orderId: 'o2',
-      orderNumber: 'SH-2',
-      totalMinor: 24000,
-      currencyCode: 'USD',
-    });
-    fetchBuyerOrders.mockRejectedValue(new Error('network'));
-
-    await expect(useStore.getState().placeOrder(RECIPIENT, KEY)).resolves.toBe('o2');
-    const s = useStore.getState();
-    expect(s.lastOrder?.orderId).toBe('o2');
-    expect(s.cartByStore['store-a']).toHaveLength(1);
-    expect(s.cartByStore['store-a'][0].productId).toBe('p2');
-  });
-
-  it('placeOrder: ошибка → корзина сохраняется, ошибка зафиксирована, lastOrder пуст', async () => {
+  it('placeOrder: ошибка → корзина сохраняется, lastOrder пуст, ошибка пробрасывается', async () => {
     invokeCheckout.mockRejectedValue(new Error('INSUFFICIENT_STOCK'));
 
-    await expect(useStore.getState().placeOrder(RECIPIENT, KEY)).rejects.toThrow('INSUFFICIENT_STOCK');
+    await expect(useStore.getState().placeOrder(RECIPIENT, KEY)).rejects.toThrow(
+      'INSUFFICIENT_STOCK',
+    );
 
     const s = useStore.getState();
     expect(s.cartByStore['store-a']).toHaveLength(2);
     expect(s.lastOrder).toBeNull();
-    expect(s.ordersError).toBe('INSUFFICIENT_STOCK');
+    expect(s.lastOrderId).toBeNull();
   });
 
   it('placeOrder: невалидный получатель не доходит до сервера', async () => {
@@ -192,6 +167,20 @@ describe('order-slice — checkout foundation', () => {
     expect(useStore.getState().lastOrder).not.toBeNull();
 
     useStore.getState().resetCheckout();
+    expect(useStore.getState().lastOrder).toBeNull();
+    expect(useStore.getState().lastOrderId).toBeNull();
+  });
+
+  it('resetOrders также очищает checkout-исход (смена магазина/контекста)', async () => {
+    invokeCheckout.mockResolvedValue({
+      orderId: 'o1',
+      orderNumber: 'SH-1',
+      totalMinor: 1000,
+      currencyCode: 'USD',
+    });
+    await useStore.getState().placeOrder(RECIPIENT, KEY);
+
+    useStore.getState().resetOrders();
     expect(useStore.getState().lastOrder).toBeNull();
     expect(useStore.getState().lastOrderId).toBeNull();
   });

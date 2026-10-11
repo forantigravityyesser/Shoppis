@@ -64,16 +64,16 @@ export function useInventoryActions() {
     await useStore.getState().reorderCategory(id, position);
   }, []);
 
-  const createProduct = useCallback(
-    async (payload: ProductFormPayload) => {
-      const { storeId } = useStore.getState();
-      if (!storeId) throw new Error('Магазин не выбран');
-      const input: NewProductInput = { storeId, ...toCatalogFields(payload) };
-      await useStore.getState().saveProduct(input);
-      navigate('/seller/inventory');
-    },
-    [navigate],
-  );
+  /**
+   * Создаёт товар и возвращает его id. Без навигации: вызывающий решает, что делать дальше
+   * (нужно для сессии черновиков — несколько карточек сохраняются по одной, docs/23 §13.5).
+   */
+  const createProduct = useCallback(async (payload: ProductFormPayload): Promise<string> => {
+    const { storeId } = useStore.getState();
+    if (!storeId) throw new Error('Магазин не выбран');
+    const input: NewProductInput = { storeId, ...toCatalogFields(payload) };
+    return useStore.getState().saveProduct(input);
+  }, []);
 
   const updateProduct = useCallback(async (id: string, payload: ProductFormPayload) => {
     const patch: UpdateProductPatch = toCatalogFields(payload);

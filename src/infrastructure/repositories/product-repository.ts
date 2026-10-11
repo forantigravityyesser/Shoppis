@@ -259,10 +259,9 @@ async function insertVariants(productId: string, variants: NewVariantInput[]): P
   }
 }
 
-export async function addProduct(input: NewProductInput, token: string | null): Promise<void> {
+export async function addProduct(input: NewProductInput, token: string | null): Promise<string> {
   if (token) {
-    await createProductViaApi(token, input);
-    return;
+    return createProductViaApi(token, input);
   }
   const status = input.status ?? 'ACTIVE';
   const { data, error } = await insforge.database
@@ -316,6 +315,7 @@ export async function addProduct(input: NewProductInput, token: string | null): 
     if (linkError) throw linkError;
   }
   await insertVariants(row.id, input.variants);
+  return row.id;
 }
 
 export async function updateProduct(

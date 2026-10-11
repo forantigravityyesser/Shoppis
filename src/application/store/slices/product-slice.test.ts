@@ -1,21 +1,25 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-// Store construction reads the app language through deps(); only i18n is needed here.
-const { updateProduct, fetchCatalog } = vi.hoisted(() => ({
+// Store construction reads the app language through deps(); productRepository/storage are used by the slice.
+const { updateProduct, addProduct, fetchCatalog, removeFilesByUrl } = vi.hoisted(() => ({
   updateProduct: vi.fn(),
+  addProduct: vi.fn(),
   fetchCatalog: vi.fn(),
+  removeFilesByUrl: vi.fn(),
 }));
 
 vi.mock('../../composition/container', () => ({
   deps: () => ({
     i18n: { getAppLanguage: () => 'ru', setAppLanguage: () => {} },
-    productRepository: { updateProduct, fetchCatalog },
+    productRepository: { updateProduct, addProduct, fetchCatalog },
+    storage: { removeFilesByUrl },
   }),
 }));
 
 import { useStore } from '../index';
-import type { Product } from '../../../domain/models/product';
+import type { NewProductInput } from '../../contracts/product';
+import type { Product, ProductImage } from '../../../domain/models/product';
 
 function product(id: string, categoryId: string | null): Product {
   return {
@@ -44,13 +48,20 @@ const EMPTY_CATALOG = {
   productLinks: [],
 };
 
+function image(storageKey: string, thumbStorageKey: string | null, productId: string): ProductImage {
+  return { id: storageKey, productId, storageKey, thumbStorageKey, sortOrder: 0 };
+}
+
 beforeEach(() => {
   updateProduct.mockReset().mockResolvedValue(undefined);
+  addProduct.mockReset().mockResolvedValue('new-1');
   fetchCatalog.mockReset().mockResolvedValue(EMPTY_CATALOG);
+  removeFilesByUrl.mockReset().mockResolvedValue(undefined);
   useStore.setState({
     storeId: 's1',
     sessionToken: 'tok',
     products: [product('p1', null), product('p2', 'c9')],
+    images: [],
   });
 });
 
@@ -77,5 +88,63 @@ describe('product-slice.assignProductsCategory', () => {
 
     expect(useStore.getState().products.find((p) => p.id === 'p1')?.categoryId).toBeNull();
     expect(fetchCatalog).not.toHaveBeenCalled();
+  });
+});
+
+describe('product-slice.saveProduct — создание/фото (docs/23 §6, §11, PC-06)', () => {
+  const draftInput: NewProductInput = {
+    storeId: 's1',
+    title: 'Копия',
+    description: '',
+    originalAmountMinor: 1000,
+    discountPercent: 0,
+    categoryId: null,
+    status: 'ACTIVE',
+    images: [],
+    variants: [
+      {
+        name: 'Размер',
+        value: 'M',
+        availableQuantity: 0,
+        priceMode: 'USE_PRODUCT_PRICE',
+        customOriginalAmountMinor: null,
+        customDiscountPercent: null,
+      },
+    ],
+    attributes: [],
+    linkAttributes: [],
+  };
+
+  it('создаёт товар: возвращает новый id и не трогает Storage', async () => {
+    addProduct.mockResolvedValue('new-1');
+
+    const id = await useStore.getState().saveProduct(draftInput);
+
+    expect(id).toBe('new-1');
+    expect(addProduct).toHaveBeenCalledWith(draftInput, 'tok');
+    expect(updateProduct).not.toHaveBeenCalled();
+    expect(removeFilesByUrl).not.toHaveBeenCalled();
+  });
+
+  it('при редактировании чистит только откреплённые фото своего товара', async () => {
+    useStore.setState({
+      images: [image('a', 'at', 'p1'), image('b', 'bt', 'p1'), image('c', 'ct', 'p2')],
+    });
+
+    await useStore
+      .getState()
+      .saveProduct({ id: 'p1', images: [{ storageKey: 'a', thumbStorageKey: 'at' }] });
+
+    expect(updateProduct).toHaveBeenCalledWith(
+      'p1',
+      { images: [{ storageKey: 'a', thumbStorageKey: 'at' }] },
+      'tok',
+    );
+    const removed = removeFilesByUrl.mock.calls[0][0] as Array<string | null>;
+    expect(removed).toContain('b');
+    expect(removed).toContain('bt');
+    expect(removed).not.toContain('a');
+    expect(removed).not.toContain('c');
+    expect(removed).not.toContain('ct');
   });
 });

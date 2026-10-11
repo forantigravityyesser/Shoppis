@@ -41,7 +41,7 @@ export interface ProductSlice {
   fetchCatalog: (storeId: string) => Promise<void>;
   ensureCatalog: (storeId: string) => Promise<void>;
   resetCatalog: () => void;
-  saveProduct: (input: NewProductInput | ({ id: string } & UpdateProductPatch)) => Promise<void>;
+  saveProduct: (input: NewProductInput | ({ id: string } & UpdateProductPatch)) => Promise<string>;
   /** Массово назначить категорию товарам (быстрый перенос между категориями). */
   assignProductsCategory: (productIds: string[], categoryId: string | null) => Promise<void>;
   archiveProduct: (id: string) => Promise<ProductStatusResult>;
@@ -101,6 +101,7 @@ export const createProductSlice: StateCreator<RootStore, [], [], ProductSlice> =
     if (!storeId) throw new Error('No store selected');
     set({ catalogLoading: true, catalogError: null });
     try {
+      let productId: string;
       if ('id' in input) {
         const { id, ...patch } = input;
         const probe = get().products.find((p) => p.id === id);
@@ -131,6 +132,7 @@ export const createProductSlice: StateCreator<RootStore, [], [], ProductSlice> =
             ]),
           );
         }
+        productId = id;
       } else {
         const errors = validateProduct({
           title: input.title,
@@ -140,9 +142,10 @@ export const createProductSlice: StateCreator<RootStore, [], [], ProductSlice> =
           status: input.status,
         });
         if (errors.length) throw new Error(errors.join('; '));
-        await deps().productRepository.addProduct(input, sessionToken);
+        productId = await deps().productRepository.addProduct(input, sessionToken);
       }
       await get().fetchCatalog(storeId);
+      return productId;
     } catch (e) {
       set({ catalogLoading: false, catalogError: (e as Error).message });
       throw e;
@@ -263,10 +266,13 @@ export const createProductSlice: StateCreator<RootStore, [], [], ProductSlice> =
     const requested = quantity === undefined ? row.heldQuantity : Math.max(0, Math.round(quantity));
     const moved = Math.min(requested, row.heldQuantity);
     if (moved <= 0) return;
+    const { sessionToken, storeId } = get();
+    if (!sessionToken) throw new Error('Not authenticated');
     // Lifecycle-aware: HELD → AVAILABLE только серверным `inventory_reconcile`
     // (с movement и проверкой владельца), а не прямой записью `held_quantity`
-    // (docs/21 §3.4). `reconcileInventory` заодно перечитывает каталог.
-    await get().reconcileInventory(variantId, moved, 'MANUAL_RECONCILE');
+    // (docs/21 §3.4). После — перечитываем каталог (инвентарь живёт в Zustand).
+    await deps().orderApi.reconcileInventory(sessionToken, variantId, moved, 'MANUAL_RECONCILE');
+    if (storeId) await get().fetchCatalog(storeId);
   },
 
   linkProducts: async (productId, targetId) => {

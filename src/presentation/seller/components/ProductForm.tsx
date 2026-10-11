@@ -8,7 +8,6 @@ import type {
   ProductFormPayload,
 } from '../../../application/read-models/inventory-view';
 import {
-  emptyVariant,
   inheritVariantField,
   parseDiscountPercent,
   parsePriceMinor,
@@ -19,9 +18,7 @@ import {
   updateVariantField,
   validateVariantsForPublish,
   variantFromBase,
-  type VariantForm,
 } from '../../../application/rules/variant-form';
-import { UNCATEGORIZED_ID } from '../../../domain/constants/categories';
 import { MAX_IMAGES, MAX_VARIANTS } from '../../../domain/constants/limits';
 import type { ProductStatus } from '../../../domain/models/product';
 
@@ -31,35 +28,50 @@ export type { Characteristic, ProductFormValues } from './product-form-values';
 
 interface ProductFormProps {
   categories: InventoryCategoryItem[];
-  initial?: Partial<ProductFormValues>;
+  /** Управляемое значение формы (данные активного черновика). docs/23 §13.3 */
+  value: ProductFormValues;
+  onChange: (value: ProductFormValues) => void;
   onSubmit: (payload: ProductFormPayload) => Promise<void> | void;
+  /** Ошибка последней операции сохранения этой карточки (из сессии черновиков). */
+  submissionError?: string | null;
+  /** Сохранение карточки в полёте (из сессии черновиков) — блокирует повторную отправку. */
+  savePending?: boolean;
 }
 
 /**
  * Форма карточки товара: Фото → Основное (название/описание/категория) →
- * Характеристики → Варианты покупки. Используется и при создании, и при редактировании.
+ * Характеристики → Варианты покупки. Управляемая: данные приходят через `value`,
+ * изменения — через `onChange`, чтобы одна форма работала с выбранным черновиком
+ * (docs/23 §13.3). Используется и при создании, и при редактировании.
  * ADR-06.8: без вариантов доступно только «В архив».
  */
-export default function ProductForm({ categories, initial, onSubmit }: ProductFormProps) {
-  const [photos, setPhotos] = useState<InventoryImageItem[]>(initial?.images ?? []);
+export default function ProductForm({
+  categories,
+  value,
+  onChange,
+  onSubmit,
+  submissionError = null,
+  savePending = false,
+}: ProductFormProps) {
   const [processing, setProcessing] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [title, setTitle] = useState(initial?.title ?? '');
-  const [description, setDescription] = useState(initial?.description ?? '');
-  const [categoryId, setCategoryId] = useState(initial?.categoryId ?? UNCATEGORIZED_ID);
-
-  const [characteristics, setCharacteristics] = useState<Characteristic[]>(
-    initial?.attributes ?? [],
-  );
-  const [variants, setVariants] = useState<VariantForm[]>(initial?.variants ?? [emptyVariant()]);
   const [expandedVariant, setExpandedVariant] = useState(0);
 
   const submittingRef = useRef(false);
   const [submitting, setSubmitting] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<ProductStatus | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const photos = value.images;
+  const title = value.title;
+  const description = value.description;
+  const categoryId = value.categoryId;
+  const characteristics = value.attributes;
+  const variants = value.variants;
+
+  const patch = (part: Partial<ProductFormValues>) => onChange({ ...value, ...part });
 
   const canArchive = title.trim().length > 0;
   const canPublish = canArchive && validateVariantsForPublish(variants).length === 0;
@@ -74,7 +86,7 @@ export default function ProductForm({ categories, initial, onSubmit }: ProductFo
     setUploadError(null);
     try {
       const uploaded = await uploadCatalogImages(selected);
-      setPhotos((prev) => [...prev, ...uploaded].slice(0, MAX_IMAGES));
+      patch({ images: [...photos, ...uploaded].slice(0, MAX_IMAGES) });
     } catch (e) {
       console.error('[inventory] photo upload failed', e);
       setUploadError('Не удалось загрузить фото. Попробуйте ещё раз.');
@@ -84,27 +96,29 @@ export default function ProductForm({ categories, initial, onSubmit }: ProductFo
   };
 
   const removePhoto = (target: InventoryImageItem) => {
-    setPhotos((prev) => prev.filter((p) => p !== target));
+    patch({ images: photos.filter((p) => p !== target) });
   };
 
-  const addCharacteristic = () => setCharacteristics((prev) => [...prev, { name: '', value: '' }]);
+  const addCharacteristic = () => patch({ attributes: [...characteristics, { name: '', value: '' }] });
 
-  const updateCharacteristic = (index: number, patch: Partial<Characteristic>) =>
-    setCharacteristics((prev) => prev.map((c, i) => (i === index ? { ...c, ...patch } : c)));
+  const updateCharacteristic = (index: number, part: Partial<Characteristic>) =>
+    patch({
+      attributes: characteristics.map((c, i) => (i === index ? { ...c, ...part } : c)),
+    });
 
   const removeCharacteristic = (index: number) =>
-    setCharacteristics((prev) => prev.filter((_, i) => i !== index));
+    patch({ attributes: characteristics.filter((_, i) => i !== index) });
 
   const addVariant = () => {
     if (variants.length >= MAX_VARIANTS) return;
     setExpandedVariant(variants.length);
-    setVariants((prev) => [...prev, variantFromBase(prev[0])]);
+    patch({ variants: [...variants, variantFromBase(variants[0])] });
   };
 
   const removeVariant = (index: number) => {
-    setVariants((prev) =>
-      prev.length <= 1 ? prev : syncInherited(prev.filter((_, i) => i !== index)),
-    );
+    patch({
+      variants: variants.length <= 1 ? variants : syncInherited(variants.filter((_, i) => i !== index)),
+    });
     setExpandedVariant((cur) => {
       if (index === cur) return Math.max(0, index - 1);
       if (index < cur) return cur - 1;
@@ -112,20 +126,19 @@ export default function ProductForm({ categories, initial, onSubmit }: ProductFo
     });
   };
 
-  const setNameAt = (index: number, value: string) =>
-    setVariants((prev) => setVariantName(prev, index, value));
-  const setValueAt = (index: number, value: string) =>
-    setVariants((prev) => updateVariantField(prev, index, { value }));
-  const setQuantityAt = (index: number, value: string) =>
-    setVariants((prev) => updateVariantField(prev, index, { quantity: value }));
-  const setPriceAt = (index: number, value: string) =>
-    setVariants((prev) => setVariantPrice(prev, index, value));
-  const setDiscountAt = (index: number, value: string) =>
-    setVariants((prev) => setVariantDiscount(prev, index, value));
+  const setNameAt = (index: number, v: string) => patch({ variants: setVariantName(variants, index, v) });
+  const setValueAt = (index: number, v: string) =>
+    patch({ variants: updateVariantField(variants, index, { value: v }) });
+  const setQuantityAt = (index: number, v: string) =>
+    patch({ variants: updateVariantField(variants, index, { quantity: v }) });
+  const setPriceAt = (index: number, v: string) =>
+    patch({ variants: setVariantPrice(variants, index, v) });
+  const setDiscountAt = (index: number, v: string) =>
+    patch({ variants: setVariantDiscount(variants, index, v) });
   const inheritPrice = (index: number) =>
-    setVariants((prev) => inheritVariantField(prev, index, 'price'));
+    patch({ variants: inheritVariantField(variants, index, 'price') });
   const inheritDiscount = (index: number) =>
-    setVariants((prev) => inheritVariantField(prev, index, 'discount'));
+    patch({ variants: inheritVariantField(variants, index, 'discount') });
 
   const buildPayload = (status: ProductStatus): ProductFormPayload => ({
     title,
@@ -233,7 +246,7 @@ export default function ProductForm({ categories, initial, onSubmit }: ProductFo
           <input
             className="field__input"
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            onChange={(e) => patch({ title: e.target.value })}
             placeholder="Например, Морковь"
           />
         </label>
@@ -242,7 +255,7 @@ export default function ProductForm({ categories, initial, onSubmit }: ProductFo
           <textarea
             className="field__input field__input--area"
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            onChange={(e) => patch({ description: e.target.value })}
             placeholder="Необязательно"
             rows={3}
           />
@@ -252,7 +265,7 @@ export default function ProductForm({ categories, initial, onSubmit }: ProductFo
           <select
             className="field__input"
             value={categoryId}
-            onChange={(e) => setCategoryId(e.target.value)}
+            onChange={(e) => patch({ categoryId: e.target.value })}
           >
             {categories.map((c) => (
               <option key={c.id} value={c.id}>
@@ -437,7 +450,7 @@ export default function ProductForm({ categories, initial, onSubmit }: ProductFo
         <button
           type="button"
           className="btn-ghost"
-          disabled={!canArchive || submitting}
+          disabled={!canArchive || submitting || savePending}
           onClick={() => void submit('ARCHIVED')}
         >
           {pendingStatus === 'ARCHIVED' ? 'Сохранение…' : 'В архив'}
@@ -445,15 +458,15 @@ export default function ProductForm({ categories, initial, onSubmit }: ProductFo
         <button
           type="button"
           className="btn-primary"
-          disabled={!canPublish || submitting}
+          disabled={!canPublish || submitting || savePending}
           onClick={() => void submit('ACTIVE')}
         >
           {pendingStatus === 'ACTIVE' ? 'Публикация…' : 'На витрину'}
         </button>
       </div>
-      {submitError ? (
+      {submitError ?? submissionError ? (
         <p className="prod-hint prod-hint--error" role="alert">
-          {submitError}
+          {submitError ?? submissionError}
         </p>
       ) : null}
     </>

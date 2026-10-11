@@ -1,12 +1,42 @@
 // @vitest-environment jsdom
+import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import ProductForm from './ProductForm';
-import { detailToFormValues, type ProductFormValues } from './product-form-values';
+import {
+  detailToFormValues,
+  emptyFormValues,
+  type ProductFormValues,
+} from './product-form-values';
+import type { ProductFormPayload } from '../../../application/read-models/inventory-view';
+import type { InventoryCategoryItem } from '../../../application/hooks/useInventory';
 import type { InventoryProductDetail } from '../../../application/hooks/useProduct';
 import type { VariantForm } from '../../../application/rules/variant-form';
+
+/** Управляемый host: форма теперь controlled, тесты держат значение в состоянии. */
+function renderForm(props: {
+  categories?: InventoryCategoryItem[];
+  initial?: Partial<ProductFormValues>;
+  onSubmit: (payload: ProductFormPayload) => Promise<void> | void;
+}) {
+  function Harness() {
+    const [value, setValue] = useState<ProductFormValues>(() => ({
+      ...emptyFormValues(),
+      ...props.initial,
+    }));
+    return (
+      <ProductForm
+        categories={props.categories ?? []}
+        value={value}
+        onChange={setValue}
+        onSubmit={props.onSubmit}
+      />
+    );
+  }
+  render(<Harness />);
+}
 
 function createDeferred<T>() {
   let resolve!: (value: T) => void;
@@ -26,7 +56,7 @@ describe('ProductForm — отправка (docs/19 §12, §33)', () => {
   it('не отправляет повторно и показывает прогресс во время публикации', async () => {
     const deferred = createDeferred<void>();
     const onSubmit = vi.fn(() => deferred.promise);
-    render(<ProductForm categories={[]} onSubmit={onSubmit} />);
+    renderForm({ onSubmit });
 
     await fillPublishableForm();
 
@@ -51,7 +81,7 @@ describe('ProductForm — отправка (docs/19 §12, §33)', () => {
       .fn()
       .mockRejectedValueOnce(new Error('Сервер недоступен'))
       .mockResolvedValueOnce(undefined);
-    render(<ProductForm categories={[]} onSubmit={onSubmit} />);
+    renderForm({ onSubmit });
 
     await fillPublishableForm();
     await userEvent.click(screen.getByRole('button', { name: 'На витрину' }));
@@ -66,7 +96,7 @@ describe('ProductForm — отправка (docs/19 §12, §33)', () => {
   });
 
   it('блокирует публикацию без цены, но оставляет архивацию', async () => {
-    render(<ProductForm categories={[]} onSubmit={vi.fn()} />);
+    renderForm({ onSubmit: vi.fn() });
 
     await userEvent.type(screen.getByPlaceholderText('Например, Морковь'), 'Морковь');
 
@@ -90,11 +120,13 @@ function formVariant(overrides: Partial<VariantForm> = {}): VariantForm {
 
 function renderTwoVariants() {
   const onSubmit = vi.fn();
-  const initial: Partial<ProductFormValues> = {
-    title: 'Морковь',
-    variants: [formVariant(), formVariant({ value: '2 кг' })],
-  };
-  render(<ProductForm categories={[]} initial={initial} onSubmit={onSubmit} />);
+  renderForm({
+    onSubmit,
+    initial: {
+      title: 'Морковь',
+      variants: [formVariant(), formVariant({ value: '2 кг' })],
+    },
+  });
   return { onSubmit };
 }
 

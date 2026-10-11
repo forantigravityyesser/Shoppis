@@ -212,7 +212,7 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     justifyContent: 'flex-start',
     minHeight: '80vh',
-    padding: '32px 24px 24px',
+    padding: 'calc(32px + var(--safe-top, 0px)) 24px 24px',
     background: 'var(--color-bg-app, #F0EDFF)',
   },
   emptyIconWrapper: {

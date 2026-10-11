@@ -2,6 +2,7 @@ import { MotionConfig } from 'framer-motion';
 import { useStore } from './application/store';
 import { useAppInit } from './application/hooks/useAppInit';
 import { useKeyboardFix } from './application/hooks/useKeyboardFix';
+import SafeAreaDebug from './presentation/shared/components/SafeAreaDebug';
 import AppRouter from './router';
 
 /**
@@ -24,6 +25,7 @@ export default function App() {
       ) : (
         <AppRouter />
       )}
+      <SafeAreaDebug />
     </MotionConfig>
   );
 }

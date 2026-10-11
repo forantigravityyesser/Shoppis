@@ -1,3 +1,14 @@
+/** Снимок viewport для отладки safe-area/fullscreen (без секретов, только числа). */
+export interface ViewportSnapshot {
+  isFullscreen: boolean;
+  safeTop: number;
+  safeBottom: number;
+  contentTop: number;
+  contentBottom: number;
+  viewportHeight: number;
+  viewportStableHeight: number;
+}
+
 /** Платформенные возможности Telegram Mini App, используемые приложением. */
 export interface TelegramPort {
   getStartParam(): string | null;
@@ -20,6 +31,13 @@ export interface TelegramPort {
    * зависеть от результата.
    */
   requestMessagesAccess(): Promise<boolean>;
+  /**
+   * Последний снимок viewport (fullscreen + safe-area инсеты + высоты) для
+   * отладочного оверлея. Не бросает вне Telegram / до инициализации.
+   */
+  getViewportSnapshot(): ViewportSnapshot;
+  /** Подписка на изменения viewport; возвращает функцию отписки. */
+  subscribeViewport(listener: () => void): () => void;
 }
 
 /** Тактильная отдача. Вне Telegram — безопасный no-op. */

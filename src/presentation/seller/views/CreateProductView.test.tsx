@@ -1,0 +1,176 @@
+// @vitest-environment jsdom
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+
+const { navigate, createProduct, updateProduct } = vi.hoisted(() => ({
+  navigate: vi.fn(),
+  createProduct: vi.fn(),
+  updateProduct: vi.fn(),
+}));
+
+vi.mock('react-router', () => ({
+  useNavigate: () => navigate,
+  useSearchParams: () => [new URLSearchParams(), vi.fn()],
+}));
+
+vi.mock('../../../application/hooks/useInventory', () => ({
+  useInventoryHome: () => ({ categories: [] }),
+}));
+
+vi.mock('../../../application/hooks/useInventoryActions', () => ({
+  useInventoryActions: () => ({ createProduct, updateProduct }),
+}));
+
+import CreateProductView from './CreateProductView';
+
+const TITLE_PLACEHOLDER = 'Например, Морковь';
+
+beforeEach(() => {
+  navigate.mockReset();
+  createProduct.mockReset().mockResolvedValue('new-1');
+  updateProduct.mockReset().mockResolvedValue(undefined);
+});
+
+describe('CreateProductView — копирование черновиков (docs/23 §3.1, §7)', () => {
+  it('кнопка «Создать копию» появляется только после ввода данных', async () => {
+    render(<CreateProductView />);
+    expect(screen.queryByRole('button', { name: 'Создать копию' })).not.toBeInTheDocument();
+
+    await userEvent.type(screen.getByPlaceholderText(TITLE_PLACEHOLDER), 'Морковь');
+    expect(screen.getByRole('button', { name: 'Создать копию' })).toBeInTheDocument();
+  });
+
+  it('создаёт независимую копию и переключается на неё', async () => {
+    render(<CreateProductView />);
+    await userEvent.type(screen.getByPlaceholderText(TITLE_PLACEHOLDER), 'Морковь');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Создать копию' }));
+
+    expect(screen.getByText('Исходная')).toBeInTheDocument();
+    expect(screen.getByText('Копия 1')).toBeInTheDocument();
+    // активна копия — в поле скопированное название
+    expect(screen.getByPlaceholderText(TITLE_PLACEHOLDER)).toHaveValue('Морковь');
+  });
+
+  it('сохранение единственной карточки убирает её и уводит в инвентарь', async () => {
+    render(<CreateProductView />);
+    await userEvent.type(screen.getByPlaceholderText(TITLE_PLACEHOLDER), 'Морковь');
+    await userEvent.type(screen.getByPlaceholderText('42 / XL / 500 мл / 128 GB'), '1 кг');
+    await userEvent.type(screen.getByPlaceholderText('0.00'), '100');
+
+    await userEvent.click(screen.getByRole('button', { name: 'На витрину' }));
+
+    await waitFor(() => expect(createProduct).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(navigate).toHaveBeenCalledWith('/seller/inventory', { replace: true }),
+    );
+  });
+
+  it('переключение не теряет данные карточек', async () => {
+    render(<CreateProductView />);
+    await userEvent.type(screen.getByPlaceholderText(TITLE_PLACEHOLDER), 'Морковь');
+    await userEvent.click(screen.getByRole('button', { name: 'Создать копию' }));
+
+    const input = screen.getByPlaceholderText(TITLE_PLACEHOLDER);
+    await userEvent.clear(input);
+    await userEvent.type(input, 'Копия');
+
+    await userEvent.click(screen.getByRole('tab', { name: /Исходная/ }));
+    expect(screen.getByPlaceholderText(TITLE_PLACEHOLDER)).toHaveValue('Морковь');
+
+    await userEvent.click(screen.getByRole('tab', { name: /Копия 1/ }));
+    expect(screen.getByPlaceholderText(TITLE_PLACEHOLDER)).toHaveValue('Копия');
+  });
+
+  it('ограничивает сессию 6 карточками (§9)', async () => {
+    render(<CreateProductView />);
+    await userEvent.type(screen.getByPlaceholderText(TITLE_PLACEHOLDER), 'Морковь');
+
+    for (let i = 0; i < 5; i += 1) {
+      await userEvent.click(screen.getByRole('button', { name: 'Создать копию' }));
+    }
+
+    expect(screen.getAllByRole('tab')).toHaveLength(6);
+    expect(screen.getByRole('button', { name: 'Создать копию' })).toBeDisabled();
+    expect(screen.getByText(/Достигнут лимит: 6/)).toBeInTheDocument();
+  });
+});
+
+describe('CreateProductView — exit-guard (docs/23 §7.6, PC-07)', () => {
+  it('предупреждает браузер только при несохранённых изменениях', async () => {
+    render(<CreateProductView />);
+
+    const clean = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(clean);
+    expect(clean.defaultPrevented).toBe(false);
+
+    await userEvent.type(screen.getByPlaceholderText(TITLE_PLACEHOLDER), 'М');
+    const dirty = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(dirty);
+    expect(dirty.defaultPrevented).toBe(true);
+  });
+
+  it('перехватывает внутренний уход при несохранённых изменениях', async () => {
+    render(<CreateProductView />);
+
+    // без изменений — уходит сразу
+    await userEvent.click(screen.getByRole('button', { name: 'Назад' }));
+    expect(navigate).toHaveBeenCalledWith(-1);
+
+    navigate.mockClear();
+    await userEvent.type(screen.getByPlaceholderText(TITLE_PLACEHOLDER), 'Морковь');
+    await userEvent.click(screen.getByRole('button', { name: 'Назад' }));
+
+    expect(navigate).not.toHaveBeenCalled();
+    expect(screen.getByRole('group', { name: 'Подтверждение действия' })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Остаться' }));
+    expect(navigate).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Назад' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Выйти' }));
+    expect(navigate).toHaveBeenCalledWith(-1);
+  });
+});
+
+describe('CreateProductView — удаление черновика (docs/23 §7.6, §8.5)', () => {
+  it('не показывает удаление для единственной карточки', async () => {
+    render(<CreateProductView />);
+    await userEvent.type(screen.getByPlaceholderText(TITLE_PLACEHOLDER), 'Морковь');
+    expect(screen.queryByRole('button', { name: /Удалить черновик/ })).not.toBeInTheDocument();
+  });
+
+  it('удаляет ненужную копию с подтверждением', async () => {
+    render(<CreateProductView />);
+    await userEvent.type(screen.getByPlaceholderText(TITLE_PLACEHOLDER), 'Морковь');
+    await userEvent.click(screen.getByRole('button', { name: 'Создать копию' }));
+    expect(screen.getAllByRole('tab')).toHaveLength(2);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Удалить черновик 2' }));
+    expect(screen.getByRole('group', { name: 'Подтверждение действия' })).toBeInTheDocument();
+    // отмена не удаляет
+    await userEvent.click(screen.getByRole('button', { name: 'Отмена' }));
+    expect(screen.getAllByRole('tab')).toHaveLength(2);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Удалить черновик 2' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Удалить' }));
+    await waitFor(() => expect(screen.queryByText('Копия 1')).not.toBeInTheDocument());
+    expect(screen.queryAllByRole('tab')).toHaveLength(0);
+  });
+
+  it('пустую карточку удаляет без подтверждения', async () => {
+    render(<CreateProductView />);
+    await userEvent.type(screen.getByPlaceholderText(TITLE_PLACEHOLDER), 'Морковь');
+    await userEvent.click(screen.getByRole('button', { name: 'Создать копию' }));
+
+    // возвращаемся к исходной и очищаем — теперь она пустая
+    await userEvent.click(screen.getByRole('tab', { name: /Исходная/ }));
+    await userEvent.clear(screen.getByPlaceholderText(TITLE_PLACEHOLDER));
+
+    await userEvent.click(screen.getByRole('button', { name: 'Удалить черновик 1' }));
+    expect(screen.queryByRole('group', { name: 'Подтверждение действия' })).not.toBeInTheDocument();
+    // осталась одна карточка → навигация скрыта
+    await waitFor(() => expect(screen.queryAllByRole('tab')).toHaveLength(0));
+  });
+});

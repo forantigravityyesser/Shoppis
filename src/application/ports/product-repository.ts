@@ -14,7 +14,8 @@ import type {
  */
 export interface ProductRepository {
   fetchCatalog(storeId: string): Promise<ProductCatalog>;
-  addProduct(input: NewProductInput, token: string | null): Promise<void>;
+  /** Создаёт товар и возвращает его id (нужен, чтобы привязать копию к созданному товару). */
+  addProduct(input: NewProductInput, token: string | null): Promise<string>;
   updateProduct(id: string, patch: UpdateProductPatch, token: string | null): Promise<void>;
   updateVariantStock(variantId: string, patch: VariantStockPatch): Promise<void>;
   addVariantToProduct(

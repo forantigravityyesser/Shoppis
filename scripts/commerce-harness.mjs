@@ -26,6 +26,8 @@
 //   Test 20 variant-wide распределяет освобождение по нескольким релизабельным заказам
 //   Test 21 конкурентные order_cancel ∥ order-aware reconcile (NEW): нет дедлока
 //   Test 22 конкурентные order_cancel ∥ order-aware reconcile (REFUSED): нет дедлока
+//   Test 23 username snapshot: checkout сохраняет серверно резолвнутый username (ORD-02)
+//   Test 24 read-контур: scope/ownership authz в SQL, чужой detail → null, list без PII (ORD-12)
 //
 // Admin raw-SQL маскирует RAISE-сообщения в INTERNAL_ERROR, поэтому вызовы RPC
 // идут через временный `public._harness_try(text)`, который ловит SQL-исключение
@@ -717,6 +719,84 @@ async function run() {
       cancel?.error,
     );
     check('Test 22: сток консистентен (available=5, held=0)', isInv(await inventoryOf(t.variant), 5, 0));
+  }
+
+  // Test 23 — username snapshot (ORD-02): checkout сохраняет в immutable snapshot
+  // серверно резолвнутый username (edge передаёт его в p_telegram_username).
+  {
+    const t = await seedProduct({ available: 3 });
+    const username = `harness_${S}`;
+    const args = `${q(store)}, ${q(buyerA)}, ${q(`t23_${S}`)}, 'Тест', '+10000000000', 'Адрес 1', ${q(
+      username,
+    )}, ${q(JSON.stringify([{ variantId: t.variant, quantity: 1 }]))}::jsonb`;
+    const r = await callFn('create_order_atomic', args);
+    check('Test 23: заказ создан', r?.ok === true, r?.error);
+    const snap = r?.result?.orderId
+      ? await scalar(
+          `select buyer_telegram_username_snapshot from public.orders where id = ${q(r.result.orderId)}`,
+        )
+      : null;
+    check('Test 23: username сохранён в snapshot', snap === username, `snap=${snap}`);
+  }
+
+  // Test 24 — read-contour authorization (ORD-01/ORD-12): scope/ownership enforced in SQL,
+  // чужой detail неотличим от отсутствующего, проекция списка без PII.
+  {
+    const t = await seedProduct({ available: 3 });
+    const o = await callFn(
+      'create_order_atomic',
+      checkoutArgs(buyerA, `t24_${S}`, [{ variantId: t.variant, quantity: 1 }]),
+    );
+    const orderId = o.result.orderId;
+
+    const ownList = await json(
+      `select public.order_list_read(${q(buyerA)}, 'buyer', ${q(storePublic)}, 'all', null, 50)`,
+    );
+    check('Test 24: buyerA видит свой заказ', ownList.orders.some((x) => x.id === orderId));
+
+    const foreignBuyer = await json(
+      `select public.order_list_read(${q(buyerB)}, 'buyer', ${q(storePublic)}, 'all', null, 50)`,
+    );
+    check(
+      'Test 24: buyerB не видит заказ buyerA (buyer-скоуп)',
+      !foreignBuyer.orders.some((x) => x.id === orderId),
+    );
+
+    const ownerList = await json(
+      `select public.order_list_read(${q(owner)}, 'seller', ${q(storePublic)}, 'all', null, 50)`,
+    );
+    check(
+      'Test 24: владелец видит заказ (seller-скоуп)',
+      ownerList.orders.some((x) => x.id === orderId),
+    );
+
+    const foreignSeller = await json(
+      `select public.order_list_read(${q(buyerB)}, 'seller', ${q(storePublic)}, 'all', null, 50)`,
+    );
+    check(
+      'Test 24: не-владелец seller-скоуп → пусто',
+      foreignSeller.orders.length === 0,
+      `n=${foreignSeller.orders.length}`,
+    );
+
+    const foreignDetail = await json(
+      `select public.order_detail_read(${q(buyerB)}, 'buyer', ${q(orderId)})`,
+    );
+    check('Test 24: чужой detail → null (safe not-found)', foreignDetail === null);
+
+    const ownerDetail = await json(
+      `select public.order_detail_read(${q(owner)}, 'seller', ${q(orderId)})`,
+    );
+    check('Test 24: владелец detail → snapshot', ownerDetail?.id === orderId);
+
+    const item = ownList.orders.find((x) => x.id === orderId) ?? {};
+    check(
+      'Test 24: list-проекция без PII (нет name/phone/address)',
+      !('buyerFullNameSnapshot' in item) &&
+        !('buyerPhoneSnapshot' in item) &&
+        !('buyerAddressSnapshot' in item) &&
+        !('delivery' in item),
+    );
   }
 }
 

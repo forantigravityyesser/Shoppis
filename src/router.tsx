@@ -10,6 +10,7 @@ const DetailsView = lazy(() => import('./presentation/buyer/views/DetailsView'))
 const CartView = lazy(() => import('./presentation/buyer/views/CartView'));
 const FavoritesView = lazy(() => import('./presentation/buyer/views/FavoritesView'));
 const OrdersView = lazy(() => import('./presentation/buyer/views/OrdersView'));
+const OrderDetailsView = lazy(() => import('./presentation/buyer/views/OrderDetailsView'));
 const AccountView = lazy(() => import('./presentation/buyer/views/AccountView'));
 const ProductAbout = lazy(() => import('./presentation/buyer/views/product/ProductAbout'));
 const StorefrontProductReviewsView = lazy(
@@ -36,8 +37,8 @@ const EditProductView = lazy(() => import('./presentation/seller/views/EditProdu
 const CreateProductView = lazy(() => import('./presentation/seller/views/CreateProductView'));
 const CreateCategoryView = lazy(() => import('./presentation/seller/views/CreateCategoryView'));
 const SellerOrdersView = lazy(() => import('./presentation/seller/views/SellerOrdersView'));
-const SellerOrdersHistoryView = lazy(
-  () => import('./presentation/seller/views/SellerOrdersHistoryView'),
+const SellerOrderDetailsView = lazy(
+  () => import('./presentation/seller/views/SellerOrderDetailsView'),
 );
 const SellerSettingsView = lazy(() => import('./presentation/seller/views/SellerSettingsView'));
 const SettingsProfileView = lazy(() => import('./presentation/seller/views/SettingsProfileView'));
@@ -101,8 +102,18 @@ export default function AppRouter() {
             element={storeId ? <SellerOrdersView /> : <Navigate to="/seller" replace />}
           />
           <Route
+            path="/seller/orders/:orderId"
+            element={storeId ? <SellerOrderDetailsView /> : <Navigate to="/seller" replace />}
+          />
+          <Route
             path="/seller/orders/history"
-            element={storeId ? <SellerOrdersHistoryView /> : <Navigate to="/seller" replace />}
+            element={
+              storeId ? (
+                <Navigate to="/seller/orders?status=history" replace />
+              ) : (
+                <Navigate to="/seller" replace />
+              )
+            }
           />
           <Route
             path="/seller/settings"
@@ -138,6 +149,7 @@ export default function AppRouter() {
         <Route path="/cart" element={<CartView />} />
         <Route path="/favorites" element={<FavoritesView />} />
         <Route path="/orders" element={<OrdersView />} />
+        <Route path="/orders/:orderId" element={<OrderDetailsView />} />
         <Route path="/account" element={<AccountView />} />
         <Route path="/product/:id" element={<DetailsView />}>
           <Route index element={<ProductAbout />} />

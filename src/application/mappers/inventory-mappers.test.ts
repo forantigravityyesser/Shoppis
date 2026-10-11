@@ -218,3 +218,40 @@ describe('buildProductDetail', () => {
     expect(detail.categoryName).toBe(UNCATEGORIZED_NAME);
   });
 });
+
+describe('PC-06 — копия как отдельная позиция инвентаря (docs/23 §11)', () => {
+  it('у копии свои остатки/фото, источник не меняется', () => {
+    const catalog = {
+      variants: [
+        makeVariant({ id: 'v1', productId: 'p1', value: 'S' }),
+        makeVariant({ id: 'v2', productId: 'p2', value: 'S' }),
+      ],
+      inventories: [makeInventory('v1', 12, 3), makeInventory('v2', 0, 0)],
+      // фото есть только у источника; копия стартует без фото
+      images: [
+        makeImage({
+          id: 'i1',
+          productId: 'p1',
+          storageKey: 'src-full.jpg',
+          thumbStorageKey: 'src-thumb.jpg',
+        }),
+      ],
+      attributes: [],
+      categories: [makeCategory({ id: 'c1', name: 'Одежда' })],
+    };
+
+    const src = buildProductDetail(makeProduct({ id: 'p1', categoryId: 'c1' }), catalog, '₽');
+    const copy = buildProductDetail(makeProduct({ id: 'p2', categoryId: 'c1' }), catalog, '₽');
+
+    // структура/порядок вариантов совпадает…
+    expect(copy.variants.map((v) => v.value)).toEqual(src.variants.map((v) => v.value));
+    // …но остатки независимы, резерв к копии не переносится
+    expect(src.stockAvailable).toBe(12);
+    expect(src.stockHeld).toBe(3);
+    expect(copy.stockAvailable).toBe(0);
+    expect(copy.stockHeld).toBe(0);
+    // фото копии пусты; источник сохраняет своё
+    expect(copy.images).toEqual([]);
+    expect(src.images).toEqual([{ url: 'src-full.jpg', thumbUrl: 'src-thumb.jpg' }]);
+  });
+});

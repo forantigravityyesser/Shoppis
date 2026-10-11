@@ -24,6 +24,7 @@ import { verifySession } from './_shared/auth.js';
 import { notify } from './_shared/telegram.js';
 import { errorToResponse } from './_shared/errors.js';
 import { validateCheckoutItems } from './_shared/checkout-items.js';
+import { resolveCheckoutUsername } from './_shared/checkout-identity.js';
 
 const ERROR_STATUS = {
   EMPTY_CART: 400,
@@ -81,6 +82,17 @@ export default async function (request) {
   if (validated.error) return json({ success: false, error: validated.error }, 400);
   const rpcItems = validated.items;
 
+  // Серверный резолв Telegram username для immutable snapshot (ORD-02, docs/22):
+  // клиент на него не влияет; отсутствие username/identity — допустимо (null),
+  // checkout не падает.
+  let telegramUsername = null;
+  try {
+    const client = createClient({ baseUrl, anonKey });
+    telegramUsername = await resolveCheckoutUsername(client, session.uid);
+  } catch (e) {
+    console.error('[checkout] username lookup failed:', e);
+  }
+
   let result;
   try {
     const client = createClient({ baseUrl, anonKey });
@@ -91,7 +103,7 @@ export default async function (request) {
       p_full_name: name,
       p_phone: phone,
       p_address: address,
-      p_telegram_username: null,
+      p_telegram_username: telegramUsername,
       p_items: rpcItems,
     });
     if (error) return errorToResponse(ERROR_STATUS, error.message || error, 'Order placement failed');
