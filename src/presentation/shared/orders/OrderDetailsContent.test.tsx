@@ -79,4 +79,17 @@ describe('OrderDetailsContent (ORD-08)', () => {
     );
     expect(screen.getByText('Покупатель забрал заказ')).toBeInTheDocument();
   });
+
+  it('неизвестный код причины → safe fallback, не роняет рендер (docs/24 §2.4)', () => {
+    render(
+      <OrderDetailsContent
+        order={order({
+          status: 'REFUSED',
+          deliveryOutcome: 'REFUSED',
+          refusalReasonCode: 'MADE_UP_CODE' as never,
+        })}
+      />,
+    );
+    expect(screen.getByText('Причина отказа: Причина не указана')).toBeInTheDocument();
+  });
 });

@@ -16,7 +16,8 @@ buyer/seller actions → tests.
 `03` (Domain & Database Spec §13–18, §23–25), `04` (Technical Spec §4–5, §9, §11–12, §17), `05`
 (Implementation Plan), `08` (Divergence), `11` (Hardening Backlog S1–S3), `16` (Remaining Work, FD-3),
 `17` (Catalog Plan — конвенция keyset-cursor), `18` (Cart Plan — граница checkout и lifecycle), `19`/`20`
-(Seller Inventory), `21` (Commerce Hardening — idempotency / quantity-contract / harness).
+(Seller Inventory), `21` (Commerce Hardening — idempotency / quantity-contract / harness), `24`
+(Orders Hardening Audit — второй слой поверх реализованного `22`, этапы `ORD-HARDEN-01…12`).
 
 **Статус документа:** authoritative для захода Orders. Переносит внешний план `19_SHOPPIS_ORDERS_TECHNICAL_PLAN.md`
 в формат проекта. Номер `19` в репозитории занят (`19_SHOPPIS_SELLER_INVENTORY_RECONSTRUCTION_SPEC_v0.1.md`),
@@ -561,6 +562,10 @@ cancel/transition/deliveryOutcome; после успеха инвалидиру�
 напрямую; после checkout `useCheckout` инвалидирует `['orders']`. Тесты: hooks (15) + order-slice (11) +
 useCheckout (14) зелёные. Гейты: `typecheck` ✅ · `lint` ✅ · `test` 849/849 ✅ · `build` ✅.
 
+**Правка (2026-10-11, ORD-14 аудит):** `keepPreviousData` из `useOrders` снят — при смене таба/
+магазина показывается skeleton, данные прошлой выборки не выдаются за новую (устранён «клон» заказа
+в другом статусе при переключении вкладок). Дедуп по id сохранён.
+
 ### ORD-05 — Shared presentation foundation `H2`
 
 **Создать** (`src/presentation/shared/orders/`):
@@ -772,16 +777,29 @@ inventory-инвариантов нет.
    отложенного RLS-hardening.
 
 **Frontend (Onion):**
-- Порт `application/ports/order-realtime.ts` (`OrderRealtimePort`, `OrderRealtimeEvent`) — доменные
-  операции `subscribeStoreOrders`/`subscribeBuyerOrders`, без знания имён каналов.
-- Adapter `infrastructure/realtime/order-realtime.ts` (`@insforge/sdk` `realtime`): одно соединение,
-  рефкаунт подписок по каналу, маршрутизация по `meta.channel`; зарегистрирован в `composition-root`.
-- Хук `application/hooks/useOrdersRealtime.ts`: подписка на канал скоупа → на событие
-  инвалидирует **весь список** (`['orders']`, все таб-фильтры, а не только активный) и **деталь
-  изменившегося заказа** (`['order', scope, event.orderId]`) — даже если деталь сейчас не открыта,
-  её кэш помечается stale и перечитается при следующем открытии. Встроен в `OrdersView`,
-  `SellerOrdersView`, `OrderDetailsView`, `SellerOrderDetailsView`. `useOrders` дедуплицирует
-  заказы по id при слиянии infinite-страниц (страховка от пересечения курсоров при live-инвалидации).
+- Порт `application/ports/order-realtime.ts` (`OrderRealtimePort`, `OrderRealtimeEvent`,
+  `OrderRealtimeHandlers`) — доменные операции `subscribeStoreOrders`/`subscribeBuyerOrders`,
+  без знания имён каналов; подписка принимает `{ onChange, onResync? }`.
+- Adapter `infrastructure/realtime/order-realtime.ts` (`@insforge/sdk` `realtime`):
+  - **persistent-сокет**: соединение живёт сессию и НЕ закрывается при уходе последнего
+    слушателя (закрывается только канал, рефкаунт подписок) — навигация список ↔ деталь не рвёт
+    сокет; маршрутизация по `meta.channel`.
+  - **ретраи**: провал `connect()` или `{ ok:false }`/ошибка `subscribe()` → повтор с
+    экспоненциальным backoff (1s→2s→…→30s, сброс при успехе), отменяемый таймер.
+  - **reconnect/resync**: на `connect` после разрыва (не первый коннект) адаптер переподписывает
+    каналы и зовёт `onResync` у активных подписчиков — за время простоя события могли потеряться.
+  - гонка subscribe/unsubscribe перепроверяется на каждом async-шаге (`channels.has`) — «висячих»
+    подписок не остаётся; зарегистрирован в `composition-root`.
+- Хук `application/hooks/useOrdersRealtime.ts`: подписка на канал скоупа через `{ onChange, onResync }`.
+  `onChange` — сервер-пуш патч кэша детали (`setQueryData` по `['order', scope, event.orderId]`:
+  открытая карточка переключается мгновенно) + инвалидация **всего списка** (`['orders']`, все
+  таб-фильтры, а не только активный) и **детали изменившегося заказа** (даже если деталь не
+  открыта — кэш станет stale и перечитается). `onResync` — инвалидация списка и **всех деталей**
+  (`['order']`) для полной сверки после реконнекта. Встроен в `OrdersView`, `SellerOrdersView`,
+  `OrderDetailsView`, `SellerOrderDetailsView`.
+- `useOrders` дедуплицирует заказы по id при слиянии infinite-страниц (страховка от пересечения
+  курсоров при live-инвалидации) и **не использует `keepPreviousData`**: при смене таба/магазина
+  показывается skeleton, данные прошлой выборки не выдаются за новую.
 
 **Правка после ревью (2026-10-10):** деталь инвалидировалась только когда уже была открыта
 (`orderId` в подписке) — из-за этого карточка в списке показывала новый статус, а сама деталь старый;
@@ -789,11 +807,66 @@ inventory-инвариантов нет.
 Исправлено: список инвалидируется целиком, деталь — по `event.orderId` всегда; `useOrders` дедуп
 по id. Тесты хука обновлены (6) + `useOrders` дедуп (7).
 
-**Статус:** ✅ (2026-10-10). Миграция `0047_orders_realtime.sql` применена на dev (каналы enabled,
+**Правка после аудита (2026-10-11):** устранены навигационный gap и потеря событий при разрыве
+сокета — persistent-сокет (не рвём соединение при смене экранов), ретраи `connect`/`subscribe` с
+backoff, `onResync`-сверка после реконнекта; деталь получает сервер-пуш патч статуса (список и
+открытая деталь согласованы мгновенно); `useOrders` без `keepPreviousData` — статусные вкладки не
+показывают чужую выборку. SQL/сервер не менялись (логика корректна). Закрыты пункты аудита
+«потеря событий вне подписки» и «навигационный gap при смене экранов».
+
+**Правка после аудита №2 (2026-10-11, «клон» + пропуск realtime):**
+- **«Клон» заказа в двух табах.** Причина: `invalidateQueries` по умолчанию помечает stale только
+  АКТИВНЫЙ запрос; неактивные табы оставались со старым статусом, и заказ показывался и в «Все»,
+  и в новом табе. Добавлен общий хелпер `useOrders.invalidateOrderLists(queryClient)` с
+  `refetchType: 'all'` — перечитывает ВСЕ таб-фильтры (включая неактивные). Используется в
+  `useOrdersRealtime.onChange/onResync` и в `useOrderActions` (командный путь); `detailRoot` при
+  ресинке/команде тоже `refetchType: 'all'`.
+- **Ручное обновление.** Realtime — best-effort (сокет мог быть недоступен/событие потеряно).
+  Общий `OrderRefreshButton` в шапке экрана заказов (buyer — справа перед профилем, seller — справа
+  как «назад» слева), визуал — белая пилюля как у кнопки «назад». Один тап через
+  `useOrders.refreshAll` перечитывает ВСЕ статусы (все таб-фильтры) и детали
+  (`invalidateOrderLists` + `detailRoot`, `refetchType: 'all'`), а не только активный таб и не всё
+  приложение. Спиннер при `fetching`, блокировка повторного тапа.
+- **Само-восстановление сокета.** Адаптер дополнительно слушает `connect_error` (планирует ретрай
+  с backoff) и `error` (лог) — если SDK-реконнект не удался, мы не остаёмся тихо без realtime.
+
+**Статус:** ✅ (2026-10-11). Миграция `0047_orders_realtime.sql` применена на dev (каналы enabled,
 триггер `orders_realtime_change` на `orders`; publish подтверждён — реальный UPDATE заказа создал
-записи в оба канала: `orders:seller:<store>` и `orders:buyer:<buyer>`). Frontend: порт + адаптер +
-хук + встройка в 4 view; тесты `order-realtime` (5) + `useOrdersRealtime` (7). Гейты: `typecheck` ✅ ·
-`lint` ✅ · `test` 965/965 ✅ · `migrations:check` ✅ · `build` ✅.
+записи в оба канала: `orders:seller:<store>` и `orders:buyer:<buyer>`). Frontend: порт + адаптер
+(persistent-сокет + retry + reconnect/resync) + хук (патч детали + resync) + встройка в 4 view;
+`useOrders` без `keepPreviousData`, `invalidateOrderLists` (refetchType: all) против «клона»;
+кнопка ручного обновления в списках buyer/seller. Тесты: adapter `order-realtime` (8) +
+`useOrdersRealtime` (10) + `useOrders` (10) + `useOrderActions` (5) + `OrderRefreshButton` (3) +
+интеграционный `ordersRealtime.integration` (2) + view (buyer 10, seller 9). Гейты: `typecheck` ✅ ·
+`lint` ✅ · `test` 1028/1028 ✅ · `migrations:check` ✅ · `build` ✅.
+
+### ORD-HARDEN-01…12 — hardening-заход (docs/24) ✅
+
+Пост-ORD hardening блока заказов: внешний аудит перенесён в `24_SHOPPIS_ORDERS_HARDENING_AUDIT.md`
+(аудит против кода + `ORD-HARDEN-01…12`). Архитектура и realtime (ORD-14 / `0047`) не
+переписывались — точечные правки. Проверенные изменения (детали — `24 §7`):
+
+- `ORD-HARDEN-01` — `0048`: `REVOKE EXECUTE` у `anon`/`authenticated` на защищённые order-RPC; edge
+  ходит через доверенный `adminClient` (`API_KEY`); `buyerUserId` срезан из ответа edge.
+- `ORD-HARDEN-02` — `0049`: гейт outcome (`status=DELIVERED AND delivery_outcome IS NULL`),
+  `OUTCOME_ALREADY_RECORDED`; UI/domain-rule (`isAwaitingDeliveryOutcome(...)`).
+- `ORD-HARDEN-03` — `0050`: `orders.currency_symbol_snapshot` + helper + backfill + fallback по коду.
+- `ORD-HARDEN-04` — identity (`userId`) в ключах кэша, очистка при `clearSession`/смене `serverUser`,
+  короткий `staleTime`, инвалидация списка при ошибке команды (D10).
+- `ORD-HARDEN-05` — `/orders` без store-контекста → отдельное состояние (`disabledReason`, D5).
+- `ORD-HARDEN-06` — `0051`: CHECK `refusal_reason_code` + enum-safety маппера/UI + `INVALID_REFUSAL_REASON`.
+- `ORD-HARDEN-07` — `_shared/validate.js`: edge-валидация (400-коды, clamp) + skip notify при idempotent (D1/D2).
+- `ORD-HARDEN-08` — `0052`: `search_path = public, pg_temp` у lifecycle-RPC; timing-safe HMAC +
+  окно свежести `auth_date` (D3/D4).
+- `ORD-HARDEN-09` — `OrdersListBody` (дедуп buyer/seller), `useInfiniteScrollSentinel → shared/hooks`,
+  domain-rules в `SellerOrderDetailsView`, мёртвый код (D6–D8).
+- `ORD-HARDEN-10` — a11y: tabs roving-tabindex/клавиатура, `tabpanel`, `:focus-visible`, live-статусы (D9).
+- `ORD-HARDEN-11` — harness Test 25–30 (grants / outcome / currency / refusal-enum / command-authz / матрица переходов).
+- `ORD-HARDEN-12` — финальный аудит и docs-sync (`00`/`16`/`22`/`24`).
+
+Гейты: `typecheck` ✅ · `lint` ✅ (0 errors) · `test` 1081/1081 ✅ · `build` ✅ ·
+`migrations:check` 0001..0052 ✅ · `commerce:harness` 143/143 ✅. Ручные `LOCAL`/`TELEGRAM` — за
+человеком (см. `24 §9`). Текущий номер миграции — `0052`; следующие — с `0053`.
 
 ---
 

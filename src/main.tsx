@@ -15,6 +15,12 @@ import { initApp, logTelegramDiagnostics } from './infrastructure/telegram/teleg
 initApp();
 logTelegramDiagnostics();
 
+/** Ручное управление скроллом: не даём браузеру восстанавливать прежнюю позицию
+ *  при переходах (вкладки/детали открываются сверху, см. useScrollToTop). */
+if (typeof history !== 'undefined' && 'scrollRestoration' in history) {
+  history.scrollRestoration = 'manual';
+}
+
 /** Прогреваем соединение с доменом Storage/API до загрузки изображений (preconnect). */
 function preconnectBackend(): void {
   try {

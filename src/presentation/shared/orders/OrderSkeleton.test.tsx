@@ -4,7 +4,7 @@ import { render, screen } from '@testing-library/react';
 import OrderSkeleton from './OrderSkeleton';
 
 describe('OrderSkeleton', () => {
-  it('вариант list рендерит count карточек-заглушек', () => {
+  it('вариант list рендерит count заглушек-карточек', () => {
     const { container } = render(<OrderSkeleton variant="list" count={2} />);
     expect(screen.getByTestId('order-skeleton')).toBeInTheDocument();
     expect(container.querySelectorAll('.order-skeleton__block')).toHaveLength(2);
@@ -15,8 +15,9 @@ describe('OrderSkeleton', () => {
     expect(container.querySelector('.order-skeleton__block--head')).not.toBeNull();
   });
 
-  it('скрыт от скринридеров (aria-hidden)', () => {
-    render(<OrderSkeleton />);
-    expect(screen.getByTestId('order-skeleton')).toHaveAttribute('aria-hidden', 'true');
+  it('объявляет live-статус, визуальные блоки скрыты (docs/24 D9)', () => {
+    const { container } = render(<OrderSkeleton />);
+    expect(screen.getByTestId('order-skeleton')).toHaveAttribute('role', 'status');
+    expect(container.querySelector('.order-skeleton__block')).toHaveAttribute('aria-hidden', 'true');
   });
 });

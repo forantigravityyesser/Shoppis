@@ -6,6 +6,7 @@
 // User + TelegramIdentity → выдать подписанную сессию (HMAC, секрет SESSION_SECRET).
 //
 // Env: INSFORGE_BASE_URL, ANON_KEY, SESSION_SECRET, SESSION_TTL_SECONDS?,
+//      AUTH_MAX_AGE_SECONDS? (окно свежести auth_date, default 24ч),
 //      BUYER_BOT_TOKEN / SELLER_BOT_TOKEN (fallback BOT_TOKEN).
 //
 // Сессия — runtime authorization внутри одного запуска Mini App: клиент
@@ -37,7 +38,8 @@ export default async function (request) {
   const tokens = botTokens();
   if (!tokens.length) return json({ success: false, error: 'Bot token is not configured' }, 500);
 
-  if (!(await isValidTelegramInitData(initData, tokens))) {
+  const maxAgeSeconds = Number(env('AUTH_MAX_AGE_SECONDS')) || undefined;
+  if (!(await isValidTelegramInitData(initData, tokens, { maxAgeSeconds }))) {
     return json({ success: false, error: 'Invalid Telegram initData' }, 401);
   }
 

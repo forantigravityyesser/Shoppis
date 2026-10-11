@@ -1,0 +1,45 @@
+/* ============================================================
+   Image crop sheet — управляемый кроп баннера/обложки категории.
+   Используется lazy-загрузкой Cropper внутри sheet.
+   ============================================================ */
+
+.image-crop__stage {
+  position: relative;
+  width: 100%;
+  background: #111114;
+  border-radius: 16px;
+  overflow: hidden;
+  margin-bottom: var(--spacing-3);
+}
+
+.image-crop__loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  background: #111114;
+  border-radius: 16px;
+  margin-bottom: var(--spacing-3);
+  color: #ffffff;
+  font-size: var(--font-size-sm);
+  opacity: 0.7;
+}
+
+.image-crop__zoom {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-3);
+  margin-bottom: var(--spacing-3);
+  color: var(--color-text-secondary);
+}
+
+.image-crop__zoom input[type='range'] {
+  flex: 1 1 auto;
+  accent-color: var(--color-accent);
+}
+
+.image-crop__actions {
+  display: flex;
+  gap: var(--spacing-3);
+  margin-top: var(--spacing-2);
+}

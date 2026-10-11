@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { deps } from '../composition/container';
 import { useStore } from '../store';
-import { orderKeys } from './useOrders';
+import { invalidateOrderLists, orderKeys } from '../orders/order-cache';
 import type { DeliveryOutcome, OrderStatus, RefusalReasonCode } from '../../domain/models/order';
 import type { OrderActor } from '../../domain/rules/order-rules';
 
@@ -46,8 +46,10 @@ export function useOrderActions(): OrderActionsState {
 
   const refreshAfterSuccess = useCallback(async () => {
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: orderKeys.listRoot }),
-      queryClient.invalidateQueries({ queryKey: orderKeys.detailRoot }),
+      // Все списки + неактивные табы: после смены статуса заказ обязан уйти из старого
+      // таба, а не «клонироваться» (docs/22 ORD-14).
+      invalidateOrderLists(queryClient),
+      queryClient.invalidateQueries({ queryKey: orderKeys.detailRoot, refetchType: 'all' }),
     ]);
     // Inventory живёт в Zustand (product-slice); обновляем по существующему
     // контракту только в seller-контексте (buyer-store inventory не трогаем).
@@ -61,16 +63,25 @@ export function useOrderActions(): OrderActionsState {
     }
   }, [queryClient]);
 
+  // Ошибка команды не гарантирует, что локальный список актуален (статус мог
+  // измениться на сервере другим актором). Деталь чинит сам view (`refetch`), а
+  // список обязан перечитаться здесь (docs/24 §2.7 D10, ORD-HARDEN-04).
+  const refreshListsAfterError = useCallback(() => {
+    void invalidateOrderLists(queryClient);
+  }, [queryClient]);
+
   const cancel = useMutation({
     mutationFn: (vars: CancelOrderVars) =>
       deps().orderApi.cancelOrder(sessionToken as string, vars.orderId, vars.actor, vars.reason),
     onSuccess: refreshAfterSuccess,
+    onError: refreshListsAfterError,
   });
 
   const transition = useMutation({
     mutationFn: (vars: TransitionOrderVars) =>
       deps().orderApi.transitionOrder(sessionToken as string, vars.orderId, vars.toStatus, vars.reason),
     onSuccess: refreshAfterSuccess,
+    onError: refreshListsAfterError,
   });
 
   const deliveryOutcome = useMutation({
@@ -82,6 +93,7 @@ export function useOrderActions(): OrderActionsState {
         vars.reason,
       ),
     onSuccess: refreshAfterSuccess,
+    onError: refreshListsAfterError,
   });
 
   const error = useMemo(() => {

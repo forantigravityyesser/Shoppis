@@ -173,6 +173,16 @@ describe('SellerOrderDetailsView (ORD-08/ORD-10)', () => {
     expect(h.recordDeliveryOutcome).toHaveBeenCalledWith({ orderId: 'o1', outcome: 'RECEIVED' });
   });
 
+  it('DELIVERED + outcome зафиксирован → outcome-действий нет (терминально)', () => {
+    h.useOrderDetails.mockReturnValue(
+      detailsState({ order: order({ status: 'DELIVERED', deliveryOutcome: 'RECEIVED' }) }),
+    );
+    render(tree());
+    expect(screen.queryByTestId('order-actions')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Покупатель забрал' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Отказ' })).toBeNull();
+  });
+
   it('DELIVERED → отказ: причина обязательна, затем REFUSED с кодом', async () => {
     h.useOrderDetails.mockReturnValue(detailsState({ order: order({ status: 'DELIVERED' }) }));
     render(tree());

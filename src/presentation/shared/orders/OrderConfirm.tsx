@@ -23,7 +23,7 @@ export default function OrderConfirm({
   onCancel,
 }: Props) {
   return (
-    <div className="order-confirm" role="group" aria-label="Подтверждение действия">
+    <div className="order-confirm" role="group" aria-label="Подтверждение действия" aria-busy={pending}>
       <p className="order-confirm__text">{text}</p>
       {error ? (
         <p className="order-confirm__error" role="alert">

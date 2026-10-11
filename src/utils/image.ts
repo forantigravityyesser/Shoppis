@@ -134,6 +134,80 @@ export async function compressImage(
 /** Пропорция карточки товара (ширина / высота) — портрет 4:5. */
 export const CARD_ASPECT = 4 / 5;
 
+/** Пропорция баннера витрины (ширина / высота) — совпадает с `.home-banner` в CSS. */
+export const BANNER_ASPECT = 2.2 / 1;
+
+/** Ширина нормализованного баннера (2.2:1 → 1100×500). */
+export const BANNER_OUTPUT_WIDTH = 1100;
+
+/** Ширина нормализованной обложки категории (квадрат, показывается мелко). */
+export const CATEGORY_OUTPUT_WIDTH = 320;
+
+/** Область кропа в пикселях исходника (совместима с `croppedAreaPixels` react-easy-crop). */
+export interface CropArea {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/** Разрешённый (клампленный) прямоугольник кропа + размеры вывода. */
+export interface ResolvedCrop {
+  sx: number;
+  sy: number;
+  sw: number;
+  sh: number;
+  outWidth: number;
+  outHeight: number;
+}
+
+/**
+ * Клампит произвольную область к границам исходника и считает размеры вывода:
+ * ширина ≤ `outWidth` (без апскейла), высота — из пропорции области. Чистая
+ * функция — держит математику кропа тестируемой без canvas.
+ */
+export function resolveCrop(
+  srcWidth: number,
+  srcHeight: number,
+  area: CropArea,
+  outWidth: number,
+): ResolvedCrop {
+  const sw = Math.max(1, Math.min(Math.round(area.width), srcWidth));
+  const sh = Math.max(1, Math.min(Math.round(area.height), srcHeight));
+  const sx = Math.max(0, Math.min(Math.round(area.x), srcWidth - sw));
+  const sy = Math.max(0, Math.min(Math.round(area.y), srcHeight - sh));
+  const targetWidth = Math.max(1, Math.min(outWidth, sw));
+  const targetHeight = Math.max(1, Math.round((targetWidth * sh) / sw));
+  return { sx, sy, sw, sh, outWidth: targetWidth, outHeight: targetHeight };
+}
+
+/**
+ * Вырезает произвольную область `area` (в пикселях исходника) и кодирует её в
+ * WebP/JPEG нужной ширины. Пропорция вывода = пропорция области — не искажаем
+ * кадр. Область и координаты клампятся к границам исходника.
+ */
+export async function cropToFile(
+  file: File,
+  area: CropArea,
+  outWidth: number,
+  quality = 0.82,
+): Promise<File> {
+  if (!file.type.startsWith('image/')) return file;
+
+  const decoded = await decodeImage(file);
+  try {
+    const { sx, sy, sw, sh, outWidth: w, outHeight: h } = resolveCrop(
+      decoded.width,
+      decoded.height,
+      area,
+      outWidth,
+    );
+    return await renderToFile(decoded.source, sx, sy, sw, sh, w, h, file.name, quality);
+  } finally {
+    decoded.release();
+  }
+}
+
 /**
  * Прямоугольник центрального кропа под заданную пропорцию (width / height).
  * Не увеличивает исходник: `sw/sh` всегда ≤ исходных размеров.
@@ -185,4 +259,13 @@ export function prepareSquareImage(file: File, size = 1000, quality = 0.75): Pro
 /** Портретная нормализация карточки товара (4:5) — full и thumb. */
 export function prepareCardImage(file: File, width: number, quality = 0.75): Promise<File> {
   return prepareCroppedImage(file, width, CARD_ASPECT, quality);
+}
+
+/**
+ * Нормализация баннера витрины (2.2:1) с ресайзом до заданной ширины. Уже
+ * кропленный файл проходит через центральный кроп как no-op — единый размер
+ * баннера на витрине независимо от источника.
+ */
+export function prepareBannerImage(file: File, width: number, quality = 0.82): Promise<File> {
+  return prepareCroppedImage(file, width, BANNER_ASPECT, quality);
 }

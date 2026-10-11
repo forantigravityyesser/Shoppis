@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
-import { Package, Plus } from 'lucide-react';
+import { Package } from 'lucide-react';
 import type { InventoryProductItem } from '../../../../../application/hooks/useInventory';
+import InventorySectionHead from '../InventorySectionHead';
 import InventoryProductSearch from './InventoryProductSearch';
 import InventoryProductList from './InventoryProductList';
 
@@ -29,13 +30,7 @@ export default function InventoryProductsSection({
 
   return (
     <section className="inv-section">
-      <div className="inv-section__head">
-        <h2 className="inv-section__title">Товары</h2>
-        <button type="button" className="inv-add-btn inv-add-btn--header" onClick={onAddProduct}>
-          <Plus size={16} strokeWidth={2.5} />
-          <span>Добавить</span>
-        </button>
-      </div>
+      <InventorySectionHead title="Товары" onAdd={onAddProduct} />
 
       {products.length === 0 ? (
         <div className="inv-state inv-state--empty">

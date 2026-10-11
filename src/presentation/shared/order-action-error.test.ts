@@ -7,6 +7,8 @@ describe('orderActionErrorMessage', () => {
     expect(orderActionErrorMessage('ORDER_TERMINAL')).toContain('завершён');
     expect(orderActionErrorMessage('FORBIDDEN')).toContain('Недостаточно прав');
     expect(orderActionErrorMessage('ORDER_NOT_FOUND')).toContain('не найден');
+    expect(orderActionErrorMessage('OUTCOME_ALREADY_RECORDED')).toContain('уже зафиксирован');
+    expect(orderActionErrorMessage('INVALID_REFUSAL_REASON')).toContain('причина отказа');
   });
 
   it('сетевые ошибки → подсказка про соединение', () => {

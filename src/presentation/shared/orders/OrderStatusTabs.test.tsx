@@ -32,4 +32,33 @@ describe('OrderStatusTabs', () => {
     expect(screen.getAllByRole('tab')).toHaveLength(2);
     expect(screen.getByRole('tab', { name: 'Архив' })).toBeInTheDocument();
   });
+
+  it('клавиатура: ArrowRight / End / Home переключают таб (docs/24 D9)', () => {
+    const onChange = vi.fn();
+    render(<OrderStatusTabs value="all" onChange={onChange} />);
+    const tablist = screen.getByRole('tablist');
+
+    fireEvent.keyDown(tablist, { key: 'ArrowRight' });
+    expect(onChange).toHaveBeenLastCalledWith('NEW');
+
+    fireEvent.keyDown(tablist, { key: 'End' });
+    expect(onChange).toHaveBeenLastCalledWith('history');
+
+    fireEvent.keyDown(tablist, { key: 'Home' });
+    expect(onChange).toHaveBeenLastCalledWith('all');
+
+    fireEvent.keyDown(tablist, { key: 'ArrowLeft' });
+    expect(onChange).toHaveBeenLastCalledWith('history');
+  });
+
+  it('roving tabindex: в tab-порядке только активный таб', () => {
+    render(<OrderStatusTabs value="DELIVERED" onChange={() => {}} />);
+    expect(screen.getByRole('tab', { name: 'Доставлено' })).toHaveAttribute('tabindex', '0');
+    expect(screen.getByRole('tab', { name: 'Все' })).toHaveAttribute('tabindex', '-1');
+  });
+
+  it('aria-controls указывает на панель контента, если задан panelId', () => {
+    render(<OrderStatusTabs value="all" onChange={() => {}} panelId="orders-panel" />);
+    expect(screen.getAllByRole('tab')[0]).toHaveAttribute('aria-controls', 'orders-panel');
+  });
 });

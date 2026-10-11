@@ -1,4 +1,4 @@
-import type { OrderStatus } from '../models/order';
+import type { DeliveryOutcome, OrderStatus } from '../models/order';
 
 export type OrderActor = 'buyer' | 'seller';
 
@@ -29,9 +29,16 @@ export function isTerminal(status: OrderStatus): boolean {
   return status === 'REFUSED' || status === 'CANCELLED';
 }
 
-/** DELIVERED завершается записью delivery_outcome (RECEIVED) либо переходом в REFUSED. 02 §7, 03 §16 */
-export function isAwaitingDeliveryOutcome(status: OrderStatus): boolean {
-  return status === 'DELIVERED';
+/**
+ * DELIVERED завершается записью delivery_outcome (RECEIVED) либо переходом в REFUSED.
+ * Результат терминален: после его фиксации (`deliveryOutcome !== null`) заказ больше
+ * не ждёт outcome, даже если статус остался DELIVERED (RECEIVED). 02 §7, 03 §16, docs/24 §3.2
+ */
+export function isAwaitingDeliveryOutcome(
+  status: OrderStatus,
+  deliveryOutcome: DeliveryOutcome | null = null,
+): boolean {
+  return status === 'DELIVERED' && deliveryOutcome === null;
 }
 
 /** Полная матрица переходов с учётом актора. 03 §16 */

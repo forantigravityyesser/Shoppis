@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import type { OrderDetails } from '../../../application/read-models/order';
-import { REFUSAL_REASON_META } from '../../../domain/constants/order-statuses';
+import { refusalReasonLabel } from '../../../domain/constants/order-statuses';
 import OrderStatusBadge from './OrderStatusBadge';
 import OrderItemRow from './OrderItemRow';
 import OrderDeliveryDetails from './OrderDeliveryDetails';
@@ -25,9 +25,8 @@ interface Props {
  */
 export default function OrderDetailsContent({ order, contact, actions }: Props) {
   const received = order.deliveryOutcome === 'RECEIVED';
-  const reason = order.refusalReasonCode
-    ? REFUSAL_REASON_META[order.refusalReasonCode].labelRu
-    : null;
+  // Safe-getter (docs/24 §2.4): неизвестный код причины не роняет рендер.
+  const reason = order.refusalReasonCode ? refusalReasonLabel(order.refusalReasonCode) : null;
 
   return (
     <div className="order-detail" data-testid="order-detail">

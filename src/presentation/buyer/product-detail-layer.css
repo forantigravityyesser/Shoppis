@@ -43,3 +43,8 @@
   padding: 4px var(--spacing-4) calc(24px + var(--safe-bottom));
 }
 
+/* Сентинел у верха скролла: уехал — значит контент прокручен (кнопка «назад» плавает). */
+.pd-layer__sentinel {
+  height: 1px;
+}
+

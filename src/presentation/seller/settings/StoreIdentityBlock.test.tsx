@@ -5,6 +5,32 @@ import userEvent from '@testing-library/user-event';
 import StoreIdentityBlock from './StoreIdentityBlock';
 import type { Store } from '../../../domain/models/store';
 
+// Кроппер — отдельный UI; здесь проверяем интеграцию блока, поэтому заменяем
+// его на заглушку, которая прозрачно отдаёт выбранный файл через onConfirm.
+vi.mock('../../shared/components/ImageCropSheet', () => ({
+  default: ({
+    open,
+    file,
+    onConfirm,
+    onClose,
+  }: {
+    open: boolean;
+    file: File | null;
+    onConfirm: (file: File) => void;
+    onClose: () => void;
+  }) =>
+    open && file ? (
+      <>
+        <button type="button" onClick={() => onConfirm(file)}>
+          Готово
+        </button>
+        <button type="button" onClick={onClose}>
+          Отмена
+        </button>
+      </>
+    ) : null,
+}));
+
 function makeStore(overrides: Partial<Store> = {}): Store {
   return {
     id: 's1',
@@ -78,6 +104,7 @@ describe('StoreIdentityBlock', () => {
 
     const file = new File(['x'], 'banner.png', { type: 'image/png' });
     await user.upload(screen.getByLabelText('Добавить баннер'), file);
+    await user.click(screen.getByRole('button', { name: 'Готово' }));
     await user.click(saveButton() as HTMLElement);
 
     await waitFor(() => expect(onSave).toHaveBeenCalledWith({ bannerUrl: 'https://cdn/new.png' }));

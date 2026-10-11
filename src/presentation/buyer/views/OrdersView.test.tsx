@@ -43,8 +43,10 @@ function listState(overrides: Partial<OrdersListState> = {}): OrdersListState {
     fetching: false,
     error: null,
     hasNextPage: false,
+    disabledReason: null,
     fetchNextPage: vi.fn(),
     refetch: vi.fn(),
+    refreshAll: vi.fn(),
     ...overrides,
   };
 }
@@ -86,11 +88,34 @@ describe('OrdersView (ORD-06)', () => {
     expect(screen.getByTestId('order-empty')).toHaveTextContent('Заказов пока нет');
   });
 
+  it('нет store-контекста → отдельное состояние, не ложное «Заказов нет» (docs/24 D5)', () => {
+    h.useOrders.mockReturnValue(listState({ disabledReason: 'no-store' }));
+    renderView();
+    expect(screen.getByTestId('order-empty')).toHaveTextContent('Откройте магазин');
+    expect(screen.queryByText('Заказов пока нет')).toBeNull();
+  });
+
+  it('нет сессии → отдельное состояние (docs/24 D5)', () => {
+    h.useOrders.mockReturnValue(listState({ disabledReason: 'no-session' }));
+    renderView();
+    expect(screen.getByTestId('order-empty')).toHaveTextContent('Войдите');
+  });
+
   it('карточки заказов с суммой', () => {
     h.useOrders.mockReturnValue(listState({ orders: [order('1'), order('2')] }));
     renderView();
     expect(screen.getAllByTestId('order-card')).toHaveLength(2);
     expect(screen.getAllByText('2200 Br')).toHaveLength(2);
+  });
+
+  it('кнопка обновления перечитывает ВСЕ заказы (все статусы), а не только активный таб', async () => {
+    const refreshAll = vi.fn();
+    h.useOrders.mockReturnValue(listState({ refreshAll }));
+    renderView();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Обновить заказы' }));
+
+    expect(refreshAll).toHaveBeenCalledTimes(1);
   });
 
   it('ошибка → экран ошибки, «Повторить» вызывает refetch', async () => {

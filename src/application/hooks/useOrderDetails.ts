@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { deps } from '../composition/container';
 import { useStore } from '../store';
-import { orderKeys } from './useOrders';
+import { ORDER_STALE_TIME_MS, orderKeys } from '../orders/order-cache';
 import type { OrderDetails, OrderScope } from '../read-models/order';
 
 export interface OrderDetailsParams {
@@ -25,16 +25,20 @@ export interface OrderDetailsState {
  */
 export function useOrderDetails(params: OrderDetailsParams): OrderDetailsState {
   const sessionToken = useStore((s) => s.sessionToken);
+  // Identity часть ключа (docs/24 §3.4): чужой кэш не может быть выдан как свой.
+  const userId = useStore((s) => s.serverUser?.id ?? null);
   const enabled = (params.enabled ?? true) && Boolean(sessionToken) && Boolean(params.orderId);
 
   const query = useQuery({
-    queryKey: orderKeys.detail(params.scope, params.orderId),
+    queryKey: orderKeys.detail(userId, params.scope, params.orderId),
     queryFn: () =>
       deps().orderRepository.getOrderDetails({
         sessionToken: sessionToken as string,
         scope: params.scope,
         orderId: params.orderId as string,
       }),
+    // Короткий явный staleTime (docs/24 §3.4) вместо унаследованных 5 минут.
+    staleTime: ORDER_STALE_TIME_MS,
     enabled,
   });
 

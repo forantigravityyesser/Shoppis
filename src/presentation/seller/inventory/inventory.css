@@ -99,7 +99,9 @@
   box-shadow: var(--shadow-card);
   transition:
     background 0.15s,
-    transform 0.12s;
+    transform 0.12s,
+    opacity 0.2s,
+    box-shadow 0.2s;
 }
 
 .inv-icon-btn:active {
@@ -155,7 +157,9 @@
   box-shadow: 0 6px 16px rgba(108, 92, 231, 0.25);
   transition:
     background 0.15s,
-    transform 0.12s;
+    transform 0.12s,
+    opacity 0.2s,
+    box-shadow 0.2s;
 }
 
 .inv-add-btn--header {
@@ -164,12 +168,29 @@
   white-space: nowrap;
 }
 
+/* Невидимый дубль в шапке секции: держит её высоту/ширину, пока сама кнопка
+   уезжает в залипающий рейл (`sticky-rail`). */
+.inv-add-btn--ghost {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .inv-add-btn:hover {
   background: var(--color-accent-hover);
 }
 
 .inv-add-btn:active {
   transform: scale(0.96);
+}
+
+/* Вне шапки секции (после скролла) — прозрачнее, чтобы не перекрывать список. */
+.inv-add-btn--floating {
+  box-shadow: 0 3px 10px rgba(108, 92, 231, 0.16);
+  opacity: 0.7;
+}
+
+.inv-add-btn--floating:active {
+  opacity: 1;
 }
 
 /* ---- Section ---- */
@@ -775,7 +796,20 @@
   height: 40px;
 }
 
-/* ---- Product copy: «+ Создать копию» + навигация по черновикам (docs/23 §7) ---- */
+/* ---- Product copy: плавающие «Назад»/«+ Создать копию» + черновики (docs/23 §7) ---- */
+/* Рейл общий (`sticky-rail` в components.css); здесь — вид кнопок в плавающем состоянии. */
+/* Вне шапки (после скролла) «Назад» прозрачнее, чтобы не перекрывать блоки формы. */
+.inv-icon-btn--floating {
+  background: rgba(255, 255, 255, 0.55);
+  box-shadow: 0 1px 6px rgba(108, 92, 231, 0.06);
+  opacity: 0.7;
+}
+
+.inv-icon-btn--floating:active {
+  opacity: 1;
+}
+
+/* Визуал как у кнопки «Назад» в шапке. */
 .inv-copy-btn {
   flex: 0 0 auto;
   width: 40px;
@@ -783,26 +817,37 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(108, 92, 231, 0.18);
-  border-radius: var(--radius-md);
-  /* Полупрозрачный, чтобы не мешать заполнению формы, но оставаться под рукой. */
-  background: rgba(108, 92, 231, 0.12);
-  color: var(--color-accent);
+  border: none;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--color-text-primary);
   cursor: pointer;
+  box-shadow: var(--shadow-card);
   transition:
     background 0.15s,
     transform 0.1s,
-    opacity 0.15s;
+    opacity 0.2s,
+    box-shadow 0.2s;
 }
 
 .inv-copy-btn:active {
   transform: scale(0.94);
-  background: rgba(108, 92, 231, 0.2);
 }
 
 .inv-copy-btn:disabled {
   opacity: 0.35;
   cursor: not-allowed;
+}
+
+/* Вне шапки (после скролла) — прозрачнее, чтобы не перекрывать блоки формы. */
+.inv-copy-btn--floating {
+  background: rgba(255, 255, 255, 0.55);
+  box-shadow: 0 1px 6px rgba(108, 92, 231, 0.06);
+  opacity: 0.7;
+}
+
+.inv-copy-btn--floating:active {
+  opacity: 1;
 }
 
 .draft-nav {

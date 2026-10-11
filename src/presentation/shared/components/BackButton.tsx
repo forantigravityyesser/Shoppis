@@ -15,13 +15,15 @@ interface BackButtonProps {
    * Если задан — вызывается вместо стандартного перехода; haptic сохраняется.
    */
   onClick?: () => void;
+  /** Доп. классы на кнопку (например, «плавающее» состояние при залипании). */
+  className?: string;
 }
 
 /**
  * Умный «назад» как в мобильных приложениях: возвращает по истории роутера,
  * а при её отсутствии ведёт на безопасный fallback-маршрут вместо выхода из приложения.
  */
-export default function BackButton({ fallback, label = 'Назад', onClick }: BackButtonProps) {
+export default function BackButton({ fallback, label = 'Назад', onClick, className }: BackButtonProps) {
   const navigate = useNavigate();
   const { selectTick } = useHaptic();
 
@@ -39,7 +41,12 @@ export default function BackButton({ fallback, label = 'Назад', onClick }: 
   };
 
   return (
-    <button type="button" className="back-btn" onClick={goBack} aria-label={label}>
+    <button
+      type="button"
+      className={`back-btn${className ? ` ${className}` : ''}`}
+      onClick={goBack}
+      aria-label={label}
+    >
       <ArrowLeft size={20} />
     </button>
   );

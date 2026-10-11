@@ -51,6 +51,8 @@ describe('useQuestionActions', () => {
     expect(createQuestion).toHaveBeenCalledWith('tok', 'p1', 'Какой материал?');
     expect(spy).toHaveBeenCalledWith({ queryKey: ['storefront-product-questions', 'pub1', 'p1'] });
     expect(spy).toHaveBeenCalledWith({ queryKey: ['storefront-product', 'pub1', 'p1'] });
+    expect(spy).toHaveBeenCalledWith({ queryKey: ['seller-product-questions', 'p1'] });
+    expect(spy).toHaveBeenCalledWith({ queryKey: ['seller-product-social-summary', 'p1'] });
   });
 
   it('hideQuestion / answerQuestion → api', async () => {

@@ -1,8 +1,10 @@
+import { useRef } from 'react';
 import { Share2, Star } from 'lucide-react';
 import { NavLink, Outlet, useLocation, useParams } from 'react-router';
 import { useStore } from '../../../application/store';
 import { useStorefrontProduct } from '../../../application/hooks/useStorefrontProduct';
 import BackButton from '../../shared/components/BackButton';
+import { useStuck } from '../../shared/hooks/useStuck';
 import StoreStatusView from '../components/StoreStatusView';
 import ProductGallery from '../components/product/ProductGallery';
 import VariantSelector from '../components/product/VariantSelector';
@@ -39,6 +41,10 @@ export default function DetailsView() {
 
   const selection = useProductSelection(detail);
   const actions = useProductActions(detail, selection.selectedVariant);
+
+  // «Назад» и «Поделиться» залипают в углах при скролле (визуал как на прочих экранах).
+  const headerRef = useRef<HTMLElement>(null);
+  const stuck = useStuck(headerRef);
 
   if (authLoading || loading) {
     return <ProductDetailSkeleton />;
@@ -98,8 +104,21 @@ export default function DetailsView() {
   return (
     <div className="pd-root">
       <div className="pd" data-testid="product-detail-shell" data-product-id={id}>
+        {stuck ? (
+          <div className="sticky-rail sticky-rail--between buyer-header-rail">
+            <BackButton fallback="/" className="back-btn--floating" />
+            <button
+              type="button"
+              className="pd-icon-btn pd-icon-btn--floating"
+              aria-label="Поделиться"
+              onClick={actions.share}
+            >
+              <Share2 size={20} />
+            </button>
+          </div>
+        ) : null}
         <div className="pd__media">
-          <header className="pd__header">
+          <header className="pd__header" ref={headerRef}>
             <BackButton fallback="/" />
             <button
               type="button"

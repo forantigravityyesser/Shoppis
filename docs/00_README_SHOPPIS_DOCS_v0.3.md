@@ -126,6 +126,18 @@ shared UI списка/деталей + actions (buyer cancel, 6 seller-дейс
 реализован (buyer `OrdersView` + shared detail; seller `SellerOrdersView` + detail); остаётся
 ручной `LOCAL`/`TELEGRAM` smoke. `16` FD-3 синхронизирован.
 
+**Актуализация (2026-10-11) — Orders hardening (`24`):** внешний аудит блока заказов перенесён в
+`24_SHOPPIS_ORDERS_HARDENING_AUDIT.md` (этапы `ORD-HARDEN-00…12`) и выполнен второй слой поверх `22`.
+Закрыты: P0 прямой доступ к защищённым order-RPC (`0048` `REVOKE` + доверенный `adminClient`),
+терминальность delivery outcome (`0049`), исторический символ валюты (`0050`
+`currency_symbol_snapshot` + backfill), кэш↔личность и invalidation списка при ошибке (D10),
+`/orders` без store-контекста (D5), enum-safety причины отказа (`0051`), edge-валидация/контракт
+ошибок + анти-дубль уведомлений (D1/D2), `search_path = public, pg_temp` + timing-safe HMAC + окно
+`auth_date` (D3/D4, `0052`), дедуп buyer/seller списков + domain-rules + a11y (D6–D9). Harness
+расширен **Test 25–30**. Realtime (ORD-14 / `0047`) не менялся (accepted risk). Гейты: `typecheck` ·
+`lint` (0 errors) · `test` 1081/1081 · `build` · `migrations:check` 0001..0052 · `commerce:harness`
+143/143; ручные `LOCAL`/`TELEGRAM` — за человеком. Текущая миграция — `0052`.
+
 **Актуализация (2026-10-10) — Product Copy (независимые черновики):** добавлено ТЗ «+ Создать копию»
 поверх существующих форм создания/редактирования — `23_SHOPPIS_PRODUCT_COPY_TECHNICAL_PLAN.md`
 (этапы `PC-00…PC-08`). Копирование — локальное преобразование данных формы; сохранение — существующий

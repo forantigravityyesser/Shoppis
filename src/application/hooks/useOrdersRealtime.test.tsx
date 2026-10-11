@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
-import type { OrderRealtimeListener } from '../ports/order-realtime';
+import type { OrderRealtimeHandlers } from '../ports/order-realtime';
 
 const h = vi.hoisted(() => {
   const state = {
@@ -12,10 +12,10 @@ const h = vi.hoisted(() => {
   };
   return {
     state,
-    storeSub: vi.fn<(storeId: string, listener: OrderRealtimeListener) => () => void>(
+    storeSub: vi.fn<(storeId: string, handlers: OrderRealtimeHandlers) => () => void>(
       () => () => {},
     ),
-    buyerSub: vi.fn<(userId: string, listener: OrderRealtimeListener) => () => void>(
+    buyerSub: vi.fn<(userId: string, handlers: OrderRealtimeHandlers) => () => void>(
       () => () => {},
     ),
   };
@@ -52,15 +52,15 @@ const wrapper = ({ children }: { children: ReactNode }) => (
   <QueryClientProvider client={client}>{children}</QueryClientProvider>
 );
 
-function listenerFrom(
+function handlersFrom(
   mock: typeof h.buyerSub | typeof h.storeSub,
-): OrderRealtimeListener {
+): OrderRealtimeHandlers {
   const calls = mock.mock.calls;
   return calls[calls.length - 1][1];
 }
 
-function lastListener(): OrderRealtimeListener {
-  return listenerFrom(h.buyerSub);
+function lastListener(): OrderRealtimeHandlers['onChange'] {
+  return handlersFrom(h.buyerSub).onChange;
 }
 
 describe('useOrdersRealtime (docs/22 ORD-14)', () => {
@@ -71,16 +71,54 @@ describe('useOrdersRealtime (docs/22 ORD-14)', () => {
     expect(h.buyerSub.mock.calls[0][0]).toBe('user-1');
 
     lastListener()({ orderId: 'o1', status: 'DELIVERED' });
-    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['orders'] });
-    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['order', 'buyer', 'o1'] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['orders'], refetchType: 'all' });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['order', 'user-1', 'buyer', 'o1'] });
   });
 
   it('detail изменившегося заказа инвалидируется, даже когда деталь не открыта (не только «свой» orderId)', () => {
     renderHook(() => useOrdersRealtime({ scope: 'buyer' }), { wrapper });
 
     lastListener()({ orderId: 'o2', status: 'IN_TRANSIT' });
-    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['order', 'buyer', 'o2'] });
-    expect(invalidate).not.toHaveBeenCalledWith({ queryKey: ['order', 'buyer', 'o1'] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['order', 'user-1', 'buyer', 'o2'] });
+    expect(invalidate).not.toHaveBeenCalledWith({ queryKey: ['order', 'user-1', 'buyer', 'o1'] });
+  });
+
+  it('onChange патчит кэш детали новым статусом — открытая карточка обновляется мгновенно', () => {
+    client.setQueryData(['order', 'user-1', 'buyer', 'o1'], { id: 'o1', status: 'NEW' });
+    renderHook(() => useOrdersRealtime({ scope: 'buyer' }), { wrapper });
+
+    lastListener()({ orderId: 'o1', status: 'IN_TRANSIT' });
+
+    expect(client.getQueryData(['order', 'user-1', 'buyer', 'o1'])).toMatchObject({
+      id: 'o1',
+      status: 'IN_TRANSIT',
+    });
+  });
+
+  it('onChange без загруженного кэша детали не создаёт фиктивной записи', () => {
+    renderHook(() => useOrdersRealtime({ scope: 'buyer' }), { wrapper });
+
+    lastListener()({ orderId: 'o-missing', status: 'IN_TRANSIT' });
+
+    expect(client.getQueryData(['order', 'user-1', 'buyer', 'o-missing'])).toBeUndefined();
+  });
+
+  it('onResync инвалидирует список и ВСЕ детали (сверка после реконнекта)', () => {
+    renderHook(() => useOrdersRealtime({ scope: 'buyer' }), { wrapper });
+
+    handlersFrom(h.buyerSub).onResync?.();
+
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['orders'], refetchType: 'all' });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['order'], refetchType: 'all' });
+  });
+
+  it('seller: onResync так же пробрасывается в подписку магазина', () => {
+    renderHook(() => useOrdersRealtime({ scope: 'seller' }), { wrapper });
+
+    handlersFrom(h.storeSub).onResync?.();
+
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['orders'], refetchType: 'all' });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['order'], refetchType: 'all' });
   });
 
   it('seller: подписка на магазин + инвалидация списка и детали в seller-скоупе', () => {
@@ -90,9 +128,9 @@ describe('useOrdersRealtime (docs/22 ORD-14)', () => {
     expect(h.storeSub.mock.calls[0][0]).toBe('store-1');
     expect(h.buyerSub).not.toHaveBeenCalled();
 
-    listenerFrom(h.storeSub)({ orderId: 'o9', status: 'NEW' });
-    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['orders'] });
-    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['order', 'seller', 'o9'] });
+    handlersFrom(h.storeSub).onChange({ orderId: 'o9', status: 'NEW' });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['orders'], refetchType: 'all' });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['order', 'user-1', 'seller', 'o9'] });
   });
 
   it('без userId у покупателя подписки нет', () => {

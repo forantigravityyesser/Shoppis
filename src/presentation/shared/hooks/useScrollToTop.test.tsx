@@ -40,16 +40,17 @@ function renderAt(path: string) {
 }
 
 describe('useScrollToTop', () => {
-  it('переход к слою Отзывов/Вопросов и назад сохраняет позицию скролла', async () => {
+  it('переход к слою Отзывов/Вопросов и назад открывает экран сверху', async () => {
     renderAt('/product/p1');
     const scroller = screen.getByTestId('scroller');
     scroller.scrollTop = 50;
 
     await userEvent.click(screen.getByRole('button', { name: 'reviews' }));
-    expect(scroller.scrollTop).toBe(50);
+    expect(scroller.scrollTop).toBe(0);
 
+    scroller.scrollTop = 50;
     await userEvent.click(screen.getByRole('button', { name: 'about' }));
-    expect(scroller.scrollTop).toBe(50);
+    expect(scroller.scrollTop).toBe(0);
   });
 
   it('смена товара сбрасывает скролл', async () => {

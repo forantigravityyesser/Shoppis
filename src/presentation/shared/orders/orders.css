@@ -3,6 +3,36 @@
    логики — различия задаются доменными данными и props от тонких view.
    Импортируется экранами /orders, /seller/orders и деталями. */
 
+/* ---- A11y (docs/24 §2.7 D9 / ORD-HARDEN-10) ---- */
+
+/* Видимый только для screen reader текст (без визуального следа). */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Видимый фокус только для клавиатуры: единый индикатор для всех интерактивных
+   элементов контура заказов. */
+.order-tabs__tab:focus-visible,
+.orders-refresh:focus-visible,
+.order-card__details:focus-visible,
+.order-contact__btn:focus-visible,
+.order-actions__btn:focus-visible,
+.orders-retry:focus-visible,
+.order-confirm__cancel:focus-visible,
+.order-confirm__danger:focus-visible,
+.order-refuse__option:focus-within {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
 /* ---- Статус-бейдж ---- */
 .order-badge {
   display: inline-flex;
@@ -80,6 +110,74 @@
   background: var(--color-accent);
   color: var(--color-text-on-accent);
   box-shadow: 0 8px 20px rgba(108, 92, 231, 0.28);
+}
+
+/* ---- Ручное обновление списка: в шапке, визуал как кнопка «назад» ---- */
+.orders-refresh {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  box-shadow: var(--shadow-card);
+  transition:
+    background 0.15s,
+    transform 0.12s,
+    opacity 0.2s,
+    box-shadow 0.2s;
+}
+
+.orders-refresh:active {
+  transform: scale(0.94);
+}
+
+.orders-refresh:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Вне шапки (после скролла) — прозрачнее, чтобы не перекрывать список. */
+.orders-refresh--floating {
+  background: rgba(255, 255, 255, 0.55);
+  box-shadow: 0 1px 6px rgba(108, 92, 231, 0.06);
+  opacity: 0.7;
+}
+
+.orders-refresh--floating:active {
+  opacity: 1;
+}
+
+/* Центрированная шапка (seller): кнопка прижата к правому краю, как «назад» слева. */
+.screen__header--center .orders-refresh {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.screen__header--center .orders-refresh:active {
+  transform: translateY(-50%) scale(0.94);
+}
+
+.orders-refresh__icon--spinning {
+  animation: orders-refresh-spin 0.8s linear infinite;
+}
+
+@keyframes orders-refresh-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orders-refresh__icon--spinning {
+    animation: none;
+  }
 }
 
 /* ---- Список заказов ---- */

@@ -7,7 +7,11 @@ import type { OrderListItem, OrderStatusFilter } from '../read-models/order';
 
 const h = vi.hoisted(() => ({
   listOrders: vi.fn(),
-  state: { sessionToken: 'tok' as string | null, storeId: 'store-a' as string | null },
+  state: {
+    sessionToken: 'tok' as string | null,
+    storeId: 'store-a' as string | null,
+    serverUser: { id: 'user-1' } as { id: string } | null,
+  },
 }));
 
 vi.mock('../composition/container', () => ({
@@ -20,6 +24,7 @@ vi.mock('../store', () => ({
   }),
 }));
 
+import { invalidateOrderLists } from '../orders/order-cache';
 import { useOrders } from './useOrders';
 
 function item(id: string): OrderListItem {
@@ -47,12 +52,37 @@ beforeEach(() => {
   h.listOrders.mockReset();
   h.state.sessionToken = 'tok';
   h.state.storeId = 'store-a';
+  h.state.serverUser = { id: 'user-1' };
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 });
 
 const wrapper = ({ children }: { children: ReactNode }) => (
   <QueryClientProvider client={client}>{children}</QueryClientProvider>
 );
+
+describe('invalidateOrderLists (docs/22 ORD-14)', () => {
+  it('перечитывает ВСЕ таб-фильтры (refetchType: all), чтобы убрать «клон» заказа', async () => {
+    const spy = vi.spyOn(client, 'invalidateQueries');
+
+    await invalidateOrderLists(client);
+
+    expect(spy).toHaveBeenCalledWith({ queryKey: ['orders'], refetchType: 'all' });
+  });
+});
+
+describe('useOrders.refreshAll (docs/22 ORD-14)', () => {
+  it('перечитывает ВСЕ списки (все табы) и ВСЕ детали одним вызовом', async () => {
+    h.listOrders.mockResolvedValue(page(['1']));
+    const { result } = renderHook(() => useOrders({ scope: 'buyer' }), { wrapper });
+    await waitFor(() => expect(result.current.orders).toHaveLength(1));
+
+    const spy = vi.spyOn(client, 'invalidateQueries');
+    act(() => result.current.refreshAll());
+
+    expect(spy).toHaveBeenCalledWith({ queryKey: ['orders'], refetchType: 'all' });
+    expect(spy).toHaveBeenCalledWith({ queryKey: ['order'], refetchType: 'all' });
+  });
+});
 
 describe('useOrders (infinite list, docs/22 ORD-04)', () => {
   it('без сессии или storeRef не ходит в сеть', () => {
@@ -61,6 +91,27 @@ describe('useOrders (infinite list, docs/22 ORD-04)', () => {
     expect(result.current.orders).toEqual([]);
     expect(result.current.loading).toBe(false);
     expect(h.listOrders).not.toHaveBeenCalled();
+  });
+
+  it('disabledReason различает no-store / no-session / disabled / активный (docs/24 D5)', () => {
+    h.state.storeId = null;
+    const noStore = renderHook(() => useOrders({ scope: 'buyer' }), { wrapper });
+    expect(noStore.result.current.disabledReason).toBe('no-store');
+    noStore.unmount();
+
+    h.state.storeId = 'store-a';
+    h.state.sessionToken = null;
+    const noSession = renderHook(() => useOrders({ scope: 'buyer' }), { wrapper });
+    expect(noSession.result.current.disabledReason).toBe('no-session');
+    noSession.unmount();
+
+    h.state.sessionToken = 'tok';
+    const forced = renderHook(() => useOrders({ scope: 'buyer', enabled: false }), { wrapper });
+    expect(forced.result.current.disabledReason).toBe('disabled');
+    forced.unmount();
+
+    const ok = renderHook(() => useOrders({ scope: 'buyer' }), { wrapper });
+    expect(ok.result.current.disabledReason).toBeNull();
   });
 
   it('грузит первую страницу заказов', async () => {
@@ -133,6 +184,32 @@ describe('useOrders (infinite list, docs/22 ORD-04)', () => {
     );
   });
 
+  it('снятие keepPreviousData: при смене таба прошлая выборка не выдаётся за новую (skeleton)', async () => {
+    h.listOrders.mockResolvedValue(page(['1']));
+    const { result, rerender } = renderHook(
+      ({ filter }: { filter: OrderStatusFilter }) =>
+        useOrders({ scope: 'buyer', statusFilter: filter }),
+      { wrapper, initialProps: { filter: 'all' as OrderStatusFilter } },
+    );
+
+    await waitFor(() => expect(result.current.orders.map((o) => o.id)).toEqual(['1']));
+
+    let resolveNext: (value: ReturnType<typeof page>) => void = () => {};
+    h.listOrders.mockReturnValueOnce(
+      new Promise<ReturnType<typeof page>>((resolve) => {
+        resolveNext = resolve;
+      }),
+    );
+    rerender({ filter: 'history' });
+
+    // Новый таб ещё грузится: показываем пустой список, а не прошлую выборку.
+    await waitFor(() => expect(result.current.loading).toBe(true));
+    expect(result.current.orders).toEqual([]);
+
+    resolveNext(page(['9']));
+    await waitFor(() => expect(result.current.orders.map((o) => o.id)).toEqual(['9']));
+  });
+
   it('ошибка загрузки → error', async () => {
     h.listOrders.mockRejectedValue(new Error('boom'));
     const { result } = renderHook(() => useOrders({ scope: 'buyer' }), { wrapper });
@@ -148,5 +225,19 @@ describe('useOrders (infinite list, docs/22 ORD-04)', () => {
     await waitFor(() =>
       expect(h.listOrders).toHaveBeenCalledWith(expect.objectContaining({ storeRef: 'public-xyz' })),
     );
+  });
+
+  it('ключ включает identity: смена пользователя не отдаёт чужой кэш (docs/24 §3.4)', async () => {
+    h.listOrders.mockResolvedValue(page(['1']));
+    const { result, rerender } = renderHook(() => useOrders({ scope: 'buyer' }), { wrapper });
+
+    await waitFor(() => expect(result.current.orders).toHaveLength(1));
+    expect(h.listOrders).toHaveBeenCalledTimes(1);
+
+    // Другой пользователь → другой ключ → свежее чтение, без прошлого кэша.
+    h.state.serverUser = { id: 'user-2' };
+    rerender();
+
+    await waitFor(() => expect(h.listOrders).toHaveBeenCalledTimes(2));
   });
 });

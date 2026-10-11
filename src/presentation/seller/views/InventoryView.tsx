@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Plus } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { useInventoryHome } from '../../../application/hooks/useInventory';
 import {
@@ -13,6 +12,7 @@ import InventoryModeSwitcher, {
   type InventoryMode,
 } from '../inventory/components/InventoryModeSwitcher';
 import InventoryProductsSection from '../inventory/components/products/InventoryProductsSection';
+import InventorySectionHead from '../inventory/components/InventorySectionHead';
 import InventoryCategoryList from '../inventory/components/InventoryCategoryList';
 import CategoryAddSheet from '../inventory/components/CategoryAddSheet';
 import InventorySkeleton from '../inventory/components/InventorySkeleton';
@@ -87,17 +87,10 @@ export default function InventoryView() {
         />
       ) : (
         <section className="inv-section">
-          <div className="inv-section__head">
-            <h2 className="inv-section__title">Категории</h2>
-            <button
-              type="button"
-              className="inv-add-btn inv-add-btn--header"
-              onClick={() => navigate('/seller/inventory/category/new')}
-            >
-              <Plus size={16} strokeWidth={2.5} />
-              <span>Добавить</span>
-            </button>
-          </div>
+          <InventorySectionHead
+            title="Категории"
+            onAdd={() => navigate('/seller/inventory/category/new')}
+          />
           <InventoryCategoryList
             categories={categories}
             productsByCategory={productsByCategory}

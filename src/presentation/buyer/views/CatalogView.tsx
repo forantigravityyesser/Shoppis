@@ -6,7 +6,7 @@ import { useStorefrontHome } from '../../../application/hooks/useStorefrontHome'
 import { useStorefrontCatalog } from '../../../application/hooks/useStorefrontCatalog';
 import { useStorefrontCatalogPriceBounds } from '../../../application/hooks/useStorefrontCatalogPriceBounds';
 import { formatMoneyMinor } from '../../../domain/rules/product-rules';
-import { useInfiniteScrollSentinel } from '../hooks/useInfiniteScrollSentinel';
+import { useInfiniteScrollSentinel } from '../../shared/hooks/useInfiniteScrollSentinel';
 import ProductGrid from '../components/ProductGrid';
 import CatalogCategoryTiles from '../components/CatalogCategoryTiles';
 import CatalogHeader from '../components/CatalogHeader';
@@ -92,15 +92,20 @@ export default function CatalogView() {
   }, [search]);
 
   const shouldFocus = searchParams.get('focus') === '1';
+  // Фокус поиска с Home (CAT-13): ждём, пока поле реально смонтируется (сначала может
+  // быть скелетон), и только затем убираем одноразовый `focus` из URL. Иначе фокус
+  // терялся до появления input — не открывалась клавиатура и не центрировалось поле.
   useEffect(() => {
     if (!shouldFocus) return;
-    inputRef.current?.focus();
+    const input = inputRef.current;
+    if (!input) return;
+    input.focus();
     // `focus` одноразовый: убираем из URL, чтобы возврат из товара не открывал
     // клавиатуру повторно (Back должен вернуть каталог в прежнем виде). docs/17 CAT-13.
     const next = new URLSearchParams(searchParams);
     next.delete('focus');
     setSearchParams(next, { replace: true });
-  }, [shouldFocus, searchParams, setSearchParams]);
+  }, [shouldFocus, searchParams, setSearchParams, loading, catalog.loading, home]);
 
   // Снимаем отложенную запись при уходе с экрана.
   useEffect(

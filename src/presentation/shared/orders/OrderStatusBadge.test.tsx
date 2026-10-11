@@ -23,4 +23,9 @@ describe('OrderStatusBadge', () => {
       unmount();
     }
   });
+
+  it('неизвестный статус → safe fallback, не роняет рендер (docs/24 §2.4)', () => {
+    render(<OrderStatusBadge status={'WEIRD' as never} />);
+    expect(screen.getByTestId('order-status-badge')).toHaveTextContent('Неизвестный статус');
+  });
 });

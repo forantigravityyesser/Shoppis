@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { NavLink, Outlet, useParams } from 'react-router';
 import { useProductDetail } from '../../../application/hooks/useProduct';
 import {
@@ -9,6 +9,8 @@ import { useSeenReviewIds } from '../../../application/hooks/useSellerSocialSeen
 import { currencySymbol } from '../../../domain/constants/currencies';
 import { formatMoneyMinor } from '../../../domain/rules/product-rules';
 import BackButton from '../../shared/components/BackButton';
+import { useResetScroll } from '../../shared/hooks/useResetScroll';
+import { useStuck } from '../../shared/hooks/useStuck';
 import '../inventory/inventory.css';
 
 const TABS = [
@@ -35,6 +37,14 @@ export default function ProductView() {
   const seenReviewIds = useSeenReviewIds(productKey);
   const [imageIndex, setImageIndex] = useState(0);
 
+  // «Назад» залипает в левом верхнем углу при скролле (визуал как в других вкладках).
+  const headerRef = useRef<HTMLElement>(null);
+  const stuck = useStuck(headerRef);
+
+  // Экран-деталь всегда открывается сверху (не переносим скролл с инвентаря).
+  const rootRef = useRef<HTMLDivElement>(null);
+  useResetScroll(rootRef, product?.id);
+
   const unreadReviews = reviews.filter((review) => !seenReviewIds.has(review.id)).length;
   const openQuestions = questions.filter((question) => question.answer === null).length;
   const badges: Record<string, number> = {
@@ -59,9 +69,15 @@ export default function ProductView() {
   const activeImage = images[Math.min(imageIndex, images.length - 1)] ?? null;
 
   return (
-    <div className="screen prod">
-      <header className="prod-head">
-        <BackButton fallback="/seller/inventory" />
+    <div className="screen prod" ref={rootRef}>
+      <div className="sticky-rail sticky-rail--start">
+        <BackButton
+          fallback="/seller/inventory"
+          className={stuck ? 'back-btn--floating' : undefined}
+        />
+      </div>
+      <header className="prod-head" ref={headerRef}>
+        <span className="screen__header-spacer" aria-hidden />
         <h1 className="prod-head__title">{product.title}</h1>
         <span className={`prod-status prod-status--${product.status.toLowerCase()}`}>
           {product.status === 'ACTIVE' ? 'На витрине' : 'В архиве'}

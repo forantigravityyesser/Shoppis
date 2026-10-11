@@ -5,7 +5,7 @@ import {
   HOME_PRODUCTS_PAGE_SIZE,
   useStorefrontHomeProducts,
 } from '../../../application/hooks/useStorefrontHomeProducts';
-import { useInfiniteScrollSentinel } from '../hooks/useInfiniteScrollSentinel';
+import { useInfiniteScrollSentinel } from '../../shared/hooks/useInfiniteScrollSentinel';
 import HomeHeader from '../components/HomeHeader';
 import HomeBanner from '../components/HomeBanner';
 import CategorySection from '../components/CategorySection';

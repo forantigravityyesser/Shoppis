@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Copy, X } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import type { InventoryCategoryItem } from '../../../application/hooks/useInventory';
@@ -12,6 +12,7 @@ import {
   type DraftMode,
   type DraftStatus,
 } from '../../../application/rules/product-draft-session';
+import { useStuck } from '../../shared/hooks/useStuck';
 import { useUnsavedChangesGuard } from '../../shared/hooks/useUnsavedChangesGuard';
 import ProductForm from './ProductForm';
 import type { ProductFormValues } from './product-form-values';
@@ -68,6 +69,11 @@ export default function ProductDraftEditor({
 
   const showCopy = activeDraft ? hasCopyableContent(activeDraft.values) : false;
 
+  // Кнопки «Назад»/«Создать копию»: пока шапка видна — они в шапке, при скролле
+  // залипают в углах под системными кнопками и становятся прозрачнее (docs/23 §7).
+  const headerRef = useRef<HTMLDivElement>(null);
+  const headerScrolled = useStuck(headerRef);
+
   // Несохранённые изменения: правки (dirty), ошибки сохранения и заполненные, но ещё не
   // сохранённые create-черновики (в т.ч. копии). docs/23 §7.6, Q3.
   const hasUnsaved = useMemo(
@@ -110,32 +116,59 @@ export default function ProductDraftEditor({
     remove(draft.localId);
   };
 
+  // Плавно поднимает экран к шапке. Возвращает `true`, если страница была прокручена
+  // (то есть действие только что сработало и наверх уже едем).
+  const scrollToTop = (): boolean => {
+    const scroller = headerRef.current?.closest('.scrollable-content') as HTMLElement | null;
+    if (scroller && scroller.scrollTop > 0) {
+      scroller.scrollTo({ top: 0, behavior: 'smooth' });
+      return true;
+    }
+    return false;
+  };
+
+  // Копия становится активной (см. `copyActiveDraft`) — сразу поднимаемся к новой карточке.
+  const handleCopy = () => {
+    addCopy();
+    scrollToTop();
+  };
+
+  // Вне шапки (страница прокручена) «Назад» не выходит, а возвращает к шапке; выход
+  // (с вопросом о несохранённых изменениях, docs/23 §7.6) — только когда шапка видна.
+  const handleBack = () => {
+    if (scrollToTop()) return;
+    requestExit();
+  };
+
   return (
     <>
-      <div className="form-header form-header--center">
+      <div className="sticky-rail sticky-rail--between">
         <button
           type="button"
-          className="inv-icon-btn"
-          onClick={requestExit}
+          className={`inv-icon-btn${headerScrolled ? ' inv-icon-btn--floating' : ''}`}
+          onClick={handleBack}
           aria-label="Назад"
         >
           <ArrowLeft size={20} />
         </button>
-        <h1 className="form-header__title">{headerTitle}</h1>
         {showCopy ? (
           <button
             type="button"
-            className="inv-copy-btn"
-            onClick={addCopy}
+            className={`inv-copy-btn${headerScrolled ? ' inv-copy-btn--floating' : ''}`}
+            onClick={handleCopy}
             disabled={!canAdd}
             aria-label="Создать копию"
             title={canAdd ? 'Создать копию' : 'Достигнут лимит: 6 карточек'}
           >
             <Copy size={18} />
           </button>
-        ) : (
-          <span className="form-header__spacer" aria-hidden />
-        )}
+        ) : null}
+      </div>
+
+      <div className="form-header form-header--center" ref={headerRef}>
+        <span className="form-header__spacer" aria-hidden />
+        <h1 className="form-header__title">{headerTitle}</h1>
+        <span className="form-header__spacer" aria-hidden />
       </div>
 
       {confirmingExit ? (

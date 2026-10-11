@@ -319,6 +319,51 @@
   text-align: center;
 }
 
+/* Резерв под залипающие кнопки-дублёры в рейле: держит центрирование заголовка. */
+.screen__header-spacer {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+}
+
+/* ---- Sticky corner rail: залипающие кнопки в углах экрана ---- */
+/* Рейл нулевой высоты встаёт перед шапкой и перекрывает её слоты: пока шапка видна,
+   кнопка визуально внутри неё, при скролле — залипает под системными кнопками и
+   остаётся доступной до конца контента. */
+.sticky-rail {
+  position: sticky;
+  top: calc(var(--safe-top, 0px) + var(--spacing-2));
+  z-index: 25;
+  height: 0;
+  display: flex;
+  align-items: flex-start;
+  pointer-events: none;
+}
+
+.sticky-rail--between {
+  justify-content: space-between;
+}
+
+.sticky-rail--start {
+  justify-content: flex-start;
+}
+
+.sticky-rail--end {
+  justify-content: flex-end;
+}
+
+/* Тапы проходят сквозь пустые зоны рейла — ловят только сами кнопки. */
+.sticky-rail > * {
+  pointer-events: auto;
+}
+
+/* Рейл на «витринных» экранах покупателя (`.home`/`.catalog`): верхний и боковой
+   отступы совпадают с их шапками (`.home-header`/`.catalog-header`). */
+.buyer-header-rail {
+  top: calc(var(--safe-top, 0px) + var(--spacing-3));
+  padding: 0 var(--spacing-4);
+}
+
 /* ---- Smart back button ---- */
 .back-btn {
   flex: 0 0 auto;
@@ -335,11 +380,24 @@
   box-shadow: var(--shadow-card);
   transition:
     background 0.15s,
-    transform 0.12s;
+    transform 0.12s,
+    opacity 0.2s,
+    box-shadow 0.2s;
 }
 
 .back-btn:active {
   transform: scale(0.94);
+}
+
+/* Вне шапки (после скролла) — прозрачнее, чтобы не перекрывать контент. */
+.back-btn--floating {
+  background: rgba(255, 255, 255, 0.55);
+  box-shadow: 0 1px 6px rgba(108, 92, 231, 0.06);
+  opacity: 0.7;
+}
+
+.back-btn--floating:active {
+  opacity: 1;
 }
 
 .card {

@@ -9,15 +9,16 @@
 // Авторизация: сессия + проверка на уровне БД (seller = владелец магазина,
 // buyer = владелец заказа). Логика и инвентарь — атомарно в PL/pgSQL rpc.
 //
-// Env: INSFORGE_BASE_URL, ANON_KEY, SESSION_SECRET,
+// Env: INSFORGE_BASE_URL, API_KEY (admin), ANON_KEY, SESSION_SECRET,
 //      BUYER_BOT_TOKEN / SELLER_BOT_TOKEN (fallback BOT_TOKEN), APP_URL?
 
-import { createClient } from 'npm:@insforge/sdk';
 import { env } from './_shared/env.js';
+import { adminClient, anonClient } from './_shared/clients.js';
 import { bearerToken, json, methodNotAllowed, preflight, readJson } from './_shared/http.js';
 import { verifySession } from './_shared/auth.js';
 import { notify } from './_shared/telegram.js';
 import { errorToResponse } from './_shared/errors.js';
+import { validateOrderAction } from './_shared/validate.js';
 
 const STATUS_RU = {
   NEW: 'Новый',
@@ -35,25 +36,31 @@ const ERROR_STATUS = {
   INVALID_ACTOR: 400,
   TRANSITION_NOT_ALLOWED: 409,
   NOT_DELIVERED: 409,
+  OUTCOME_ALREADY_RECORDED: 409,
   INVALID_OUTCOME: 400,
   REASON_REQUIRED: 400,
+  INVALID_REFUSAL_REASON: 400,
   INVALID_QUANTITY: 400,
   VARIANT_NOT_FOUND: 404,
   INVENTORY_NOT_FOUND: 409,
   INSUFFICIENT_HELD: 409,
   INVENTORY_RESERVED_BY_ORDERS: 409,
-  ORDER_NOT_FOUND: 404,
   ORDER_VARIANT_MISMATCH: 400,
   ORDER_NOT_RECONCILABLE: 409,
+  // Входная валидация (docs/24 §2.7 D1): детерминированный 400, не 500.
+  UNKNOWN_ACTION: 400,
+  INVALID_ORDER_ID: 400,
+  INVALID_TO_STATUS: 400,
+  INVALID_VARIANT_ID: 400,
 };
 
-function dispatch(client, action, session, body) {
+function dispatch(client, action, actorType, session, body) {
   switch (action) {
     case 'cancel':
       return client.database.rpc('order_cancel', {
         p_order_id: body.orderId,
         p_actor_user_id: session.uid,
-        p_actor_type: body.actorType === 'buyer' ? 'buyer' : 'seller',
+        p_actor_type: actorType,
         p_reason: body.reason ?? null,
       });
     case 'transition':
@@ -133,9 +140,10 @@ export default async function (request) {
   if (request.method !== 'POST') return methodNotAllowed();
 
   const baseUrl = env('INSFORGE_BASE_URL');
+  const apiKey = env('API_KEY');
   const anonKey = env('ANON_KEY');
   const sessionSecret = env('SESSION_SECRET');
-  if (!baseUrl || !anonKey || !sessionSecret) {
+  if (!baseUrl || !apiKey || !anonKey || !sessionSecret) {
     return json({ success: false, error: 'Backend is not configured' }, 500);
   }
 
@@ -145,13 +153,14 @@ export default async function (request) {
   const body = await readJson(request);
   if (!body) return json({ success: false, error: 'Invalid JSON payload' }, 400);
 
-  const action = String(body?.action || '');
-  if (!action) return json({ success: false, error: 'action is required' }, 400);
+  const validated = validateOrderAction(body);
+  if (validated.error) return json({ success: false, error: validated.error }, 400);
+  const action = validated.action;
 
   let result;
   try {
-    const client = createClient({ baseUrl, anonKey });
-    const { data, error } = await dispatch(client, action, session, body);
+    const client = adminClient(baseUrl);
+    const { data, error } = await dispatch(client, action, validated.actorType, session, body);
     if (error) return errorToResponse(ERROR_STATUS, error.message || error, 'Order action failed');
     result = Array.isArray(data) ? data[0] : data;
     if (!result?.success) return json({ success: false, error: 'Order action failed' }, 500);
@@ -166,12 +175,20 @@ export default async function (request) {
     result.buyerUserId
   ) {
     try {
-      const client = createClient({ baseUrl, anonKey });
+      const client = anonClient(baseUrl);
       await notifyBuyerStatus(client, body, result);
     } catch (e) {
       console.error('[order-actions] notify error:', e);
     }
   }
 
-  return json({ success: true, result });
+  // `buyerUserId` — server-only (нужен был для уведомления выше); клиенту его
+  // не отдаём, чтобы не утекал идентификатор покупателя (docs/24 §3.1).
+  let clientResult = result;
+  if (result && typeof result === 'object') {
+    clientResult = { ...result };
+    delete clientResult.buyerUserId;
+  }
+
+  return json({ success: true, result: clientResult });
 }

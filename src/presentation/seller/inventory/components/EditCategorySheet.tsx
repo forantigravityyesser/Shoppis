@@ -6,6 +6,8 @@ import { useInventoryActions } from '../../../../application/hooks/useInventoryA
 import { useCategoryReorder } from '../../../../application/hooks/useCategoryReorder';
 import { uploadCategoryCoverImage } from '../../../../application/services/image-service';
 import { isSystemCategory } from '../../../../domain/rules/category-rules';
+import { CATEGORY_OUTPUT_WIDTH } from '../../../../utils/image';
+import ImageCropSheet from '../../../shared/components/ImageCropSheet';
 import ReorderCategorySheet from './ReorderCategorySheet';
 
 interface EditCategorySheetProps {
@@ -41,6 +43,7 @@ export default function EditCategorySheet({
     category.lowStockThreshold ? String(category.lowStockThreshold) : '',
   );
   const [photo, setPhoto] = useState<string | null>(category.imageUrl);
+  const [cropFile, setCropFile] = useState<File | null>(null);
   const [processing, setProcessing] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -54,13 +57,17 @@ export default function EditCategorySheet({
   const canSave = name.trim().length > 0;
   const canDelete = !isSystemCategory(category.id);
 
-  const addFile = async (files: FileList | null) => {
+  const addFile = (files: FileList | null) => {
     const file = files?.[0];
-    if (!file) return;
+    if (file) setCropFile(file);
+  };
+
+  const applyCrop = async (cropped: File) => {
+    setCropFile(null);
     setProcessing(true);
     setUploadError(null);
     try {
-      setPhoto(await uploadCategoryCoverImage(file));
+      setPhoto(await uploadCategoryCoverImage(cropped));
     } catch (e) {
       console.error('[inventory] category photo upload failed', e);
       setUploadError('Не удалось загрузить фото. Попробуйте ещё раз.');
@@ -140,7 +147,7 @@ export default function EditCategorySheet({
         accept="image/*"
         hidden
         onChange={(e) => {
-          void addFile(e.target.files);
+          addFile(e.target.files);
           e.target.value = '';
         }}
       />
@@ -264,6 +271,17 @@ export default function EditCategorySheet({
           }}
         />
       ) : null}
+
+      <ImageCropSheet
+        open={cropFile !== null}
+        file={cropFile}
+        nested
+        aspect={1}
+        title="Кадрировать обложку"
+        outputWidth={CATEGORY_OUTPUT_WIDTH}
+        onConfirm={(file) => void applyCrop(file)}
+        onClose={() => setCropFile(null)}
+      />
     </BottomSheet>
   );
 }

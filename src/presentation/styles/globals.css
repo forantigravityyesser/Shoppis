@@ -147,6 +147,9 @@ main {
   overflow-x: hidden;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+  /* Не даём браузеру «заякоривать» скролл при подмене контента: иначе при переходе
+     с длинной вкладки на другую позиция могла переноситься (см. useScrollToTop). */
+  overflow-anchor: none;
   /* Резерв под плавающий навбар: контент докручивается выше него */
   padding-bottom: var(--bottom-nav-space);
 }

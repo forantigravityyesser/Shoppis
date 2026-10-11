@@ -10,7 +10,7 @@ interface Props {
 /** Пустое состояние списка заказов (per-tab текст задаёт view, docs/22 §5.7/ORD-06). */
 export default function OrderEmptyState({ text, icon, action }: Props) {
   return (
-    <div className="order-empty" data-testid="order-empty">
+    <div className="order-empty" data-testid="order-empty" role="status">
       <span className="order-empty__icon" aria-hidden>
         {icon ?? <PackageOpen size={40} strokeWidth={1.5} />}
       </span>

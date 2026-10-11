@@ -53,7 +53,12 @@
   outcome/refusal). **ORD-11 ✅** — routing/compat (`/seller/orders/history` → `?status=history`,
   URL-фильтр buyer). **ORD-12 ✅** — harness Test 24 (read-authz/PII), регрессия зелёная.
   **ORD-13 ✅** — финальный аудит (гейты: `test` 940/940, `commerce:harness` 102/102). Блок Orders
-  завершён (ORD-00…ORD-13); остаётся ручной `LOCAL`/`TELEGRAM` smoke.
+  завершён (ORD-00…ORD-13). **Hardening (`24`, `ORD-HARDEN-01…12`) ✅** — второй слой поверх `22`:
+  P0-доступ к order-RPC (`0048`), терминальность outcome (`0049`), символ валюты-снимок (`0050`),
+  кэш↔личность + D10, `/orders` без store (D5), enum-safety (`0051`), edge-валидация + анти-дубль
+  уведомлений (D1/D2), `pg_temp` + timing-safe HMAC + окно `auth_date` (D3/D4, `0052`),
+  дедуп frontend/domain-rules/a11y (D6–D9), harness Test 25–30. Гейты: `test` 1081/1081 ·
+  `commerce:harness` 143/143 · `build`/`migrations:check`; остаётся ручной `LOCAL`/`TELEGRAM` smoke.
 - **Док:** `22`, `08 §2.11`, `11` S3 «Placeholder-экраны покупателя», `18`.
 
 ### FD-4. Social follow-ups — `DEFERRED`

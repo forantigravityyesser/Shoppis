@@ -96,6 +96,19 @@ describe('mapOrderListPage', () => {
     expect(mapOrderListPage(null)).toEqual({ orders: [], nextCursor: null });
     expect(mapOrderListPage({ orders: 'nope' })?.orders).toEqual([]);
   });
+
+  it('неизвестный status → безопасный fallback (docs/24 §2.4)', () => {
+    const page = mapOrderListPage({ orders: [listItem({ status: 'WEIRD' })], nextCursor: null });
+    expect(page.orders[0].status).toBe('NEW');
+  });
+
+  it('пустой символ → детерминированный fallback по currency_code (docs/24 §3.3)', () => {
+    const page = mapOrderListPage({
+      orders: [listItem({ currencyCode: 'BYN', currencySymbol: '' })],
+      nextCursor: null,
+    });
+    expect(page.orders[0].currencySymbol).toBe('Br');
+  });
 });
 
 describe('mapOrderDetails', () => {
@@ -153,6 +166,20 @@ describe('mapOrderDetails', () => {
   it('null / битый ответ → null (единый safe not-found), не бросает', () => {
     expect(mapOrderDetails(null)).toBeNull();
     expect(mapOrderDetails('nope')).toBeNull();
+  });
+
+  it('неизвестные enum-значения → безопасный fallback (docs/24 §2.4)', () => {
+    const d = mapOrderDetails(
+      detail({ status: 'WEIRD', deliveryOutcome: 'NOPE', refusalReasonCode: 'MADE_UP_CODE' }),
+    );
+    expect(d?.status).toBe('NEW');
+    expect(d?.deliveryOutcome).toBeNull();
+    expect(d?.refusalReasonCode).toBeNull();
+  });
+
+  it('пустой символ → fallback по currency_code (docs/24 §3.3)', () => {
+    const d = mapOrderDetails(detail({ currencyCode: 'RUB', currencySymbol: null }));
+    expect(d?.currencySymbol).toBe('₽');
   });
 
   it('не-массив items → [] ; битые linking-атрибуты → []', () => {

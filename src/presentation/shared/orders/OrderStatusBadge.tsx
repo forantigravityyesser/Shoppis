@@ -1,5 +1,5 @@
 import type { OrderStatus } from '../../../domain/models/order';
-import { ORDER_STATUS_META } from '../../../domain/constants/order-statuses';
+import { orderStatusLabel } from '../../../domain/constants/order-statuses';
 
 const STATUS_MODIFIER: Record<OrderStatus, string> = {
   NEW: 'order-badge--new',
@@ -16,13 +16,15 @@ interface Props {
 
 /** Цветной бейдж статуса заказа с RU-подписью (docs/22 §5.1). Общий для buyer/seller. */
 export default function OrderStatusBadge({ status, className }: Props) {
+  // Safe-getters (docs/24 §2.4): неизвестный статус не роняет рендер.
+  const modifier = status in STATUS_MODIFIER ? STATUS_MODIFIER[status] : '';
   return (
     <span
-      className={`order-badge ${STATUS_MODIFIER[status]}${className ? ` ${className}` : ''}`}
+      className={`order-badge ${modifier}${className ? ` ${className}` : ''}`}
       data-testid="order-status-badge"
       data-status={status}
     >
-      {ORDER_STATUS_META[status].labelRu}
+      {orderStatusLabel(status)}
     </span>
   );
 }

@@ -1,12 +1,20 @@
 import { uploadFile } from './file-storage';
-import { prepareCardImage, prepareSquareImage } from '../../utils/image';
+import {
+  BANNER_OUTPUT_WIDTH,
+  CATEGORY_OUTPUT_WIDTH,
+  prepareBannerImage,
+  prepareCardImage,
+  prepareSquareImage,
+} from '../../utils/image';
 
 /** Ширина полного изображения товара (4:5 → 1000×1250). */
 export const FULL_IMAGE_WIDTH = 1000;
 /** Ширина миниатюры товара (4:5 → 512×640). */
 export const THUMB_IMAGE_WIDTH = 512;
 /** Обложка категории — квадрат, показывается мелко. */
-export const CATEGORY_COVER_SIZE = 320;
+export const CATEGORY_COVER_SIZE = CATEGORY_OUTPUT_WIDTH;
+/** Ширина баннера витрины (2.2:1 → 1100×500). */
+export const BANNER_IMAGE_WIDTH = BANNER_OUTPUT_WIDTH;
 
 export interface UploadedCatalogImage {
   /** Публичный URL полного изображения. */
@@ -31,4 +39,9 @@ export async function uploadCatalogImage(file: File): Promise<UploadedCatalogIma
 /** Обложка категории: только компактная квадратная версия. Возвращает публичный URL. */
 export async function uploadCategoryCover(file: File): Promise<string> {
   return uploadFile(await prepareSquareImage(file, CATEGORY_COVER_SIZE));
+}
+
+/** Баннер витрины: нормализация до 2.2:1 (1100×500) + сжатие. Возвращает публичный URL. */
+export async function uploadBannerImage(file: File): Promise<string> {
+  return uploadFile(await prepareBannerImage(file, BANNER_IMAGE_WIDTH));
 }

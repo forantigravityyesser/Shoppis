@@ -13,18 +13,19 @@
 // (идемпотентность, перепроверка цены/остатка, AVAILABLE->HELD, снапшоты, история)
 // → уведомления (best-effort, вне транзакции).
 //
-// Env: INSFORGE_BASE_URL, ANON_KEY, SESSION_SECRET,
+// Env: INSFORGE_BASE_URL, API_KEY (admin), ANON_KEY, SESSION_SECRET,
 //      BUYER_BOT_TOKEN / SELLER_BOT_TOKEN (fallback BOT_TOKEN),
 //      TELEGRAM_NOTIFY_URL? , APP_URL?
 
-import { createClient } from 'npm:@insforge/sdk';
 import { env } from './_shared/env.js';
+import { adminClient, anonClient } from './_shared/clients.js';
 import { bearerToken, json, methodNotAllowed, preflight, readJson } from './_shared/http.js';
 import { verifySession } from './_shared/auth.js';
 import { notify } from './_shared/telegram.js';
 import { errorToResponse } from './_shared/errors.js';
 import { validateCheckoutItems } from './_shared/checkout-items.js';
 import { resolveCheckoutUsername } from './_shared/checkout-identity.js';
+import { shouldNotifyCheckout } from './_shared/checkout-notify.js';
 
 const ERROR_STATUS = {
   EMPTY_CART: 400,
@@ -48,9 +49,10 @@ export default async function (request) {
   if (request.method !== 'POST') return methodNotAllowed();
 
   const baseUrl = env('INSFORGE_BASE_URL');
+  const apiKey = env('API_KEY');
   const anonKey = env('ANON_KEY');
   const sessionSecret = env('SESSION_SECRET');
-  if (!baseUrl || !anonKey || !sessionSecret) {
+  if (!baseUrl || !apiKey || !anonKey || !sessionSecret) {
     return json({ success: false, error: 'Backend is not configured' }, 500);
   }
 
@@ -87,7 +89,7 @@ export default async function (request) {
   // checkout не падает.
   let telegramUsername = null;
   try {
-    const client = createClient({ baseUrl, anonKey });
+    const client = anonClient(baseUrl);
     telegramUsername = await resolveCheckoutUsername(client, session.uid);
   } catch (e) {
     console.error('[checkout] username lookup failed:', e);
@@ -95,7 +97,7 @@ export default async function (request) {
 
   let result;
   try {
-    const client = createClient({ baseUrl, anonKey });
+    const client = adminClient(baseUrl);
     const { data, error } = await client.database.rpc('create_order_atomic', {
       p_store_id: storeId,
       p_buyer_user_id: session.uid,
@@ -118,7 +120,7 @@ export default async function (request) {
   // Публичная кнопка «Открыть витрину» в уведомлении — по opaque public_id.
   let storePublicId = '';
   try {
-    const client = createClient({ baseUrl, anonKey });
+    const client = anonClient(baseUrl);
     const { data: storeRow } = await client.database
       .from('stores')
       .select('public_id')
@@ -133,7 +135,7 @@ export default async function (request) {
   // флаг notifications_enabled). Нет разрешения/бота — не отправляем (docs/18 §25-26).
   let buyerNotify = false;
   try {
-    const client = createClient({ baseUrl, anonKey });
+    const client = anonClient(baseUrl);
     const { data: identity } = await client.database
       .from('telegram_identities')
       .select('notifications_enabled')
@@ -144,26 +146,31 @@ export default async function (request) {
     console.error('[checkout] notifications lookup failed:', e);
   }
 
-  const symbol = result.currencySymbol || '';
-  const orderNumber = String(result.orderNumber || result.orderId).slice(0, 12);
-  if (buyerNotify) {
-    notify({
-      bot: 'buyer',
-      chatId: session.tg,
-      publicId: storePublicId,
-      logPrefix: 'checkout',
-      text: `🧾 <b>Заказ принят!</b>\n\nНомер: <code>${orderNumber}</code>\nСумма: <b>${result.totalMinor} ${symbol}</b>\nСтатус: Новый`,
-    }).catch((e) => console.error('[checkout] buyer notify error:', e));
-  }
+  // Идемпотентный ретрай (docs/24 §2.7 D2 / ORD-HARDEN-07): заказ уже создан и
+  // уведомления отправлены при первом вызове — повтор не должен дублировать их.
+  const idempotent = result.idempotent === true;
+  if (shouldNotifyCheckout(result)) {
+    const symbol = result.currencySymbol || '';
+    const orderNumber = String(result.orderNumber || result.orderId).slice(0, 12);
+    if (buyerNotify) {
+      notify({
+        bot: 'buyer',
+        chatId: session.tg,
+        publicId: storePublicId,
+        logPrefix: 'checkout',
+        text: `🧾 <b>Заказ принят!</b>\n\nНомер: <code>${orderNumber}</code>\nСумма: <b>${result.totalMinor} ${symbol}</b>\nСтатус: Новый`,
+      }).catch((e) => console.error('[checkout] buyer notify error:', e));
+    }
 
-  if (result.sellerTelegramId) {
-    notify({
-      bot: 'seller',
-      chatId: result.sellerTelegramId,
-      publicId: storePublicId,
-      logPrefix: 'checkout',
-      text: `🔔 <b>Новый заказ!</b>\n\nНомер: <code>${orderNumber}</code>\nСумма: <b>${result.totalMinor} ${symbol}</b>`,
-    }).catch((e) => console.error('[checkout] seller notify error:', e));
+    if (result.sellerTelegramId) {
+      notify({
+        bot: 'seller',
+        chatId: result.sellerTelegramId,
+        publicId: storePublicId,
+        logPrefix: 'checkout',
+        text: `🔔 <b>Новый заказ!</b>\n\nНомер: <code>${orderNumber}</code>\nСумма: <b>${result.totalMinor} ${symbol}</b>`,
+      }).catch((e) => console.error('[checkout] seller notify error:', e));
+    }
   }
 
   return json({
@@ -173,6 +180,6 @@ export default async function (request) {
     subtotalMinor: result.subtotalMinor,
     totalMinor: result.totalMinor,
     currencyCode: result.currencyCode,
-    idempotent: result.idempotent === true,
+    idempotent,
   });
 }

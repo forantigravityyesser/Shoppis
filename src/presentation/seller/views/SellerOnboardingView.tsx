@@ -2,6 +2,8 @@ import { useRef, useState } from 'react';
 import { motion as Motion } from 'framer-motion';
 import type { StoreCurrency, StoreLanguage } from '../../../domain/models/store';
 import { useStore } from '../../../application/store';
+import { BANNER_ASPECT, BANNER_OUTPUT_WIDTH } from '../../../utils/image';
+import ImageCropSheet from '../../shared/components/ImageCropSheet';
 
 const CURRENCIES: Array<{ code: StoreCurrency; label: string }> = [
   { code: 'USD', label: 'USD ($)' },
@@ -27,6 +29,7 @@ export default function SellerOnboardingView() {
   const [language, setLang] = useState<StoreLanguage>('ru');
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [bannerPreview, setBannerPreview] = useState('');
+  const [cropFile, setCropFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -35,14 +38,20 @@ export default function SellerOnboardingView() {
 
   const pickBanner = (file: File | undefined) => {
     if (!file) return;
-    setBannerFile(file);
+    setCropFile(file);
+  };
+
+  const applyBannerCrop = (cropped: File) => {
+    setBannerFile(cropped);
     setBannerPreview((prev) => {
       if (prev) URL.revokeObjectURL(prev);
-      return URL.createObjectURL(file);
+      return URL.createObjectURL(cropped);
     });
+    setCropFile(null);
   };
 
   const clearBanner = () => {
+    setCropFile(null);
     setBannerFile(null);
     setBannerPreview((prev) => {
       if (prev) URL.revokeObjectURL(prev);
@@ -201,6 +210,16 @@ export default function SellerOnboardingView() {
           {uploading ? 'Загрузка баннера…' : authLoading ? 'Создаем...' : '🚀 Создать мой магазин'}
         </button>
       </div>
+
+      <ImageCropSheet
+        open={cropFile !== null}
+        file={cropFile}
+        aspect={BANNER_ASPECT}
+        title="Кадрировать баннер"
+        outputWidth={BANNER_OUTPUT_WIDTH}
+        onConfirm={applyBannerCrop}
+        onClose={() => setCropFile(null)}
+      />
     </Motion.div>
   );
 }

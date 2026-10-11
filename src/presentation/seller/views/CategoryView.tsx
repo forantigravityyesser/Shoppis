@@ -1,10 +1,12 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Package, Pencil, Search, X } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router';
 import { useCategoryPage } from '../../../application/hooks/useCategory';
 import { createProductPath } from '../../../application/hooks/useInventoryActions';
 import { isSystemCategory } from '../../../domain/rules/category-rules';
 import BackButton from '../../shared/components/BackButton';
+import { useResetScroll } from '../../shared/hooks/useResetScroll';
+import { useStuck } from '../../shared/hooks/useStuck';
 import ProductMiniCard from '../inventory/components/ProductMiniCard';
 import EditCategorySheet from '../inventory/components/EditCategorySheet';
 import { pluralRu } from '../inventory/layout';
@@ -21,6 +23,14 @@ export default function CategoryView() {
   const [editKey, setEditKey] = useState(0);
   /** Системную «Без категории» нельзя редактировать. */
   const editable = !isSystemCategory(categoryId);
+
+  // «Назад» залипает в левом верхнем углу при скролле (визуал как в других вкладках).
+  const headerRef = useRef<HTMLDivElement>(null);
+  const stuck = useStuck(headerRef);
+
+  // Экран-деталь всегда открывается сверху (не переносим скролл с инвентаря).
+  const rootRef = useRef<HTMLDivElement>(null);
+  useResetScroll(rootRef, category?.id);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -41,9 +51,15 @@ export default function CategoryView() {
   }
 
   return (
-    <div className="screen cat">
-      <div className="cat-head">
-        <BackButton fallback="/seller/inventory" />
+    <div className="screen cat" ref={rootRef}>
+      <div className="sticky-rail sticky-rail--start">
+        <BackButton
+          fallback="/seller/inventory"
+          className={stuck ? 'back-btn--floating' : undefined}
+        />
+      </div>
+      <div className="cat-head" ref={headerRef}>
+        <span className="screen__header-spacer" aria-hidden />
         <div className="cat-head__avatar" aria-hidden>
           {category.imageUrl ? (
             <img

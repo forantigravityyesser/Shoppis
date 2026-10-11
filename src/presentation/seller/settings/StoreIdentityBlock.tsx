@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { normalizeStoreName, validateStoreName } from '../../../domain/rules/store-settings-rules';
 import type { Store } from '../../../domain/models/store';
 import type { StoreProfilePatch } from '../../../application/contracts/store';
+import { BANNER_ASPECT, BANNER_OUTPUT_WIDTH } from '../../../utils/image';
 import BannerUploader from './components/BannerUploader';
 import BlockSaveButton from './components/BlockSaveButton';
+import ImageCropSheet from '../../shared/components/ImageCropSheet';
 
 interface Props {
   store: Store;
@@ -20,6 +22,7 @@ export default function StoreIdentityBlock({ store, onSave, onUploadBanner }: Pr
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [bannerValue, setBannerValue] = useState(store.bannerUrl);
   const [bannerPreview, setBannerPreview] = useState(store.bannerUrl);
+  const [cropFile, setCropFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,15 +30,22 @@ export default function StoreIdentityBlock({ store, onSave, onUploadBanner }: Pr
   const isDirty = nameValue !== store.name || bannerFile !== null || bannerValue !== store.bannerUrl;
 
   const pickBanner = (file: File) => {
-    setBannerFile(file);
+    setCropFile(file);
+    setError(null);
+  };
+
+  const applyBannerCrop = (cropped: File) => {
+    setBannerFile(cropped);
     setBannerPreview((prev) => {
       if (prev.startsWith('blob:')) URL.revokeObjectURL(prev);
-      return URL.createObjectURL(file);
+      return URL.createObjectURL(cropped);
     });
+    setCropFile(null);
     setError(null);
   };
 
   const clearBanner = () => {
+    setCropFile(null);
     setBannerFile(null);
     setBannerValue('');
     setBannerPreview((prev) => {
@@ -111,6 +121,16 @@ export default function StoreIdentityBlock({ store, onSave, onUploadBanner }: Pr
       ) : null}
 
       <BlockSaveButton visible={isDirty} saving={saving} onClick={save} />
+
+      <ImageCropSheet
+        open={cropFile !== null}
+        file={cropFile}
+        aspect={BANNER_ASPECT}
+        title="Кадрировать баннер"
+        outputWidth={BANNER_OUTPUT_WIDTH}
+        onConfirm={applyBannerCrop}
+        onClose={() => setCropFile(null)}
+      />
     </section>
   );
 }

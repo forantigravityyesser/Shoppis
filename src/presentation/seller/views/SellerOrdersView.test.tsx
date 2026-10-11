@@ -37,8 +37,10 @@ function listState(overrides: Partial<OrdersListState> = {}): OrdersListState {
     fetching: false,
     error: null,
     hasNextPage: false,
+    disabledReason: null,
     fetchNextPage: vi.fn(),
     refetch: vi.fn(),
+    refreshAll: vi.fn(),
     ...overrides,
   };
 }
@@ -83,6 +85,16 @@ describe('SellerOrdersView (ORD-07)', () => {
     h.useOrders.mockReturnValue(listState({ orders: [order('1'), order('2')] }));
     renderView();
     expect(screen.getAllByTestId('order-card')).toHaveLength(2);
+  });
+
+  it('кнопка обновления перечитывает ВСЕ заказы магазина (все статусы)', async () => {
+    const refreshAll = vi.fn();
+    h.useOrders.mockReturnValue(listState({ refreshAll }));
+    renderView();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Обновить заказы' }));
+
+    expect(refreshAll).toHaveBeenCalledTimes(1);
   });
 
   it('ошибка → экран ошибки, «Повторить» вызывает refetch', async () => {

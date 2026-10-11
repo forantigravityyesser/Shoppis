@@ -4,8 +4,9 @@ export interface StoragePort {
   removeFilesByUrl(urls: Array<string | null | undefined>): Promise<void>;
 }
 
-/** Подготовка и загрузка производных изображений (full/thumb/обложка). */
+/** Подготовка и загрузка производных изображений (full/thumb/обложка/баннер). */
 export interface ImageUploadPort {
   uploadCatalogImage(file: File): Promise<{ url: string; thumbUrl: string }>;
   uploadCategoryCover(file: File): Promise<string>;
+  uploadBannerImage(file: File): Promise<string>;
 }

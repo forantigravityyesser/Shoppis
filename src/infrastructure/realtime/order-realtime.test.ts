@@ -1,11 +1,11 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-type RealtimeHandler = (message: unknown) => void;
+type RealtimeHandler = (message?: unknown) => void;
 
 const h = vi.hoisted(() => {
   const handlers = new Map<string, Set<RealtimeHandler>>();
   const subscribed = new Set<string>();
-  const state = { isConnected: false };
+  const state = { isConnected: false, failConnect: false, subscribeOk: true };
   const calls = {
     connect: 0,
     disconnect: 0,
@@ -26,6 +26,7 @@ const h = vi.hoisted(() => {
     },
     async connect() {
       calls.connect += 1;
+      if (state.failConnect) throw new Error('connect failed');
       state.isConnected = true;
     },
     disconnect() {
@@ -34,6 +35,9 @@ const h = vi.hoisted(() => {
     },
     async subscribe(channel: string) {
       calls.subscribe.push(channel);
+      if (!state.subscribeOk) {
+        return { ok: false, channel, error: { code: 'REJECTED', message: 'rejected' } };
+      }
       subscribed.add(channel);
       return { ok: true, channel, presence: { members: [] } };
     },
@@ -47,13 +51,15 @@ const h = vi.hoisted(() => {
     getSubscribedChannels() {
       return [...subscribed];
     },
-    emit(event: string, message: unknown) {
+    emit(event: string, message?: unknown) {
       handlers.get(event)?.forEach((cb) => cb(message));
     },
     reset() {
       handlers.clear();
       subscribed.clear();
       state.isConnected = false;
+      state.failConnect = false;
+      state.subscribeOk = true;
       calls.connect = 0;
       calls.disconnect = 0;
       calls.subscribe = [];
@@ -74,27 +80,30 @@ beforeEach(() => {
   h.realtime.reset();
 });
 
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 describe('order-realtime adapter (docs/22 ORD-14)', () => {
   it('buyer: подключается и подписывается на orders:buyer:<userId>', async () => {
     const mod = await load();
-    const listener = vi.fn();
+    mod.subscribeBuyerOrders('u1', { onChange: vi.fn() });
 
-    mod.subscribeBuyerOrders('u1', listener);
     await vi.waitFor(() => expect(h.calls.subscribe).toContain('orders:buyer:u1'));
     expect(h.calls.connect).toBe(1);
   });
 
   it('seller: подписывается на orders:seller:<storeId>', async () => {
     const mod = await load();
-    mod.subscribeStoreOrders('s1', vi.fn());
+    mod.subscribeStoreOrders('s1', { onChange: vi.fn() });
 
     await vi.waitFor(() => expect(h.calls.subscribe).toContain('orders:seller:s1'));
   });
 
-  it('маршрутизирует событие канала в слушателя и нормализует payload', async () => {
+  it('маршрутизирует событие канала в onChange и нормализует payload', async () => {
     const mod = await load();
-    const listener = vi.fn();
-    mod.subscribeBuyerOrders('u1', listener);
+    const onChange = vi.fn();
+    mod.subscribeBuyerOrders('u1', { onChange });
     await vi.waitFor(() => expect(h.calls.subscribe).toContain('orders:buyer:u1'));
 
     h.realtime.emit('order_status_changed', {
@@ -103,13 +112,13 @@ describe('order-realtime adapter (docs/22 ORD-14)', () => {
       meta: { channel: 'orders:buyer:u1' },
     });
 
-    expect(listener).toHaveBeenCalledWith({ orderId: 'o1', status: 'IN_TRANSIT' });
+    expect(onChange).toHaveBeenCalledWith({ orderId: 'o1', status: 'IN_TRANSIT' });
   });
 
   it('игнорирует события чужого канала и битый payload', async () => {
     const mod = await load();
-    const listener = vi.fn();
-    mod.subscribeBuyerOrders('u1', listener);
+    const onChange = vi.fn();
+    mod.subscribeBuyerOrders('u1', { onChange });
     await vi.waitFor(() => expect(h.calls.subscribe).toContain('orders:buyer:u1'));
 
     h.realtime.emit('order_status_changed', {
@@ -119,15 +128,15 @@ describe('order-realtime adapter (docs/22 ORD-14)', () => {
     });
     h.realtime.emit('order_status_changed', { meta: { channel: 'orders:buyer:u1' } });
 
-    expect(listener).not.toHaveBeenCalled();
+    expect(onChange).not.toHaveBeenCalled();
   });
 
-  it('рефкаунт канала: одна подписка на нескольких слушателей, отписка/disconnect в конце', async () => {
+  it('рефкаунт канала и persistent-сокет: отписка последнего не закрывает соединение', async () => {
     const mod = await load();
     const a = vi.fn();
     const b = vi.fn();
-    const offA = mod.subscribeBuyerOrders('u1', a);
-    const offB = mod.subscribeBuyerOrders('u1', b);
+    const offA = mod.subscribeBuyerOrders('u1', { onChange: a });
+    const offB = mod.subscribeBuyerOrders('u1', { onChange: b });
     await vi.waitFor(() => expect(h.calls.subscribe).toContain('orders:buyer:u1'));
     expect(h.calls.subscribe.filter((c) => c === 'orders:buyer:u1')).toHaveLength(1);
 
@@ -136,6 +145,61 @@ describe('order-realtime adapter (docs/22 ORD-14)', () => {
 
     offB();
     expect(h.calls.unsubscribe).toEqual(['orders:buyer:u1']);
-    expect(h.calls.disconnect).toBe(1);
+    // Persistent: сокет остаётся открытым для следующих экранов.
+    expect(h.calls.disconnect).toBe(0);
+  });
+
+  it('reconnect: переподписывает канал и вызывает onResync (сверка с сервером)', async () => {
+    const mod = await load();
+    const onResync = vi.fn();
+    mod.subscribeBuyerOrders('u1', { onChange: vi.fn(), onResync });
+    await vi.waitFor(() => expect(h.realtime.getSubscribedChannels()).toContain('orders:buyer:u1'));
+
+    // Разрыв: SDK теряет подписки; затем socket.io переподключается.
+    h.state.isConnected = true;
+    h.subscribed.clear();
+    h.realtime.emit('connect');
+
+    await vi.waitFor(() => expect(onResync).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() =>
+      expect(h.realtime.getSubscribedChannels()).toContain('orders:buyer:u1'),
+    );
+  });
+
+  it('первичный провал connect → повтор с backoff', async () => {
+    vi.useFakeTimers();
+    const mod = await load();
+    h.state.failConnect = true;
+
+    mod.subscribeBuyerOrders('u1', { onChange: vi.fn() });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(h.calls.connect).toBe(1);
+    expect(h.realtime.getSubscribedChannels()).toHaveLength(0);
+
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(h.calls.connect).toBe(2);
+
+    h.state.failConnect = false;
+    await vi.advanceTimersByTimeAsync(2000);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(h.realtime.getSubscribedChannels()).toContain('orders:buyer:u1');
+  });
+
+  it('отказ subscribe ({ ok:false }) → повтор с backoff', async () => {
+    vi.useFakeTimers();
+    const mod = await load();
+    h.state.subscribeOk = false;
+
+    mod.subscribeBuyerOrders('u1', { onChange: vi.fn() });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(h.calls.subscribe).toEqual(['orders:buyer:u1']);
+
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(h.calls.subscribe.length).toBe(2);
+
+    h.state.subscribeOk = true;
+    await vi.advanceTimersByTimeAsync(2000);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(h.realtime.getSubscribedChannels()).toContain('orders:buyer:u1');
   });
 });

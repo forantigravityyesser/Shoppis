@@ -45,6 +45,12 @@ describe('isAwaitingDeliveryOutcome', () => {
     expect(isAwaitingDeliveryOutcome('DELIVERED')).toBe(true);
     expect(isAwaitingDeliveryOutcome('IN_TRANSIT')).toBe(false);
   });
+
+  it('stops awaiting once the outcome is recorded (terminal)', () => {
+    expect(isAwaitingDeliveryOutcome('DELIVERED', null)).toBe(true);
+    expect(isAwaitingDeliveryOutcome('DELIVERED', 'RECEIVED')).toBe(false);
+    expect(isAwaitingDeliveryOutcome('DELIVERED', 'REFUSED')).toBe(false);
+  });
 });
 
 describe('canTransition', () => {

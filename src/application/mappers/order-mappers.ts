@@ -1,4 +1,10 @@
 import type { DeliveryOutcome, OrderStatus, RefusalReasonCode } from '../../domain/models/order';
+import {
+  isDeliveryOutcome,
+  isOrderStatus,
+  isRefusalReasonCode,
+} from '../../domain/constants/order-statuses';
+import { currencySymbol } from '../../domain/constants/currencies';
 import type {
   OrderContact,
   OrderDelivery,
@@ -58,13 +64,33 @@ function asArray(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
 }
 
+/**
+ * Enum-safety (docs/24 §2.4, ORD-HARDEN-06): неизвестное значение не проходит
+ * сквозь cast. Статус валидируется `orders_status_check` в БД, поэтому fallback
+ * `'NEW'` — чисто защитный (достижим лишь при битой проекции).
+ */
 function asStatus(value: unknown): OrderStatus {
-  return asString(value) as OrderStatus;
+  const s = asString(value);
+  return isOrderStatus(s) ? s : 'NEW';
 }
 
-function asNullableEnum<T extends string>(value: unknown): T | null {
+function asRefusalReasonCode(value: unknown): RefusalReasonCode | null {
   const s = asNullableString(value);
-  return s === null ? null : (s as T);
+  return isRefusalReasonCode(s) ? s : null;
+}
+
+function asDeliveryOutcome(value: unknown): DeliveryOutcome | null {
+  const s = asNullableString(value);
+  return isDeliveryOutcome(s) ? s : null;
+}
+
+/**
+ * Исторический символ валюты (docs/24 §3.3): значение проекции, иначе
+ * детерминированный fallback по сохранённому `currency_code`.
+ */
+function asSymbol(value: unknown, code: string): string {
+  const s = asString(value);
+  return s !== '' ? s : currencySymbol(code);
 }
 
 function mapLinkingAttributes(raw: unknown): Array<{ name: string; value: string }> {
@@ -86,14 +112,15 @@ export function mapOrderPreviewItem(raw: unknown): OrderPreviewItem {
 
 export function mapOrderListItem(raw: unknown): OrderListItem {
   const item = isRecord(raw) ? raw : {};
+  const currencyCode = asString(item.currencyCode);
   return {
     id: asString(item.id),
     publicOrderNumber: asString(item.publicOrderNumber),
     status: asStatus(item.status),
     createdAt: asString(item.createdAt),
     totalMinor: parseMoney(item.totalMinor),
-    currencyCode: asString(item.currencyCode),
-    currencySymbol: asString(item.currencySymbol),
+    currencyCode,
+    currencySymbol: asSymbol(item.currencySymbol, currencyCode),
     itemCount: parseCount(item.itemCount),
     previewItems: asArray(item.previewItems).map(mapOrderPreviewItem),
   };
@@ -146,14 +173,15 @@ function mapContact(raw: unknown): OrderContact {
 /** `null` — заказ не найден / недоступен (единый безопасный not-found). */
 export function mapOrderDetails(raw: unknown): OrderDetails | null {
   if (!isRecord(raw)) return null;
+  const currencyCode = asString(raw.currencyCode);
   return {
     id: asString(raw.id),
     publicOrderNumber: asString(raw.publicOrderNumber),
     status: asStatus(raw.status),
-    deliveryOutcome: asNullableEnum<DeliveryOutcome>(raw.deliveryOutcome),
-    refusalReasonCode: asNullableEnum<RefusalReasonCode>(raw.refusalReasonCode),
-    currencyCode: asString(raw.currencyCode),
-    currencySymbol: asString(raw.currencySymbol),
+    deliveryOutcome: asDeliveryOutcome(raw.deliveryOutcome),
+    refusalReasonCode: asRefusalReasonCode(raw.refusalReasonCode),
+    currencyCode,
+    currencySymbol: asSymbol(raw.currencySymbol, currencyCode),
     subtotalMinor: parseMoney(raw.subtotalMinor),
     totalMinor: parseMoney(raw.totalMinor),
     createdAt: asString(raw.createdAt),

@@ -167,6 +167,21 @@ describe('CatalogView', () => {
     expect(container.querySelector('.skel--card')).toBeTruthy();
   });
 
+  it('CAT-13: focus=1 фокусирует поиск даже после скелетона и убирает параметр', async () => {
+    searchParamsRef.value = new URLSearchParams('focus=1');
+    useStorefrontCatalog.mockReturnValue(catalogState({ loading: true }));
+    const { rerender } = render(<CatalogView />);
+    // Пока скелетон — поля нет, фокус не «сгорает» и параметр ещё в URL.
+    expect(screen.queryByLabelText('Поиск по названию')).toBeNull();
+
+    useStorefrontCatalog.mockReturnValue(catalogState());
+    rerender(<CatalogView />);
+
+    const input = screen.getByLabelText('Поиск по названию');
+    await waitFor(() => expect(input).toHaveFocus());
+    expect(lastParams().has('focus')).toBe(false);
+  });
+
   it('шапка: назад / название / все категории / профиль', () => {
     render(<CatalogView />);
     expect(screen.getByRole('heading', { name: 'Каталог' })).toBeInTheDocument();

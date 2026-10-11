@@ -26,7 +26,7 @@ export default function OrderRefusalPicker({ pending = false, error, onConfirm, 
   const [reason, setReason] = useState<RefusalReasonCode | null>(null);
 
   return (
-    <div className="order-confirm" role="group" aria-label="Причина отказа">
+    <div className="order-confirm" role="group" aria-label="Причина отказа" aria-busy={pending}>
       <p className="order-confirm__text">Укажите причину отказа</p>
       <ul className="order-refuse">
         {CODES.map((code) => (

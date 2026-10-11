@@ -30,6 +30,12 @@ export function useQuestionActions(
       });
       void queryClient.invalidateQueries({ queryKey: ['storefront-product', publicId, productId] });
     }
+    if (productId) {
+      void queryClient.invalidateQueries({ queryKey: ['seller-product-questions', productId] });
+      void queryClient.invalidateQueries({
+        queryKey: ['seller-product-social-summary', productId],
+      });
+    }
   };
 
   const create = useMutation({

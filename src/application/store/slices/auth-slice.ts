@@ -5,7 +5,8 @@ import type { CreateStoreInput, StoreProfilePatch } from '../../contracts/store'
 import type { ServerUser } from '../../contracts/auth';
 import type { PublicStoreContext } from '../../read-models/public-store';
 import { deps } from '../../composition/container';
-import { compressImage } from '../../../utils/image';
+import { queryClient } from '../../queryClient';
+import { clearOrderCache } from '../../orders/order-cache';
 import type { RootStore } from '../index';
 
 export interface AuthSlice {
@@ -80,9 +81,18 @@ export const createAuthSlice: StateCreator<RootStore, [], [], AuthSlice> = (set,
 
   setContext: (context) => set({ context }),
 
-  setSession: (token, user) => set({ sessionToken: token, serverUser: user }),
+  setSession: (token, user) => {
+    // Смена личности → сбросить orders-кэш прошлого пользователя (docs/24 §3.4).
+    if ((get().serverUser?.id ?? null) !== (user?.id ?? null)) {
+      clearOrderCache(queryClient);
+    }
+    set({ sessionToken: token, serverUser: user });
+  },
 
-  clearSession: () => set({ sessionToken: null, serverUser: null }),
+  clearSession: () => {
+    clearOrderCache(queryClient);
+    set({ sessionToken: null, serverUser: null });
+  },
 
   setStoreId: (storeId) => {
     if (get().storeId === storeId) return;
@@ -230,5 +240,5 @@ export const createAuthSlice: StateCreator<RootStore, [], [], AuthSlice> = (set,
     set({ currentStore: store });
   },
 
-  uploadStoreBanner: async (file: File) => deps().storage.uploadFile(await compressImage(file)),
+  uploadStoreBanner: async (file: File) => deps().imageUpload.uploadBannerImage(file),
 });

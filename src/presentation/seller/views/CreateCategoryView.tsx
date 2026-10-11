@@ -3,6 +3,8 @@ import { ArrowLeft, Plus, X } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { useInventoryActions } from '../../../application/hooks/useInventoryActions';
 import { uploadCategoryCoverImage } from '../../../application/services/image-service';
+import { CATEGORY_OUTPUT_WIDTH } from '../../../utils/image';
+import ImageCropSheet from '../../shared/components/ImageCropSheet';
 import '../inventory/inventory.css';
 
 /** Создание категории: одно фото (квадрат) + название. */
@@ -12,6 +14,7 @@ export default function CreateCategoryView() {
 
   const [name, setName] = useState('');
   const [photo, setPhoto] = useState<string | null>(null);
+  const [cropFile, setCropFile] = useState<File | null>(null);
   const [processing, setProcessing] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -20,13 +23,17 @@ export default function CreateCategoryView() {
 
   const canSubmit = name.trim().length > 0;
 
-  const addFile = async (files: FileList | null) => {
+  const addFile = (files: FileList | null) => {
     const file = files?.[0];
-    if (!file) return;
+    if (file) setCropFile(file);
+  };
+
+  const applyCrop = async (cropped: File) => {
+    setCropFile(null);
     setProcessing(true);
     setUploadError(null);
     try {
-      setPhoto(await uploadCategoryCoverImage(file));
+      setPhoto(await uploadCategoryCoverImage(cropped));
     } catch (e) {
       console.error('[inventory] category photo upload failed', e);
       setUploadError('Не удалось загрузить фото. Попробуйте ещё раз.');
@@ -103,7 +110,7 @@ export default function CreateCategoryView() {
           accept="image/*"
           hidden
           onChange={(e) => {
-            void addFile(e.target.files);
+            addFile(e.target.files);
             e.target.value = '';
           }}
         />
@@ -141,6 +148,16 @@ export default function CreateCategoryView() {
           {submitting ? 'Создание…' : 'Создать категорию'}
         </button>
       </div>
+
+      <ImageCropSheet
+        open={cropFile !== null}
+        file={cropFile}
+        aspect={1}
+        title="Кадрировать обложку"
+        outputWidth={CATEGORY_OUTPUT_WIDTH}
+        onConfirm={(file) => void applyCrop(file)}
+        onClose={() => setCropFile(null)}
+      />
     </div>
   );
 }

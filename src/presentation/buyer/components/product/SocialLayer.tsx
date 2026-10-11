@@ -1,8 +1,9 @@
-import { useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import { useNavigate } from 'react-router';
 import BackButton from '../../../shared/components/BackButton';
+import { useStuck } from '../../../shared/hooks/useStuck';
 import { canGoBack } from '../../../shared/can-go-back';
 
 interface Props {
@@ -27,6 +28,11 @@ export default function SocialLayer({ title, backTo, children }: Props) {
   const navigate = useNavigate();
   const reduceMotion = useReducedMotion();
   const [closing, setClosing] = useState(false);
+
+  // Шапка слоя фиксирована; при скролле контента кнопка «назад» становится
+  // «плавающей» (прозрачнее) — как залипающие кнопки на других экранах.
+  const scrollSentinelRef = useRef<HTMLDivElement>(null);
+  const scrolled = useStuck(scrollSentinelRef);
 
   const navigateBack = () => {
     if (canGoBack()) {
@@ -59,11 +65,18 @@ export default function SocialLayer({ title, backTo, children }: Props) {
       onAnimationComplete={handleAnimationComplete}
     >
       <header className="pd-layer__head">
-        <BackButton fallback={backTo} onClick={requestClose} />
+        <BackButton
+          fallback={backTo}
+          onClick={requestClose}
+          className={scrolled ? 'back-btn--floating' : undefined}
+        />
         <h2 className="pd-layer__title">{title}</h2>
         <span className="pd-layer__spacer" aria-hidden />
       </header>
-      <div className="pd-layer__scroll">{children}</div>
+      <div className="pd-layer__scroll">
+        <div ref={scrollSentinelRef} className="pd-layer__sentinel" aria-hidden />
+        {children}
+      </div>
     </motion.div>,
     document.body,
   );

@@ -65,8 +65,8 @@ describe('useOrderActions (docs/22 ORD-04)', () => {
     });
 
     expect(h.cancelOrder).toHaveBeenCalledWith('tok', 'o1', 'seller', undefined);
-    await waitFor(() => expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['orders'] }));
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['order'] });
+    await waitFor(() => expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['orders'], refetchType: 'all' }));
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['order'], refetchType: 'all' });
     expect(h.fetchCatalog).toHaveBeenCalledWith('store-a');
   });
 
@@ -79,7 +79,7 @@ describe('useOrderActions (docs/22 ORD-04)', () => {
       await result.current.cancelOrder({ orderId: 'o1', actor: 'buyer' });
     });
 
-    await waitFor(() => expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['orders'] }));
+    await waitFor(() => expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['orders'], refetchType: 'all' }));
     expect(h.fetchCatalog).not.toHaveBeenCalled();
   });
 
@@ -92,7 +92,7 @@ describe('useOrderActions (docs/22 ORD-04)', () => {
     });
 
     expect(h.transitionOrder).toHaveBeenCalledWith('tok', 'o1', 'IN_TRANSIT', undefined);
-    await waitFor(() => expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['orders'] }));
+    await waitFor(() => expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['orders'], refetchType: 'all' }));
   });
 
   it('recordDeliveryOutcome: outcome + reason (код) уходят на сервер', async () => {
@@ -108,10 +108,10 @@ describe('useOrderActions (docs/22 ORD-04)', () => {
     });
 
     expect(h.recordDeliveryOutcome).toHaveBeenCalledWith('tok', 'o1', 'REFUSED', 'OTHER');
-    await waitFor(() => expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['order'] }));
+    await waitFor(() => expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['order'], refetchType: 'all' }));
   });
 
-  it('ошибка мутации пробрасывается и попадает в error', async () => {
+  it('ошибка мутации пробрасывается, попадает в error и инвалидирует список (docs/24 D10)', async () => {
     h.transitionOrder.mockRejectedValue(new Error('TRANSITION_NOT_ALLOWED'));
     const { result } = renderHook(() => useOrderActions(), { wrapper });
 
@@ -122,6 +122,9 @@ describe('useOrderActions (docs/22 ORD-04)', () => {
     });
 
     await waitFor(() => expect(result.current.error?.message).toBe('TRANSITION_NOT_ALLOWED'));
-    expect(invalidateSpy).not.toHaveBeenCalled();
+    // D10: локальный список не должен остаться со старым статусом после ошибки команды.
+    await waitFor(() =>
+      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['orders'], refetchType: 'all' }),
+    );
   });
 });

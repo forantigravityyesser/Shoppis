@@ -28,6 +28,12 @@
 //   Test 22 конкурентные order_cancel ∥ order-aware reconcile (REFUSED): нет дедлока
 //   Test 23 username snapshot: checkout сохраняет серверно резолвнутый username (ORD-02)
 //   Test 24 read-контур: scope/ownership authz в SQL, чужой detail → null, list без PII (ORD-12)
+//   Test 25 grants: защищённые order-RPC недоступны anon/authenticated, доступны project_admin (ORD-HARDEN-01)
+//   Test 26 delivery outcome терминален: повтор/RECEIVED→REFUSED → OUTCOME_ALREADY_RECORDED (ORD-HARDEN-02)
+//   Test 27 currency symbol snapshot: история сохраняет символ после смены валюты магазина (ORD-HARDEN-03)
+//   Test 28 refusal reason enum-safety: только контролируемые коды, иначе INVALID_REFUSAL_REASON (ORD-HARDEN-06)
+//   Test 29 command authz isolation: чужой buyer/не-владелец seller не действуют; повтор → ORDER_TERMINAL (ORD-HARDEN-11)
+//   Test 30 transition matrix: только NEW→IN_TRANSIT→DELIVERED; терминал/повтор/неверный actor отвергнуты (ORD-HARDEN-11)
 //
 // Admin raw-SQL маскирует RAISE-сообщения в INTERNAL_ERROR, поэтому вызовы RPC
 // идут через временный `public._harness_try(text)`, который ловит SQL-исключение
@@ -312,7 +318,7 @@ async function run() {
     const o = await callFn('create_order_atomic', checkoutArgs(buyerA, `t9_${S}`, [{ variantId: t.variant, quantity: 2 }]));
     await callFn('order_transition', `${q(o.result.orderId)}, ${q(owner)}, 'IN_TRANSIT'`);
     await callFn('order_transition', `${q(o.result.orderId)}, ${q(owner)}, 'DELIVERED'`);
-    await callFn('order_delivery_outcome', `${q(o.result.orderId)}, ${q(owner)}, 'REFUSED', 'DAMAGED'`);
+    await callFn('order_delivery_outcome', `${q(o.result.orderId)}, ${q(owner)}, 'REFUSED', 'OTHER'`);
     check('Test 9: REFUSED → held остаётся (available=3, held=2)', isInv(await inventoryOf(t.variant), 3, 2));
     await callFn('inventory_reconcile', `${q(t.variant)}, ${q(owner)}, 2, 'HARNESS'`);
     check('Test 9: reconcile → available=5, held=0', isInv(await inventoryOf(t.variant), 5, 0));
@@ -413,7 +419,7 @@ async function run() {
     const o = await callFn('create_order_atomic', checkoutArgs(buyerA, `t12_${S}`, [{ variantId: t.variant, quantity: 2 }]));
     await callFn('order_transition', `${q(o.result.orderId)}, ${q(owner)}, 'IN_TRANSIT'`);
     await callFn('order_transition', `${q(o.result.orderId)}, ${q(owner)}, 'DELIVERED'`);
-    await callFn('order_delivery_outcome', `${q(o.result.orderId)}, ${q(owner)}, 'REFUSED', 'DAMAGED'`);
+    await callFn('order_delivery_outcome', `${q(o.result.orderId)}, ${q(owner)}, 'REFUSED', 'OTHER'`);
     const r = await callFn(
       'inventory_reconcile',
       `${q(t.variant)}, ${q(owner)}, 2, 'HARNESS', ${q(o.result.orderId)}`,
@@ -508,7 +514,7 @@ async function run() {
     for (const o of [oA, oB]) {
       await callFn('order_transition', `${q(o.result.orderId)}, ${q(owner)}, 'IN_TRANSIT'`);
       await callFn('order_transition', `${q(o.result.orderId)}, ${q(owner)}, 'DELIVERED'`);
-      await callFn('order_delivery_outcome', `${q(o.result.orderId)}, ${q(owner)}, 'REFUSED', 'DAMAGED'`);
+      await callFn('order_delivery_outcome', `${q(o.result.orderId)}, ${q(owner)}, 'REFUSED', 'OTHER'`);
     }
     check('Test 16: оба REFUSED → available=0, held=5', isInv(await inventoryOf(t.variant), 0, 5));
 
@@ -564,7 +570,7 @@ async function run() {
     const o = await callFn('create_order_atomic', checkoutArgs(buyerA, `t18_${S}`, [{ variantId: t.variant, quantity: 2 }]));
     await callFn('order_transition', `${q(o.result.orderId)}, ${q(owner)}, 'IN_TRANSIT'`);
     await callFn('order_transition', `${q(o.result.orderId)}, ${q(owner)}, 'DELIVERED'`);
-    await callFn('order_delivery_outcome', `${q(o.result.orderId)}, ${q(owner)}, 'REFUSED', 'DAMAGED'`);
+    await callFn('order_delivery_outcome', `${q(o.result.orderId)}, ${q(owner)}, 'REFUSED', 'OTHER'`);
 
     const first = await callFn(
       'inventory_reconcile',
@@ -640,7 +646,7 @@ async function run() {
     for (const o of [oA, oB]) {
       await callFn('order_transition', `${q(o.result.orderId)}, ${q(owner)}, 'IN_TRANSIT'`);
       await callFn('order_transition', `${q(o.result.orderId)}, ${q(owner)}, 'DELIVERED'`);
-      await callFn('order_delivery_outcome', `${q(o.result.orderId)}, ${q(owner)}, 'REFUSED', 'DAMAGED'`);
+      await callFn('order_delivery_outcome', `${q(o.result.orderId)}, ${q(owner)}, 'REFUSED', 'OTHER'`);
     }
     check('Test 20: два REFUSED → available=2, held=4', isInv(await inventoryOf(t.variant), 2, 4));
 
@@ -703,7 +709,7 @@ async function run() {
     const o = await callFn('create_order_atomic', checkoutArgs(buyerA, `t22_${S}`, [{ variantId: t.variant, quantity: 2 }]));
     await callFn('order_transition', `${q(o.result.orderId)}, ${q(owner)}, 'IN_TRANSIT'`);
     await callFn('order_transition', `${q(o.result.orderId)}, ${q(owner)}, 'DELIVERED'`);
-    await callFn('order_delivery_outcome', `${q(o.result.orderId)}, ${q(owner)}, 'REFUSED', 'DAMAGED'`);
+    await callFn('order_delivery_outcome', `${q(o.result.orderId)}, ${q(owner)}, 'REFUSED', 'OTHER'`);
 
     const [cancel, reconcile] = await Promise.all([
       callFn('order_cancel', `${q(o.result.orderId)}, ${q(owner)}, 'seller'`),
@@ -796,6 +802,299 @@ async function run() {
         !('buyerPhoneSnapshot' in item) &&
         !('buyerAddressSnapshot' in item) &&
         !('delivery' in item),
+    );
+  }
+
+  // Test 25 — grants (docs/24 ORD-HARDEN-01): защищённые order-RPC отозваны у
+  // клиентских ролей (anon/authenticated) и остаются доступны только доверенному
+  // серверному пути — edge через createAdminClient (роль project_admin). Прямой
+  // вызов с публичным anon-ключом больше невозможен (подмена p_actor_user_id).
+  {
+    const protectedFns = [
+      'order_cancel',
+      'order_transition',
+      'order_delivery_outcome',
+      'inventory_reconcile',
+      'order_list_read',
+      'order_detail_read',
+      'create_order_atomic',
+    ];
+    const list = protectedFns.map((fn) => `'${fn}'`).join(', ');
+    const grants = await rows(
+      `select p.proname,
+              bool_or(has_function_privilege('anon', p.oid, 'EXECUTE')) as anon_exec,
+              bool_or(has_function_privilege('authenticated', p.oid, 'EXECUTE')) as auth_exec,
+              bool_or(has_function_privilege('project_admin', p.oid, 'EXECUTE')) as admin_exec
+       from pg_proc p
+       join pg_namespace n on n.oid = p.pronamespace
+       where n.nspname = 'public' and p.proname in (${list})
+       group by p.proname`,
+    );
+    check(
+      'Test 25: найдены все защищённые RPC',
+      grants.length === protectedFns.length,
+      `n=${grants.length}`,
+    );
+    check(
+      'Test 25: anon/authenticated не могут вызывать order-RPC',
+      grants.every((g) => g.anon_exec === false && g.auth_exec === false),
+      grants
+        .filter((g) => g.anon_exec || g.auth_exec)
+        .map((g) => g.proname)
+        .join(','),
+    );
+    check(
+      'Test 25: project_admin сохраняет доступ (edge admin-клиент)',
+      grants.every((g) => g.admin_exec === true),
+      grants
+        .filter((g) => g.admin_exec !== true)
+        .map((g) => g.proname)
+        .join(','),
+    );
+  }
+
+  // Test 26 — delivery outcome терминален (docs/24 ORD-HARDEN-02): результат
+  // фиксируется ровно один раз. Повтор RECEIVED и RECEIVED→REFUSED →
+  // OUTCOME_ALREADY_RECORDED; два параллельных outcome → один успех; held
+  // списывается один раз (не уходит в минус и не крадёт резерв другого заказа).
+  {
+    const t = await seedProduct({ available: 5 });
+    const o = await callFn(
+      'create_order_atomic',
+      checkoutArgs(buyerA, `t26a_${S}`, [{ variantId: t.variant, quantity: 2 }]),
+    );
+    const id = o.result.orderId;
+    await callFn('order_transition', `${q(id)}, ${q(owner)}, 'IN_TRANSIT'`);
+    await callFn('order_transition', `${q(id)}, ${q(owner)}, 'DELIVERED'`);
+    check('Test 26: DELIVERED → available=3, held=2', isInv(await inventoryOf(t.variant), 3, 2));
+
+    const first = await callFn('order_delivery_outcome', `${q(id)}, ${q(owner)}, 'RECEIVED'`);
+    check('Test 26: первый RECEIVED → ok', first?.ok === true, first?.error);
+    check('Test 26: RECEIVED списал held (available=3, held=0)', isInv(await inventoryOf(t.variant), 3, 0));
+
+    const repeat = await callFn('order_delivery_outcome', `${q(id)}, ${q(owner)}, 'RECEIVED'`);
+    check(
+      'Test 26: повтор RECEIVED → OUTCOME_ALREADY_RECORDED',
+      !repeat?.ok && /OUTCOME_ALREADY_RECORDED/.test(String(repeat.error)),
+      repeat?.error,
+    );
+
+    const refuseAfter = await callFn('order_delivery_outcome', `${q(id)}, ${q(owner)}, 'REFUSED', 'OTHER'`);
+    check(
+      'Test 26: RECEIVED→REFUSED → OUTCOME_ALREADY_RECORDED',
+      !refuseAfter?.ok && /OUTCOME_ALREADY_RECORDED/.test(String(refuseAfter.error)),
+      refuseAfter?.error,
+    );
+    check('Test 26: held не тронут после повторных вызовов (available=3, held=0)', isInv(await inventoryOf(t.variant), 3, 0));
+
+    // Гонка: два параллельных outcome на свежем DELIVERED заказе → ровно один успех.
+    const t2 = await seedProduct({ available: 5 });
+    const o2 = await callFn(
+      'create_order_atomic',
+      checkoutArgs(buyerA, `t26b_${S}`, [{ variantId: t2.variant, quantity: 2 }]),
+    );
+    const id2 = o2.result.orderId;
+    await callFn('order_transition', `${q(id2)}, ${q(owner)}, 'IN_TRANSIT'`);
+    await callFn('order_transition', `${q(id2)}, ${q(owner)}, 'DELIVERED'`);
+    const [r1, r2] = await Promise.all([
+      callFn('order_delivery_outcome', `${q(id2)}, ${q(owner)}, 'RECEIVED'`),
+      callFn('order_delivery_outcome', `${q(id2)}, ${q(owner)}, 'RECEIVED'`),
+    ]);
+    const okN = [r1, r2].filter((r) => r?.ok).length;
+    const dupN = [r1, r2].filter((r) => !r?.ok && /OUTCOME_ALREADY_RECORDED/.test(String(r.error))).length;
+    check('Test 26: гонка → ровно один успех', okN === 1, `ok=${okN}`);
+    check('Test 26: гонка → второй OUTCOME_ALREADY_RECORDED', dupN === 1, `dup=${dupN}`);
+    check('Test 26: гонка → held списан один раз (available=3, held=0)', isInv(await inventoryOf(t2.variant), 3, 0));
+  }
+
+  // Test 27 — currency symbol snapshot (docs/24 ORD-HARDEN-03): историческая
+  // сумма сохраняет символ после смены валюты магазина; снимок пишется на
+  // checkout; без снимка — детерминированный fallback по сохранённому currency_code.
+  {
+    const t = await seedProduct({ available: 5 });
+    const o = await callFn(
+      'create_order_atomic',
+      checkoutArgs(buyerA, `t27_${S}`, [{ variantId: t.variant, quantity: 2 }]),
+    );
+    const id = o.result.orderId;
+    const snap = await scalar(`select currency_symbol_snapshot from public.orders where id = ${q(id)}`);
+    check('Test 27: checkout пишет currency_symbol_snapshot ($)', snap === '$', `snap=${snap}`);
+
+    // Меняем валюту магазина — прошлый заказ не должен «переехать».
+    await raw(`update public.stores set currency = 'RUB', currency_symbol = '₽' where id = ${q(store)}`);
+    const detailAfter = await json(`select public.order_detail_read(${q(owner)}, 'seller', ${q(id)})`);
+    check('Test 27: detail старого заказа сохраняет $', detailAfter?.currencySymbol === '$', detailAfter?.currencySymbol);
+    check('Test 27: currencyCode остаётся USD', detailAfter?.currencyCode === 'USD', detailAfter?.currencyCode);
+
+    const listAfter = await json(
+      `select public.order_list_read(${q(owner)}, 'seller', ${q(storePublic)}, 'all', null, 50)`,
+    );
+    const listItem = listAfter.orders.find((x) => x.id === id) ?? {};
+    check('Test 27: list-проекция сохраняет $', listItem.currencySymbol === '$', listItem.currencySymbol);
+
+    // Fallback: без снимка символ детерминируется по сохранённому currency_code.
+    check('Test 27: helper USD → $', (await scalar(`select public.currency_symbol_for('USD')`)) === '$');
+    await raw(`update public.orders set currency_symbol_snapshot = null, currency_code = 'BYN' where id = ${q(id)}`);
+    const fallback = await json(`select public.order_detail_read(${q(owner)}, 'seller', ${q(id)})`);
+    check('Test 27: null-снимок → fallback по коду (BYN → Br)', fallback?.currencySymbol === 'Br', fallback?.currencySymbol);
+
+    await raw(`update public.stores set currency = 'USD', currency_symbol = '$' where id = ${q(store)}`);
+  }
+
+  // Test 28 — enum-safety причины отказа (docs/24 ORD-HARDEN-06): сервер принимает
+  // только контролируемые коды (02 §7, CHECK 0051) и отвергает произвольную строку;
+  // отклонённый код ничего не меняет в заказе и резерве.
+  {
+    const t = await seedProduct({ available: 5 });
+    const o = await callFn(
+      'create_order_atomic',
+      checkoutArgs(buyerA, `t28_${S}`, [{ variantId: t.variant, quantity: 2 }]),
+    );
+    const id = o.result.orderId;
+    await callFn('order_transition', `${q(id)}, ${q(owner)}, 'IN_TRANSIT'`);
+    await callFn('order_transition', `${q(id)}, ${q(owner)}, 'DELIVERED'`);
+
+    const bad = await callFn('order_delivery_outcome', `${q(id)}, ${q(owner)}, 'REFUSED', 'MADE_UP_CODE'`);
+    check(
+      'Test 28: неизвестный код отказа → INVALID_REFUSAL_REASON',
+      !bad?.ok && /INVALID_REFUSAL_REASON/.test(String(bad.error)),
+      bad?.error,
+    );
+    const untouched = await json(`select public.order_detail_read(${q(owner)}, 'seller', ${q(id)})`);
+    check('Test 28: заказ не изменён (deliveryOutcome null)', untouched?.deliveryOutcome === null, untouched?.deliveryOutcome);
+    check('Test 28: held не тронут (available=3, held=2)', isInv(await inventoryOf(t.variant), 3, 2));
+
+    const empty = await callFn('order_delivery_outcome', `${q(id)}, ${q(owner)}, 'REFUSED', ''`);
+    check(
+      'Test 28: пустая причина → REASON_REQUIRED',
+      !empty?.ok && /REASON_REQUIRED/.test(String(empty.error)),
+      empty?.error,
+    );
+
+    const good = await callFn('order_delivery_outcome', `${q(id)}, ${q(owner)}, 'REFUSED', 'BUYER_CHANGED_MIND'`);
+    check('Test 28: валидный код принят', good?.ok === true, good?.error);
+    const detail = await json(`select public.order_detail_read(${q(owner)}, 'seller', ${q(id)})`);
+    check('Test 28: refusalReasonCode сохранён', detail?.refusalReasonCode === 'BUYER_CHANGED_MIND', detail?.refusalReasonCode);
+  }
+
+  // Test 29 — изоляция актора в командном контуре (docs/24 ORD-HARDEN-11): чужой
+  // buyer и не-владелец как seller не могут отменить/перевести/зафиксировать outcome;
+  // владелец и покупатель-владелец — могут; повтор команды → терминальная ошибка.
+  {
+    const t = await seedProduct({ available: 5 });
+    const o = await callFn(
+      'create_order_atomic',
+      checkoutArgs(buyerA, `t29_${S}`, [{ variantId: t.variant, quantity: 1 }]),
+    );
+    const id = o.result.orderId;
+
+    const foreignBuyer = await callFn('order_cancel', `${q(id)}, ${q(buyerB)}, 'buyer'`);
+    check(
+      'Test 29: чужой buyer cancel → FORBIDDEN',
+      !foreignBuyer?.ok && /FORBIDDEN/.test(String(foreignBuyer.error)),
+      foreignBuyer?.error,
+    );
+    const foreignSeller = await callFn('order_cancel', `${q(id)}, ${q(buyerB)}, 'seller'`);
+    check(
+      'Test 29: не-владелец seller cancel → FORBIDDEN',
+      !foreignSeller?.ok && /FORBIDDEN/.test(String(foreignSeller.error)),
+      foreignSeller?.error,
+    );
+    const buyerTransition = await callFn('order_transition', `${q(id)}, ${q(buyerA)}, 'IN_TRANSIT'`);
+    check(
+      'Test 29: buyer не может делать transition → FORBIDDEN',
+      !buyerTransition?.ok && /FORBIDDEN/.test(String(buyerTransition.error)),
+      buyerTransition?.error,
+    );
+    const foreignTransition = await callFn('order_transition', `${q(id)}, ${q(buyerB)}, 'IN_TRANSIT'`);
+    check(
+      'Test 29: не-владелец transition → FORBIDDEN',
+      !foreignTransition?.ok && /FORBIDDEN/.test(String(foreignTransition.error)),
+      foreignTransition?.error,
+    );
+    const foreignOutcome = await callFn('order_delivery_outcome', `${q(id)}, ${q(buyerB)}, 'RECEIVED'`);
+    check(
+      'Test 29: не-владелец outcome → FORBIDDEN',
+      !foreignOutcome?.ok && /FORBIDDEN/.test(String(foreignOutcome.error)),
+      foreignOutcome?.error,
+    );
+
+    // Положительный контроль: владелец (seller) отменяет NEW, повтор → ORDER_TERMINAL.
+    const ownerCancel = await callFn('order_cancel', `${q(id)}, ${q(owner)}, 'seller'`);
+    check('Test 29: владелец cancel NEW → ok', ownerCancel?.ok === true, ownerCancel?.error);
+    const repeatCancel = await callFn('order_cancel', `${q(id)}, ${q(owner)}, 'seller'`);
+    check(
+      'Test 29: повтор cancel → ORDER_TERMINAL',
+      !repeatCancel?.ok && /ORDER_TERMINAL/.test(String(repeatCancel.error)),
+      repeatCancel?.error,
+    );
+  }
+
+  // Test 30 — матрица переходов и повторные команды (docs/24 ORD-HARDEN-11):
+  // order_transition допускает только NEW→IN_TRANSIT и IN_TRANSIT→DELIVERED;
+  // терминальный DELIVERED нельзя «продвинуть» или отменить; неверный actor → INVALID_ACTOR.
+  {
+    const t = await seedProduct({ available: 5 });
+    const o = await callFn(
+      'create_order_atomic',
+      checkoutArgs(buyerA, `t30_${S}`, [{ variantId: t.variant, quantity: 1 }]),
+    );
+    const id = o.result.orderId;
+
+    const skip = await callFn('order_transition', `${q(id)}, ${q(owner)}, 'DELIVERED'`);
+    check(
+      'Test 30: NEW→DELIVERED (пропуск) → TRANSITION_NOT_ALLOWED',
+      !skip?.ok && /TRANSITION_NOT_ALLOWED/.test(String(skip.error)),
+      skip?.error,
+    );
+    const toCancelled = await callFn('order_transition', `${q(id)}, ${q(owner)}, 'CANCELLED'`);
+    check(
+      'Test 30: transition→CANCELLED → TRANSITION_NOT_ALLOWED',
+      !toCancelled?.ok && /TRANSITION_NOT_ALLOWED/.test(String(toCancelled.error)),
+      toCancelled?.error,
+    );
+
+    const inTransit = await callFn('order_transition', `${q(id)}, ${q(owner)}, 'IN_TRANSIT'`);
+    check('Test 30: NEW→IN_TRANSIT → ok', inTransit?.ok === true, inTransit?.error);
+    const sameAgain = await callFn('order_transition', `${q(id)}, ${q(owner)}, 'IN_TRANSIT'`);
+    check(
+      'Test 30: повтор IN_TRANSIT → TRANSITION_NOT_ALLOWED',
+      !sameAgain?.ok && /TRANSITION_NOT_ALLOWED/.test(String(sameAgain.error)),
+      sameAgain?.error,
+    );
+    const backwards = await callFn('order_transition', `${q(id)}, ${q(owner)}, 'NEW'`);
+    check(
+      'Test 30: IN_TRANSIT→NEW (назад) → TRANSITION_NOT_ALLOWED',
+      !backwards?.ok && /TRANSITION_NOT_ALLOWED/.test(String(backwards.error)),
+      backwards?.error,
+    );
+
+    const delivered = await callFn('order_transition', `${q(id)}, ${q(owner)}, 'DELIVERED'`);
+    check('Test 30: IN_TRANSIT→DELIVERED → ok', delivered?.ok === true, delivered?.error);
+    const advanceDelivered = await callFn('order_transition', `${q(id)}, ${q(owner)}, 'DELIVERED'`);
+    check(
+      'Test 30: повтор DELIVERED → TRANSITION_NOT_ALLOWED',
+      !advanceDelivered?.ok && /TRANSITION_NOT_ALLOWED/.test(String(advanceDelivered.error)),
+      advanceDelivered?.error,
+    );
+
+    const sellerCancelDelivered = await callFn('order_cancel', `${q(id)}, ${q(owner)}, 'seller'`);
+    check(
+      'Test 30: seller cancel DELIVERED → CANCEL_NOT_ALLOWED',
+      !sellerCancelDelivered?.ok && /CANCEL_NOT_ALLOWED/.test(String(sellerCancelDelivered.error)),
+      sellerCancelDelivered?.error,
+    );
+    const buyerCancelDelivered = await callFn('order_cancel', `${q(id)}, ${q(buyerA)}, 'buyer'`);
+    check(
+      'Test 30: buyer cancel DELIVERED → CANCEL_NOT_ALLOWED',
+      !buyerCancelDelivered?.ok && /CANCEL_NOT_ALLOWED/.test(String(buyerCancelDelivered.error)),
+      buyerCancelDelivered?.error,
+    );
+    const badActor = await callFn('order_cancel', `${q(id)}, ${q(owner)}, 'admin'`);
+    check(
+      'Test 30: actorType=admin → INVALID_ACTOR',
+      !badActor?.ok && /INVALID_ACTOR/.test(String(badActor.error)),
+      badActor?.error,
     );
   }
 }

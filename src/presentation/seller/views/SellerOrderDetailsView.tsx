@@ -3,8 +3,12 @@ import { useNavigate, useParams } from 'react-router';
 import { useOrderDetails } from '../../../application/hooks/useOrderDetails';
 import { useOrderActions } from '../../../application/hooks/useOrderActions';
 import { useOrdersRealtime } from '../../../application/hooks/useOrdersRealtime';
-import { isCancellable } from '../../../domain/rules/order-rules';
-import type { OrderStatus, RefusalReasonCode } from '../../../domain/models/order';
+import {
+  isAwaitingDeliveryOutcome,
+  isCancellable,
+  nextAllowedStatus,
+} from '../../../domain/rules/order-rules';
+import type { DeliveryOutcome, OrderStatus, RefusalReasonCode } from '../../../domain/models/order';
 import { orderActionErrorMessage } from '../../shared/order-action-error';
 import BackButton from '../../shared/components/BackButton';
 import OrderDetailsContent from '../../shared/orders/OrderDetailsContent';
@@ -17,6 +21,12 @@ import OrderEmptyState from '../../shared/orders/OrderEmptyState';
 import '../../shared/orders/orders.css';
 
 type Flow = 'idle' | 'cancel' | 'refuse';
+
+/** Подписи «продвижения» по целевому статусу линейного потока. 03 §16 */
+const ADVANCE_LABEL: Partial<Record<OrderStatus, string>> = {
+  IN_TRANSIT: 'Передать в доставку',
+  DELIVERED: 'Отметить доставленным',
+};
 
 /**
  * Детали заказа продавца (docs/22 ORD-08/ORD-10). Read-only snapshot + 6 lifecycle-
@@ -52,7 +62,11 @@ export default function SellerOrderDetailsView() {
     }
   };
 
-  const buildActions = (status: OrderStatus, id: string): OrderAction[] => {
+  const buildActions = (
+    status: OrderStatus,
+    id: string,
+    deliveryOutcome: DeliveryOutcome | null,
+  ): OrderAction[] => {
     const transition = (toStatus: OrderStatus) => () =>
       void run(() => actions.transitionOrder({ orderId: id, toStatus }));
     const openCancel = () => {
@@ -60,40 +74,54 @@ export default function SellerOrderDetailsView() {
       setFlow('cancel');
     };
 
-    switch (status) {
-      case 'NEW':
-        return [
-          { key: 'transit', label: 'Передать в доставку', variant: 'primary', disabled: actions.isPending, onClick: transition('IN_TRANSIT') },
-          { key: 'cancel', label: 'Отменить', variant: 'danger', disabled: actions.isPending, onClick: openCancel },
-        ];
-      case 'IN_TRANSIT':
-        return [
-          { key: 'deliver', label: 'Отметить доставленным', variant: 'primary', disabled: actions.isPending, onClick: transition('DELIVERED') },
-          { key: 'cancel', label: 'Отменить', variant: 'danger', disabled: actions.isPending, onClick: openCancel },
-        ];
-      case 'DELIVERED':
-        return [
-          {
-            key: 'received',
-            label: 'Покупатель забрал',
-            variant: 'primary',
-            disabled: actions.isPending,
-            onClick: () => void run(() => actions.recordDeliveryOutcome({ orderId: id, outcome: 'RECEIVED' })),
-          },
-          {
-            key: 'refuse',
-            label: 'Отказ',
-            variant: 'danger',
-            disabled: actions.isPending,
-            onClick: () => {
-              setActionError(null);
-              setFlow('refuse');
-            },
-          },
-        ];
-      default:
-        return [];
+    const result: OrderAction[] = [];
+
+    if (isAwaitingDeliveryOutcome(status, deliveryOutcome)) {
+      // Результат вручения терминален: RECEIVED/REFUSED — только пока outcome
+      // не зафиксирован (docs/24 §3.2), а не по одному статусу.
+      result.push({
+        key: 'received',
+        label: 'Покупатель забрал',
+        variant: 'primary',
+        disabled: actions.isPending,
+        onClick: () => void run(() => actions.recordDeliveryOutcome({ orderId: id, outcome: 'RECEIVED' })),
+      });
+      result.push({
+        key: 'refuse',
+        label: 'Отказ',
+        variant: 'danger',
+        disabled: actions.isPending,
+        onClick: () => {
+          setActionError(null);
+          setFlow('refuse');
+        },
+      });
+    } else {
+      // Матрица переходов — из domain-rules (`nextAllowedStatus`), не дублируется
+      // вручную во view (docs/24 §2.7 D6).
+      const next = nextAllowedStatus(status);
+      if (next) {
+        result.push({
+          key: 'advance',
+          label: ADVANCE_LABEL[next] ?? 'Продвинуть заказ',
+          variant: 'primary',
+          disabled: actions.isPending,
+          onClick: transition(next),
+        });
+      }
     }
+
+    if (isCancellable(status, 'seller')) {
+      result.push({
+        key: 'cancel',
+        label: 'Отменить',
+        variant: 'danger',
+        disabled: actions.isPending,
+        onClick: openCancel,
+      });
+    }
+
+    return result;
   };
 
   const cancelText =
@@ -101,7 +129,9 @@ export default function SellerOrderDetailsView() {
       ? 'Отменить заказ? Остаток не вернётся автоматически — потребуется ручная сверка остатков.'
       : 'Отменить этот заказ?';
 
-  const actionsAvailable = o ? isCancellable(o.status, 'seller') || o.status === 'DELIVERED' : false;
+  const actionsAvailable = o
+    ? isCancellable(o.status, 'seller') || isAwaitingDeliveryOutcome(o.status, o.deliveryOutcome)
+    : false;
 
   const actionsNode =
     o && flow === 'cancel' ? (
@@ -131,7 +161,7 @@ export default function SellerOrderDetailsView() {
         }}
       />
     ) : o && actionsAvailable ? (
-      <OrderActionBar actions={buildActions(o.status, o.id)} />
+      <OrderActionBar actions={buildActions(o.status, o.id, o.deliveryOutcome)} />
     ) : undefined;
 
   const contact = o ? (
