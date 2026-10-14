@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import type { InventoryProductItem } from '../../../../application/hooks/useInventory';
 
 interface ProductThumbnailProps {
@@ -7,8 +8,11 @@ interface ProductThumbnailProps {
 
 /** Квадратная миниатюра товара внутри InventoryCategoryRow. Не знает про источник данных. */
 export default function ProductThumbnail({ product, onClick }: ProductThumbnailProps) {
+  const { t } = useTranslation();
   const hidden = product.status === 'ARCHIVED';
-  const label = hidden ? `${product.title} (в архиве)` : product.title;
+  const label = hidden
+    ? t('seller.inventory.thumbnailArchived', { title: product.title })
+    : product.title;
 
   return (
     <button

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import BottomSheet from '../../shared/components/BottomSheet';
 import type { StorefrontCategory } from '../../../application/read-models/storefront';
 import CategoryItem from './CategoryItem';
@@ -22,9 +23,10 @@ export default function AllCategoriesSheet({
   onClose,
   onSelect,
 }: Props) {
+  const { t } = useTranslation();
   return (
     <BottomSheet open={open} onClose={onClose}>
-      <h2 className="sheet__title">Все категории</h2>
+      <h2 className="sheet__title">{t('buyer.catalog.allCategories')}</h2>
       <div className="allcats-grid">
         {categories.map((category) => (
           <CategoryItem

@@ -6,10 +6,6 @@ import type { RootStore } from '../index';
 
 export interface UserSettings {
   language: AppLanguage;
-  /** Последнее известное согласие на сообщения бота (Telegram write access). */
-  notifications: boolean;
-  /** Запрашивали ли уже разрешение на сообщения бота (чтобы не спрашивать повторно). */
-  notificationsPrompted: boolean;
 }
 
 export interface SettingsSlice {
@@ -22,11 +18,24 @@ export interface SettingsSlice {
 
 const EMPTY_RECIPIENT: RecipientInfo = { name: '', phone: '', address: '' };
 
+/**
+ * Текущий язык интерфейса из i18n через контейнер. Устойчиво к порядку инициализации
+ * модулей: в бандле store создаётся при импорте и может выполниться до
+ * `configureDependencies()` (порядок чанков не гарантирован). Язык здесь — только
+ * метаданные (UI читает i18n напрямую), поэтому при недоступном DI берём дефолт;
+ * persist/`setLanguage` проставят актуальное значение позже.
+ */
+function detectAppLanguage(): AppLanguage {
+  try {
+    return deps().i18n.getAppLanguage();
+  } catch {
+    return 'ru';
+  }
+}
+
 export const createSettingsSlice: StateCreator<RootStore, [], [], SettingsSlice> = (set) => ({
   userSettings: {
-    language: deps().i18n.getAppLanguage(),
-    notifications: false,
-    notificationsPrompted: false,
+    language: detectAppLanguage(),
   },
   defaultRecipient: EMPTY_RECIPIENT,
 

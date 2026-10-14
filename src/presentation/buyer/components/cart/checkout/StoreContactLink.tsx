@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Send } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useOpenTelegramLink } from '../../../../../application/hooks/useOpenTelegramLink';
 import { normalizeTelegramUsername } from '../../../../../domain/rules/store-contact-rules';
 
@@ -16,6 +17,7 @@ interface Props {
  * показываем inline-ошибку (внешний Telegram-аккаунт может быть недоступен).
  */
 export default function StoreContactLink({ handle, storeName }: Props) {
+  const { t } = useTranslation();
   const openTelegramLink = useOpenTelegramLink();
   const [error, setError] = useState<string | null>(null);
 
@@ -26,7 +28,7 @@ export default function StoreContactLink({ handle, storeName }: Props) {
     return (
       <div className="checkout-contact">
         <p className="checkout-contact__note" role="status">
-          Продавец не указал контакт для связи.
+          {t('buyer.checkout.contactNotSpecified')}
         </p>
       </div>
     );
@@ -40,17 +42,19 @@ export default function StoreContactLink({ handle, storeName }: Props) {
     } catch {
       opened = false;
     }
-    if (!opened) setError('Не удалось открыть контакт продавца.');
+    if (!opened) setError(t('buyer.checkout.contactOpenFailed'));
   };
 
   return (
     <div className="checkout-contact">
       <p className="checkout-contact__hint">
-        Есть вопросы по оформлению{storeName ? ` в «${storeName}»` : ''}?
+        {storeName
+          ? t('buyer.checkout.contactHintWithStore', { store: storeName })
+          : t('buyer.checkout.contactHintNoStore')}
       </p>
       <button type="button" className="checkout-contact__btn" onClick={handleClick}>
         <Send size={16} aria-hidden />
-        Связаться с продавцом
+        {t('buyer.checkout.contactCta')}
       </button>
       {error ? (
         <p className="checkout-contact__error" role="alert">

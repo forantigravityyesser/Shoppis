@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { LoaderCircle, MapPin, Phone, User, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import BottomSheet from '../../../../shared/components/BottomSheet';
 import type { RecipientInfo } from '../../../../../domain/models/customer';
 import type { CheckoutRecipientValidation } from '../../../../../domain/rules/checkout-rules';
@@ -113,6 +114,7 @@ export default function CheckoutFormSheet({
   onSubmit,
   onClose,
 }: Props) {
+  const { t } = useTranslation();
   const [touched, setTouched] = useState({ name: false, phone: false, address: false });
   const markTouched = (field: keyof typeof touched) =>
     setTouched((prev) => ({ ...prev, [field]: true }));
@@ -124,11 +126,11 @@ export default function CheckoutFormSheet({
     <BottomSheet open={open} onClose={onClose}>
       <div className="checkout-form" data-testid="checkout-form">
         <div className="checkout-form__head">
-          <h2 className="checkout-form__title">Оформление заказа</h2>
+          <h2 className="checkout-form__title">{t('buyer.checkout.title')}</h2>
           <button
             type="button"
             className="checkout-form__close"
-            aria-label="Закрыть"
+            aria-label={t('buyer.checkout.close')}
             onClick={onClose}
           >
             <X size={20} aria-hidden />
@@ -143,41 +145,41 @@ export default function CheckoutFormSheet({
 
         <CheckoutField
           id="checkout-name"
-          label="ФИО"
+          label={t('buyer.checkout.nameLabel')}
           icon={<User size={18} />}
           value={recipient.name}
-          placeholder="Иван Петров"
+          placeholder={t('buyer.checkout.namePlaceholder')}
           autoComplete="name"
           invalid={touched.name && !validation.nameValid}
-          errorText="Укажите имя и фамилию"
+          errorText={t('buyer.checkout.nameError')}
           onChange={(value) => onFieldChange({ name: value })}
           onBlur={() => markTouched('name')}
         />
 
         <CheckoutField
           id="checkout-phone"
-          label="Телефон"
+          label={t('buyer.checkout.phoneLabel')}
           icon={<Phone size={18} />}
           value={recipient.phone}
-          placeholder="+7 900 000-00-00"
+          placeholder={t('buyer.checkout.phonePlaceholder')}
           inputMode="tel"
           autoComplete="tel"
           invalid={touched.phone && !validation.phoneValid}
-          errorText="Введите номер телефона"
+          errorText={t('buyer.checkout.phoneError')}
           onChange={(value) => onFieldChange({ phone: value })}
           onBlur={() => markTouched('phone')}
         />
 
         <CheckoutField
           id="checkout-address"
-          label="Адрес доставки"
+          label={t('buyer.checkout.addressLabel')}
           icon={<MapPin size={18} />}
           value={recipient.address}
-          placeholder="Город, улица, адрес почты"
+          placeholder={t('buyer.checkout.addressPlaceholder')}
           multiline
           autoComplete="street-address"
           invalid={touched.address && !validation.addressValid}
-          errorText="Укажите адрес доставки"
+          errorText={t('buyer.checkout.addressError')}
           onChange={(value) => onFieldChange({ address: value })}
           onBlur={() => markTouched('address')}
         />
@@ -193,10 +195,10 @@ export default function CheckoutFormSheet({
           {submitting ? (
             <>
               <LoaderCircle className="checkout-submit__spin" size={18} aria-hidden />
-              Оформляем…
+              {t('buyer.checkout.submitting')}
             </>
           ) : (
-            'Оформить заказ'
+            t('buyer.checkout.submit')
           )}
         </button>
       </div>

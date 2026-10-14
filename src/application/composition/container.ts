@@ -5,8 +5,10 @@ import type {
   OrderApi,
   QuestionApi,
   ReviewApi,
+  ShareApi,
   ShopApi,
   StoreSettingsApi,
+  StoreVisitApi,
 } from '../ports/apis';
 import type { CartRepository } from '../ports/cart-repository';
 import type { CategoryRepository } from '../ports/category-repository';
@@ -16,6 +18,7 @@ import type { OrderRepository } from '../ports/order-repository';
 import type { OrderRealtimePort } from '../ports/order-realtime';
 import type { ProductRepository } from '../ports/product-repository';
 import type { ImageUploadPort, StoragePort } from '../ports/storage';
+import type { SellerDashboardRepository } from '../ports/seller-dashboard-repository';
 import type { SellerProductSocialRepository } from '../ports/seller-product-social-repository';
 import type { StoreRepository } from '../ports/store-repository';
 import type { StorefrontProductRepository } from '../ports/storefront-product-repository';
@@ -40,6 +43,7 @@ export interface AppContainer {
   cartRepository: CartRepository;
   orderRepository: OrderRepository;
   orderRealtime: OrderRealtimePort;
+  sellerDashboardRepository: SellerDashboardRepository;
   storage: StoragePort;
   imageUpload: ImageUploadPort;
   authApi: AuthApi;
@@ -48,6 +52,8 @@ export interface AppContainer {
   checkoutApi: CheckoutApi;
   orderApi: OrderApi;
   notificationApi: NotificationApi;
+  storeVisitApi: StoreVisitApi;
+  shareApi: ShareApi;
   reviewApi: ReviewApi;
   questionApi: QuestionApi;
   identity: IdentityProvider;

@@ -47,6 +47,6 @@ describe('RelatedProducts', () => {
     render(<RelatedProducts products={products} currencySymbol="$" />);
 
     await userEvent.click(screen.getByRole('button', { name: /Кроссовки/ }));
-    expect(navigate).toHaveBeenCalledWith('/product/p1');
+    expect(navigate).toHaveBeenCalledWith('/product/p1', { replace: true });
   });
 });

@@ -1,4 +1,5 @@
 import { ChevronRight } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { StorefrontCategory } from '../../../application/read-models/storefront';
 import CategoryItem from './CategoryItem';
 import '../category.css';
@@ -24,6 +25,7 @@ export default function CatalogCategoryTiles({
   onSelect,
   onViewAll,
 }: Props) {
+  const { t } = useTranslation();
   const items = categories.slice(0, MAX_CATEGORIES);
   if (!items.length) return null;
 
@@ -33,7 +35,7 @@ export default function CatalogCategoryTiles({
         <button
           type="button"
           className="catalog-all-arrow"
-          aria-label="Все категории"
+          aria-label={t('buyer.catalog.allCategories')}
           onClick={onViewAll}
         >
           <ChevronRight size={16} strokeWidth={2.6} />

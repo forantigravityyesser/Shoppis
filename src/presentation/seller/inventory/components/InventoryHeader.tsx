@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import BackButton from '../../../shared/components/BackButton';
 import { useStuck } from '../../../shared/hooks/useStuck';
 
@@ -10,6 +11,7 @@ import { useStuck } from '../../../shared/hooks/useStuck';
  * залипает слева вверху и становится прозрачнее. Логика перехода не меняется.
  */
 export default function InventoryHeader() {
+  const { t } = useTranslation();
   const headerRef = useRef<HTMLElement>(null);
   const stuck = useStuck(headerRef);
 
@@ -23,7 +25,7 @@ export default function InventoryHeader() {
       </div>
       <header className="inv-header" ref={headerRef}>
         <span className="inv-header__spacer" aria-hidden />
-        <h1 className="inv-header__title">Инвентарь</h1>
+        <h1 className="inv-header__title">{t('seller.inventory.title')}</h1>
         <span className="inv-header__spacer" aria-hidden />
       </header>
     </>

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import BottomSheet from '../../shared/components/BottomSheet';
 import type { StorefrontCatalogPriceBounds } from '../../../application/read-models/storefront-catalog';
 import PriceRangeSlider from './PriceRangeSlider';
@@ -38,6 +39,7 @@ export default function CatalogFilterSheet({
   onClose,
   onApply,
 }: Props) {
+  const { t } = useTranslation();
   const boundsMin = bounds?.minPrice ?? null;
   const boundsMax = bounds?.maxPrice ?? null;
   const hasBounds = boundsMin != null && boundsMax != null && boundsMax > boundsMin;
@@ -65,24 +67,24 @@ export default function CatalogFilterSheet({
 
   return (
     <BottomSheet open={open} onClose={onClose}>
-      <h2 className="sheet__title">Фильтры</h2>
+      <h2 className="sheet__title">{t('buyer.catalog.filter.title')}</h2>
 
       {loading ? (
         <p className="filter-status" role="status">
-          Загрузка фильтра…
+          {t('buyer.catalog.filter.loading')}
         </p>
       ) : error ? (
         <div className="filter-error" role="alert">
-          <p className="filter-error__text">Не удалось загрузить фильтр цены</p>
+          <p className="filter-error__text">{t('buyer.catalog.filter.loadError')}</p>
           {onRetry ? (
             <button type="button" className="btn-ghost" onClick={onRetry}>
-              Повторить
+              {t('common.retry')}
             </button>
           ) : null}
         </div>
       ) : hasBounds ? (
         <div className="filter-block">
-          <div className="filter-block__label">Цена</div>
+          <div className="filter-block__label">{t('buyer.catalog.filter.price')}</div>
           <PriceRangeSlider
             min={boundsMin as number}
             max={boundsMax as number}
@@ -94,15 +96,15 @@ export default function CatalogFilterSheet({
           />
         </div>
       ) : (
-        <p className="filter-empty">Пока нет доступных цен для фильтра.</p>
+        <p className="filter-empty">{t('buyer.catalog.filter.empty')}</p>
       )}
 
       <div className="filter-actions">
         <button type="button" className="btn-ghost" onClick={reset} disabled={!hasBounds}>
-          Сбросить
+          {t('buyer.catalog.filter.reset')}
         </button>
         <button type="button" className="btn-primary" onClick={apply}>
-          Показать товары
+          {t('buyer.catalog.filter.apply')}
         </button>
       </div>
     </BottomSheet>

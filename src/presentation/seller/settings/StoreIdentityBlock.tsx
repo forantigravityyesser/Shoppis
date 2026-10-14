@@ -1,5 +1,11 @@
 import { useState } from 'react';
-import { normalizeStoreName, validateStoreName } from '../../../domain/rules/store-settings-rules';
+import { useTranslation } from 'react-i18next';
+import {
+  STORE_DESCRIPTION_MAX,
+  normalizeStoreDescription,
+  normalizeStoreName,
+  validateStoreDescription,
+} from '../../../domain/rules/store-settings-rules';
 import type { Store } from '../../../domain/models/store';
 import type { StoreProfilePatch } from '../../../application/contracts/store';
 import { BANNER_ASPECT, BANNER_OUTPUT_WIDTH } from '../../../utils/image';
@@ -18,7 +24,9 @@ interface Props {
  * уходит только по Save и только поля этого блока. 12 §7.
  */
 export default function StoreIdentityBlock({ store, onSave, onUploadBanner }: Props) {
+  const { t } = useTranslation();
   const [name, setName] = useState(store.name);
+  const [description, setDescription] = useState(store.description);
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [bannerValue, setBannerValue] = useState(store.bannerUrl);
   const [bannerPreview, setBannerPreview] = useState(store.bannerUrl);
@@ -27,7 +35,12 @@ export default function StoreIdentityBlock({ store, onSave, onUploadBanner }: Pr
   const [error, setError] = useState<string | null>(null);
 
   const nameValue = normalizeStoreName(name);
-  const isDirty = nameValue !== store.name || bannerFile !== null || bannerValue !== store.bannerUrl;
+  const descriptionValue = normalizeStoreDescription(description);
+  const isDirty =
+    nameValue !== store.name ||
+    descriptionValue !== store.description ||
+    bannerFile !== null ||
+    bannerValue !== store.bannerUrl;
 
   const pickBanner = (file: File) => {
     setCropFile(file);
@@ -57,9 +70,12 @@ export default function StoreIdentityBlock({ store, onSave, onUploadBanner }: Pr
 
   const save = async () => {
     if (saving) return;
-    const validationError = validateStoreName(nameValue);
-    if (validationError) {
-      setError(validationError);
+    if (!nameValue) {
+      setError(t('seller.settings.identity.nameRequired'));
+      return;
+    }
+    if (validateStoreDescription(descriptionValue)) {
+      setError(t('seller.settings.identity.descriptionTooLong', { max: STORE_DESCRIPTION_MAX }));
       return;
     }
 
@@ -75,11 +91,13 @@ export default function StoreIdentityBlock({ store, onSave, onUploadBanner }: Pr
 
       const patch: StoreProfilePatch = {};
       if (nameValue !== store.name) patch.name = nameValue;
+      if (descriptionValue !== store.description) patch.description = descriptionValue;
       if (nextBanner !== undefined) patch.bannerUrl = nextBanner;
       await onSave(patch);
 
       const savedBanner = nextBanner ?? store.bannerUrl;
       setName(nameValue);
+      setDescription(descriptionValue);
       setBannerValue(savedBanner);
       setBannerPreview(savedBanner);
       setBannerFile(null);
@@ -92,7 +110,7 @@ export default function StoreIdentityBlock({ store, onSave, onUploadBanner }: Pr
 
   return (
     <section className="card">
-      <div className="card__title">Магазин</div>
+      <div className="card__title">{t('seller.settings.identity.title')}</div>
 
       <BannerUploader
         previewUrl={bannerPreview}
@@ -103,8 +121,8 @@ export default function StoreIdentityBlock({ store, onSave, onUploadBanner }: Pr
 
       <input
         type="text"
-        aria-label="Название магазина"
-        placeholder="Название магазина"
+        aria-label={t('seller.settings.identity.storeName')}
+        placeholder={t('seller.settings.identity.storeName')}
         value={name}
         maxLength={60}
         onChange={(e) => {
@@ -113,6 +131,22 @@ export default function StoreIdentityBlock({ store, onSave, onUploadBanner }: Pr
         }}
         style={styles.input}
       />
+
+      <textarea
+        aria-label={t('seller.settings.identity.descriptionLabel')}
+        placeholder={t('seller.settings.identity.descriptionPlaceholder')}
+        value={description}
+        maxLength={STORE_DESCRIPTION_MAX}
+        rows={3}
+        onChange={(e) => {
+          setDescription(e.target.value);
+          setError(null);
+        }}
+        style={styles.textarea}
+      />
+      <div style={styles.counter}>
+        {description.length}/{STORE_DESCRIPTION_MAX}
+      </div>
 
       {error ? (
         <div role="alert" style={styles.error}>
@@ -126,7 +160,7 @@ export default function StoreIdentityBlock({ store, onSave, onUploadBanner }: Pr
         open={cropFile !== null}
         file={cropFile}
         aspect={BANNER_ASPECT}
-        title="Кадрировать баннер"
+        title={t('seller.settings.identity.cropBanner')}
         outputWidth={BANNER_OUTPUT_WIDTH}
         onConfirm={applyBannerCrop}
         onClose={() => setCropFile(null)}
@@ -147,6 +181,30 @@ const styles: Record<string, React.CSSProperties> = {
     background: '#FFFFFF',
     color: '#000',
     boxSizing: 'border-box',
+  },
+  textarea: {
+    width: '100%',
+    marginTop: 12,
+    padding: '14px 16px',
+    borderRadius: 14,
+    border: '2px solid #EEE',
+    fontSize: 15,
+    fontWeight: 500,
+    lineHeight: 1.4,
+    outline: 'none',
+    background: '#FFFFFF',
+    color: '#000',
+    boxSizing: 'border-box',
+    resize: 'vertical',
+    minHeight: 84,
+    fontFamily: 'inherit',
+  },
+  counter: {
+    marginTop: 6,
+    textAlign: 'right',
+    fontSize: 12,
+    fontWeight: 600,
+    color: '#8E8E93',
   },
   error: { marginTop: 8, color: '#FF3B30', fontSize: 13 },
 };

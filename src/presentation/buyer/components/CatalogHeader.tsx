@@ -1,4 +1,5 @@
 import { useRef, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { getInitial } from '../../../domain/rules/initial';
 import BackButton from '../../shared/components/BackButton';
 import SafeImage from '../../shared/components/SafeImage';
@@ -31,6 +32,7 @@ export default function CatalogHeader({
   onProfile,
   trailing,
 }: Props) {
+  const { t } = useTranslation();
   const headerRef = useRef<HTMLElement>(null);
   const stuck = useStuck(headerRef);
 
@@ -38,7 +40,7 @@ export default function CatalogHeader({
     <button
       type="button"
       className={`home-icon-btn${floating ? ' home-icon-btn--floating' : ''}`}
-      aria-label="Профиль"
+      aria-label={t('buyer.catalog.profileAria')}
       onClick={onProfile}
     >
       <SafeImage

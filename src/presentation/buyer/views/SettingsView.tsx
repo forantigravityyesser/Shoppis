@@ -1,9 +1,12 @@
+import { useTranslation } from 'react-i18next';
+
 /** SettingsView for buyer - placeholder page */
 export default function SettingsView() {
+  const { t } = useTranslation();
   return (
     <div style={styles.container}>
-      <h2>Настройки</h2>
-      <p>Раздел настроек будет доступен после авторизации</p>
+      <h2>{t('buyer.settings.title')}</h2>
+      <p>{t('buyer.settings.hint')}</p>
     </div>
   );
 }

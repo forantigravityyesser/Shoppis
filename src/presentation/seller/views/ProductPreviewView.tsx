@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router';
 import { useInventoryHome } from '../../../application/hooks/useInventory';
 import { useProducts } from '../../../application/hooks/useProducts';
@@ -16,6 +17,7 @@ import '../inventory/inventory.css';
  * `LinkProductsSheet` (поиск по всем товарам магазина). docs/14 §7.
  */
 export default function ProductPreviewView() {
+  const { t } = useTranslation();
   const { productId = '' } = useParams();
   const navigate = useNavigate();
   const { allProducts, loading, error } = useInventoryHome();
@@ -63,7 +65,7 @@ export default function ProductPreviewView() {
   if (loading) {
     return (
       <div className="glass inv-state prod-tab-empty">
-        <p className="inv-state__title">Загрузка…</p>
+        <p className="inv-state__title">{t('common.loading')}</p>
       </div>
     );
   }
@@ -71,7 +73,7 @@ export default function ProductPreviewView() {
   if (error) {
     return (
       <div className="glass inv-state prod-tab-empty">
-        <p className="inv-state__title">Не удалось загрузить каталог.</p>
+        <p className="inv-state__title">{t('seller.product.preview.loadError')}</p>
       </div>
     );
   }
@@ -80,16 +82,14 @@ export default function ProductPreviewView() {
     <div className="prod-body" data-testid="product-links">
       <section className="glass prod-panel">
         <div className="prod-links__head">
-          <span className="card__title">Связи</span>
+          <span className="card__title">{t('seller.product.preview.links')}</span>
           {linkedProducts.length > 0 ? (
             <span className="prod-links__count">{linkedProducts.length}</span>
           ) : null}
         </div>
 
         {linkedProducts.length === 0 ? (
-          <p className="prod-links__empty">
-            Пока нет связанных товаров. Добавьте — они появятся в разделе «Похожее» у покупателя.
-          </p>
+          <p className="prod-links__empty">{t('seller.product.preview.linksEmpty')}</p>
         ) : (
           <ul className="prod-links">
             {linkedProducts.map((product) => (
@@ -97,7 +97,7 @@ export default function ProductPreviewView() {
                 <button
                   type="button"
                   className="prod-link__open"
-                  onClick={() => navigate(`/seller/inventory/product/${product.id}`)}
+                  onClick={() => navigate(`/seller/inventory/product/${product.id}`, { replace: true })}
                 >
                   <span className="prod-link__thumb" aria-hidden>
                     <SafeImage
@@ -116,7 +116,7 @@ export default function ProductPreviewView() {
                 <button
                   type="button"
                   className="prod-link__remove"
-                  aria-label={`Убрать «${product.title}» из связей`}
+                  aria-label={t('seller.product.preview.removeLink', { title: product.title })}
                   disabled={pendingId === product.id}
                   onClick={() => void toggle(product.id)}
                 >
@@ -133,7 +133,7 @@ export default function ProductPreviewView() {
           onClick={() => setSheetOpen(true)}
         >
           <Plus size={16} />
-          <span>Добавить связь</span>
+          <span>{t('seller.product.preview.addLink')}</span>
         </button>
       </section>
 

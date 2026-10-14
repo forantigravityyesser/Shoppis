@@ -76,12 +76,20 @@ describe('InventoryView — секции', () => {
 
     await userEvent.click(screen.getByRole('tab', { name: 'Категории' }));
     expect(screen.getByText('CATEGORIES_GRID')).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Категории' })).toHaveAttribute(
-      'aria-selected',
-      'true',
-    );
+    expect(screen.getByRole('tab', { name: 'Категории' })).toHaveAttribute('aria-selected', 'true');
 
     await userEvent.click(screen.getByRole('button', { name: 'Добавить' }));
     expect(screen.getByTestId('location')).toHaveTextContent('/seller/inventory/category/new');
+  });
+
+  it('восстанавливает раздел «Категории» из URL (возврат из карточки категории)', () => {
+    render(
+      <MemoryRouter initialEntries={['/seller/inventory?mode=categories']}>
+        <InventoryView />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('CATEGORIES_GRID')).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Категории' })).toHaveAttribute('aria-selected', 'true');
   });
 });

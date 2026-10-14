@@ -1,4 +1,7 @@
+import { useState } from 'react';
+import { flushSync } from 'react-dom';
 import { useNavigate } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import { useStore } from '../../../application/store';
 import { useStorefrontHome } from '../../../application/hooks/useStorefrontHome';
 import {
@@ -8,6 +11,7 @@ import {
 import { useInfiniteScrollSentinel } from '../../shared/hooks/useInfiniteScrollSentinel';
 import HomeHeader from '../components/HomeHeader';
 import HomeBanner from '../components/HomeBanner';
+import StoreDescriptionPopover from '../components/StoreDescriptionPopover';
 import CategorySection from '../components/CategorySection';
 import ProductSection from '../components/ProductSection';
 import HomeSkeleton from '../components/HomeSkeleton';
@@ -23,10 +27,13 @@ import '../home.css';
  * ACTIVE → шапка, баннер, категории, товары. docs/15 §5-6.
  */
 export default function HomeView() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const viewedStore = useStore((s) => s.viewedStore);
   const serverUser = useStore((s) => s.serverUser);
   const authLoading = useStore((s) => s.authLoading);
+
+  const [descriptionOpen, setDescriptionOpen] = useState(false);
 
   const publicId = viewedStore?.publicId ?? null;
   const { home, loading, error, notFound, refresh } = useStorefrontHome(publicId);
@@ -48,6 +55,13 @@ export default function HomeView() {
     productStream.refresh();
   };
 
+  // Поиск: синхронный переход (flushSync) внутри тапа, чтобы автофокус поля в
+  // каталоге попал в пользовательский жест — иначе в Telegram/WebView клавиатура
+  // не открывается. Работает вместе с useTransitions={false} (main.tsx).
+  const openSearch = () => {
+    flushSync(() => navigate('/catalog?focus=1'));
+  };
+
   if (authLoading || loading || productStream.loading) {
     return <HomeSkeleton />;
   }
@@ -56,9 +70,9 @@ export default function HomeView() {
   if (loadError) {
     return (
       <div className="home home-error">
-        <div className="card card__muted">Не удалось загрузить магазин.</div>
+        <div className="card card__muted">{t('buyer.home.loadError')}</div>
         <button type="button" className="home-retry" onClick={retry}>
-          Повторить
+          {t('common.retry')}
         </button>
       </div>
     );
@@ -83,12 +97,22 @@ export default function HomeView() {
     <div className="home">
       <HomeHeader
         storeName={home.store.name}
+        storeDescription={home.store.description}
+        descriptionOpen={descriptionOpen}
         buyerAvatarUrl={serverUser?.photoUrl ?? null}
         buyerName={serverUser?.firstName ?? ''}
-        onSearch={() => navigate('/catalog?focus=1')}
+        onSearch={openSearch}
         onProfile={() => navigate('/account')}
+        onToggleDescription={() => setDescriptionOpen((v) => !v)}
       />
       <div className="home-sheet">
+        {home.store.description ? (
+          <StoreDescriptionPopover
+            open={descriptionOpen}
+            description={home.store.description}
+            onClose={() => setDescriptionOpen(false)}
+          />
+        ) : null}
         <HomeBanner bannerUrl={home.store.bannerUrl} storeName={home.store.name} />
         <CategorySection
           categories={home.categories}
@@ -104,13 +128,13 @@ export default function HomeView() {
         {productStream.products.length > 0 ? (
           productStream.nextPageError ? (
             <div className="home-stream-error" role="alert" data-testid="home-stream-error">
-              <span className="home-stream-error__text">Не удалось загрузить ещё товары</span>
+              <span className="home-stream-error__text">{t('buyer.home.streamError')}</span>
               <button
                 type="button"
                 className="home-stream-error__retry"
                 onClick={productStream.loadMore}
               >
-                Повторить
+                {t('common.retry')}
               </button>
             </div>
           ) : (
@@ -125,7 +149,7 @@ export default function HomeView() {
                 <div
                   className="home-stream-loading"
                   role="status"
-                  aria-label="Загрузка товаров"
+                  aria-label={t('buyer.home.loadingAria')}
                   data-testid="home-stream-loading"
                 >
                   <span className="home-stream-spinner" aria-hidden />

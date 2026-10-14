@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Ruler } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { StorefrontProductVariant } from '../../../../application/read-models/storefront-product';
 
 interface Props {
@@ -15,6 +16,7 @@ interface Props {
  * есть ещё (горизонтальный скролл). Цена каждого варианта — забота shell (PD-07).
  */
 export default function VariantSelector({ variants, selectedId, onSelect }: Props) {
+  const { t } = useTranslation();
   const rowRef = useRef<HTMLDivElement>(null);
   const [overflow, setOverflow] = useState(false);
 
@@ -29,13 +31,16 @@ export default function VariantSelector({ variants, selectedId, onSelect }: Prop
 
   if (variants.length === 0) return null;
 
-  const label = variants[0]?.name || 'Вариант';
+  const label = variants[0]?.name || t('buyer.product.variantFallback');
 
   return (
     <div className="pd-variants" data-testid="product-variants">
       <div className="pd-variants__head">
         <span className="pd-variants__label">{label}</span>
-        <span className="pd-variants__count" aria-label={`Доступно вариантов: ${variants.length}`}>
+        <span
+          className="pd-variants__count"
+          aria-label={t('buyer.product.variantsCountAria', { count: variants.length })}
+        >
           <Ruler size={13} strokeWidth={2.4} aria-hidden />
           {variants.length}
         </span>

@@ -1,12 +1,21 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { resetNavigationDepth, setNavigationDepth } from '../../shared/can-go-back';
 
-const { navigate, createProduct, updateProduct } = vi.hoisted(() => ({
+const {
+  navigate,
+  createProduct,
+  updateProduct,
+  uploadCatalogImages,
+  removeCatalogImages,
+} = vi.hoisted(() => ({
   navigate: vi.fn(),
   createProduct: vi.fn(),
   updateProduct: vi.fn(),
+  uploadCatalogImages: vi.fn(),
+  removeCatalogImages: vi.fn(),
 }));
 
 vi.mock('react-router', () => ({
@@ -22,14 +31,36 @@ vi.mock('../../../application/hooks/useInventoryActions', () => ({
   useInventoryActions: () => ({ createProduct, updateProduct }),
 }));
 
+vi.mock('../../../application/services/image-service', () => ({
+  uploadCatalogImages,
+  removeCatalogImages,
+}));
+
 import CreateProductView from './CreateProductView';
 
 const TITLE_PLACEHOLDER = 'Например, Морковь';
+
+const FRESH_PHOTO = { url: 'https://cdn/up-1.jpg', thumbUrl: 'https://cdn/up-1-thumb.jpg' };
+
+/** Имитирует выбор файла в скрытом input формы и ждёт появления слота фото. */
+async function uploadPhoto(container: HTMLElement): Promise<void> {
+  uploadCatalogImages.mockResolvedValue([FRESH_PHOTO]);
+  const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+  fireEvent.change(input, {
+    target: { files: [new File(['x'], 'photo.jpg', { type: 'image/jpeg' })] },
+  });
+  await screen.findByRole('button', { name: 'Удалить фото' });
+}
 
 beforeEach(() => {
   navigate.mockReset();
   createProduct.mockReset().mockResolvedValue('new-1');
   updateProduct.mockReset().mockResolvedValue(undefined);
+  uploadCatalogImages.mockReset().mockResolvedValue([FRESH_PHOTO]);
+  removeCatalogImages.mockReset().mockResolvedValue(undefined);
+  // Экран открыт переходом из инвентаря — история есть (кнопка «назад» идёт шагом назад).
+  resetNavigationDepth();
+  setNavigationDepth(1);
 });
 
 describe('CreateProductView — копирование черновиков (docs/23 §3.1, §7)', () => {
@@ -53,7 +84,7 @@ describe('CreateProductView — копирование черновиков (doc
     expect(screen.getByPlaceholderText(TITLE_PLACEHOLDER)).toHaveValue('Морковь');
   });
 
-  it('сохранение единственной карточки убирает её и уводит в инвентарь', async () => {
+  it('сохранение единственной карточки убирает её и открывает карточку товара', async () => {
     render(<CreateProductView />);
     await userEvent.type(screen.getByPlaceholderText(TITLE_PLACEHOLDER), 'Морковь');
     await userEvent.type(screen.getByPlaceholderText('42 / XL / 500 мл / 128 GB'), '1 кг');
@@ -62,8 +93,9 @@ describe('CreateProductView — копирование черновиков (doc
     await userEvent.click(screen.getByRole('button', { name: 'На витрину' }));
 
     await waitFor(() => expect(createProduct).toHaveBeenCalledTimes(1));
+    // Открываем созданный товар (сверка) заменой записи формы — «назад» ведёт в инвентарь.
     await waitFor(() =>
-      expect(navigate).toHaveBeenCalledWith('/seller/inventory', { replace: true }),
+      expect(navigate).toHaveBeenCalledWith('/seller/inventory/product/new-1', { replace: true }),
     );
   });
 
@@ -172,5 +204,65 @@ describe('CreateProductView — удаление черновика (docs/23 §7
     expect(screen.queryByRole('group', { name: 'Подтверждение действия' })).not.toBeInTheDocument();
     // осталась одна карточка → навигация скрыта
     await waitFor(() => expect(screen.queryAllByRole('tab')).toHaveLength(0));
+  });
+});
+
+describe('CreateProductView — очистка Storage для несохранённых фото', () => {
+  it('снятие фото до сохранения удаляет файл из Storage сразу', async () => {
+    const { container } = render(<CreateProductView />);
+    await uploadPhoto(container);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Удалить фото' }));
+
+    expect(removeCatalogImages).toHaveBeenCalledWith([FRESH_PHOTO]);
+  });
+
+  it('сохранение карточки оставляет загруженные фото в Storage', async () => {
+    const { container } = render(<CreateProductView />);
+    await uploadPhoto(container);
+    await userEvent.type(screen.getByPlaceholderText(TITLE_PLACEHOLDER), 'Морковь');
+    await userEvent.type(screen.getByPlaceholderText('42 / XL / 500 мл / 128 GB'), '1 кг');
+    await userEvent.type(screen.getByPlaceholderText('0.00'), '100');
+
+    await userEvent.click(screen.getByRole('button', { name: 'На витрину' }));
+
+    await waitFor(() => expect(createProduct).toHaveBeenCalledTimes(1));
+    expect(removeCatalogImages).not.toHaveBeenCalled();
+  });
+
+  it('удаление черновика-копии очищает загруженные в него фото', async () => {
+    const { container } = render(<CreateProductView />);
+    await userEvent.type(screen.getByPlaceholderText(TITLE_PLACEHOLDER), 'Морковь');
+    await userEvent.click(screen.getByRole('button', { name: 'Создать копию' }));
+    await uploadPhoto(container);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Удалить черновик 2' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Удалить' }));
+
+    expect(removeCatalogImages).toHaveBeenCalledWith([FRESH_PHOTO]);
+  });
+
+  it('подтверждение выхода: «Остаться» сохраняет фото, «Выйти» очищает Storage', async () => {
+    const { container } = render(<CreateProductView />);
+    await uploadPhoto(container);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Назад' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Остаться' }));
+    expect(removeCatalogImages).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Назад' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Выйти' }));
+
+    expect(navigate).toHaveBeenCalledWith(-1);
+    expect(removeCatalogImages).toHaveBeenCalledWith([FRESH_PHOTO]);
+  });
+
+  it('размонтирование формы без сохранения (системный уход) очищает Storage', async () => {
+    const { container, unmount } = render(<CreateProductView />);
+    await uploadPhoto(container);
+
+    unmount();
+
+    expect(removeCatalogImages).toHaveBeenCalledWith([FRESH_PHOTO]);
   });
 });

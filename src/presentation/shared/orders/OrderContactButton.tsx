@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { Send } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useOpenTelegramLink } from '../../../application/hooks/useOpenTelegramLink';
 import { normalizeTelegramUsername } from '../../../domain/rules/store-contact-rules';
 
@@ -20,12 +21,15 @@ interface Props {
  */
 export default function OrderContactButton({
   username,
-  label = 'Связаться',
-  fallbackText = 'Контакт не указан.',
+  label,
+  fallbackText,
   fallback,
 }: Props) {
+  const { t } = useTranslation();
   const openTelegramLink = useOpenTelegramLink();
   const [error, setError] = useState<string | null>(null);
+  const resolvedLabel = label ?? t('orders.contact.label');
+  const resolvedFallbackText = fallbackText ?? t('orders.contact.empty');
 
   const normalized = normalizeTelegramUsername(username ?? '');
   const handle = normalized.valid ? normalized.username : '';
@@ -35,7 +39,7 @@ export default function OrderContactButton({
       <div className="order-contact" data-testid="order-contact-fallback">
         {fallback ?? (
           <p className="order-contact__note" role="status">
-            {fallbackText}
+            {resolvedFallbackText}
           </p>
         )}
       </div>
@@ -50,7 +54,7 @@ export default function OrderContactButton({
     } catch {
       opened = false;
     }
-    if (!opened) setError('Не удалось открыть контакт.');
+    if (!opened) setError(t('orders.contact.openFailed'));
   };
 
   return (
@@ -62,7 +66,7 @@ export default function OrderContactButton({
         data-testid="order-contact-btn"
       >
         <Send size={16} aria-hidden />
-        {label}
+        {resolvedLabel}
       </button>
       {error ? (
         <p className="order-contact__error" role="alert">

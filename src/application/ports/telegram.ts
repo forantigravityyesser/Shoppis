@@ -23,6 +23,12 @@ export interface TelegramPort {
    */
   openTelegramLink(url: string): boolean;
   /**
+   * Открыть нативный диалог шаринга подготовленного сообщения (Bot API 8.0+).
+   * `false` — недоступно на клиенте/ошибка; вызывающий слой откатывается на
+   * `t.me/share/url`.
+   */
+  sharePreparedMessage(messageId: string): boolean;
+  /**
    * Официальный запрос «Разрешить боту отправлять сообщения?».
    *
    * BEST-EFFORT: результат совещательный (`true` — разрешено). Реализация

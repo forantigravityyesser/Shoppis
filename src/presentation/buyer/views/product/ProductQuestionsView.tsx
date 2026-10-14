@@ -1,4 +1,5 @@
 import { useParams } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import { useStore } from '../../../../application/store';
 import { useStorefrontProductQuestions } from '../../../../application/hooks/useStorefrontProduct';
 import { useQuestionActions } from '../../../../application/hooks/useQuestionActions';
@@ -14,6 +15,7 @@ import { questionErrorMessage } from '../../../shared/question-error-message';
  * вопрос (1 на товар), удалить свой. Отвечать покупатель не может. docs/14 §9.
  */
 export default function ProductQuestionsView() {
+  const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const publicId = useStore((s) => s.viewedStore?.publicId ?? null);
   const viewerUserId = useStore((s) => s.serverUser?.id ?? null);
@@ -48,17 +50,17 @@ export default function ProductQuestionsView() {
   };
 
   return (
-    <SocialLayer title="Вопросы" backTo={`/product/${id ?? ''}`}>
+    <SocialLayer title={t('buyer.product.tabs.questions')} backTo={`/product/${id ?? ''}`}>
       <div className="pd-reviews pd-questions" data-testid="product-questions">
         {error ? (
           <div className="pd-reviews__state">
-            <p>Не удалось загрузить вопросы.</p>
+            <p>{t('buyer.product.questionsLoadError')}</p>
             <button type="button" className="pd-retry" onClick={refresh}>
-              Повторить
+              {t('common.retry')}
             </button>
           </div>
         ) : loading ? (
-          <div className="pd-reviews__state">Загрузка…</div>
+          <div className="pd-reviews__state">{t('common.loading')}</div>
         ) : (
           <>
             {canAsk ? (
@@ -68,9 +70,7 @@ export default function ProductQuestionsView() {
                 error={actionError}
               />
             ) : (
-              <p className="pd-reviews__notice">
-                Вы уже задавали вопрос. Изменить или задать новый нельзя.
-              </p>
+              <p className="pd-reviews__notice">{t('buyer.product.questionsNotice')}</p>
             )}
 
             {questions.length > 0 ? (
@@ -87,7 +87,7 @@ export default function ProductQuestionsView() {
                           disabled={actions.pending}
                           onClick={() => void handleDelete(question.id)}
                         >
-                          Удалить вопрос
+                          {t('buyer.product.questionsDelete')}
                         </button>
                       ) : null
                     }
@@ -95,7 +95,7 @@ export default function ProductQuestionsView() {
                 ))}
               </div>
             ) : (
-              <p className="pd-reviews__empty">Пока нет вопросов</p>
+              <p className="pd-reviews__empty">{t('buyer.product.questionsEmpty')}</p>
             )}
           </>
         )}

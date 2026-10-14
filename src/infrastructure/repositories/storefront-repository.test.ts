@@ -15,6 +15,7 @@ const HOME = {
     id: 's1',
     publicId: 'pub1',
     name: 'Nike',
+    description: 'Официальный магазин',
     bannerUrl: null,
     status: 'ACTIVE',
     currencyCode: 'USD',
@@ -61,6 +62,7 @@ describe('loadStorefrontHome', () => {
 
     expect(rpc).toHaveBeenCalledWith('storefront_home_context_read', { p_public_id: 'pub1' });
     expect(home?.store.publicId).toBe('pub1');
+    expect(home?.store.description).toBe('Официальный магазин');
     expect(home?.categories).toEqual([]);
   });
 

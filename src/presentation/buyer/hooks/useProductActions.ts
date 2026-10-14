@@ -1,9 +1,11 @@
+import i18n from 'i18next';
 import { useStore } from '../../../application/store';
-import { useStorefrontLink } from '../../../application/hooks/useStorefrontLink';
+import { useStorefrontProductLink } from '../../../application/hooks/useStorefrontLink';
 import { useOpenTelegramLink } from '../../../application/hooks/useOpenTelegramLink';
 import { useHaptic } from '../../../application/hooks/useHaptic';
 import { useFavorites } from '../../../application/hooks/useFavorites';
 import { useCart } from '../../../application/hooks/useCart';
+import { deps } from '../../../application/composition/container';
 import type {
   StorefrontProductDetail,
   StorefrontProductVariant,
@@ -26,10 +28,14 @@ export function useProductActions(
   detail: StorefrontProductDetail | null,
   selectedVariant: StorefrontProductVariant | null,
 ): ProductActions {
-  const storefrontUrl = useStorefrontLink(detail?.store.publicId ?? '');
+  const productUrl = useStorefrontProductLink(
+    detail?.store.publicId ?? '',
+    detail?.product.id ?? '',
+  );
   const openTelegramLink = useOpenTelegramLink();
   const { selectTick, notifySuccess } = useHaptic();
   const showToast = useStore((s) => s.showToast);
+  const sessionToken = useStore((s) => s.sessionToken);
   const { isFavorite, toggleFavorite: toggleFavoriteRaw } = useFavorites();
   const { addToCart: addToCartRaw } = useCart();
 
@@ -51,17 +57,47 @@ export function useProductActions(
     });
     notifySuccess();
     showToast({
-      text: 'Добавлено в корзину',
+      text: i18n.t('buyer.product.addedToCart'),
       imageUrl: detail.images[0]?.thumbUrl ?? detail.images[0]?.url ?? null,
+      action: '/cart',
     });
   };
 
+  /**
+   * Поделиться товаром. Приоритет — красивая карточка (фото + текст + кнопка):
+   * готовим JPEG, сервер собирает `savePreparedInlineMessage`, открываем нативный
+   * диалог Telegram. На клиентах без Bot API 8.0 / при ошибке — fallback на
+   * `t.me/share/url` (текст + ссылка на товар).
+   */
   const share = () => {
-    if (!detail) return;
-    const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(
-      storefrontUrl,
-    )}&text=${encodeURIComponent(detail.product.title)}`;
-    openTelegramLink(shareUrl);
+    void (async () => {
+      if (!detail) return;
+      const publicId = detail.store.publicId;
+      const id = detail.product.id;
+      const imageUrl = detail.images[0]?.url ?? null;
+
+      if (sessionToken && imageUrl) {
+        try {
+          const photoUrl = await deps().storage.ensureShareImage(id, imageUrl);
+          if (photoUrl) {
+            const preparedId = await deps().shareApi.prepareShare(
+              sessionToken,
+              publicId,
+              id,
+              photoUrl,
+            );
+            if (deps().telegram.sharePreparedMessage(preparedId)) return;
+          }
+        } catch {
+          // Любая ошибка подготовки — уходим в обычный share ниже.
+        }
+      }
+
+      const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(
+        productUrl,
+      )}&text=${encodeURIComponent(detail.product.title)}`;
+      openTelegramLink(shareUrl);
+    })();
   };
 
   return {

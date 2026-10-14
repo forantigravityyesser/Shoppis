@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useParams } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import { useStore } from '../../../application/store';
 import { useSellerProductReviews } from '../../../application/hooks/useSellerProductSocial';
 import { useMarkReviewsSeen } from '../../../application/hooks/useSellerSocialSeen';
@@ -18,6 +19,7 @@ import '../../shared/product-social/product-social.css';
  * (миграция 0018). docs/14 §8 (PD-10c).
  */
 export default function ProductReviewsView() {
+  const { t } = useTranslation();
   const { productId = '' } = useParams();
   const publicId = useStore((s) => s.currentStore?.publicId ?? null);
 
@@ -61,7 +63,7 @@ export default function ProductReviewsView() {
   if (loading) {
     return (
       <div className="glass inv-state prod-tab-empty">
-        <p className="inv-state__title">Загрузка…</p>
+        <p className="inv-state__title">{t('common.loading')}</p>
       </div>
     );
   }
@@ -69,9 +71,9 @@ export default function ProductReviewsView() {
   if (error) {
     return (
       <div className="glass inv-state prod-tab-empty">
-        <p className="inv-state__title">Не удалось загрузить отзывы.</p>
+        <p className="inv-state__title">{t('seller.reviews.loadError')}</p>
         <button type="button" className="pd-retry" onClick={refresh}>
-          Повторить
+          {t('common.retry')}
         </button>
       </div>
     );
@@ -93,7 +95,7 @@ export default function ProductReviewsView() {
                 disabled={actions.pending}
                 onClick={() => void handleDelete(review.id)}
               >
-                Удалить отзыв
+                {t('seller.reviews.delete')}
               </button>
             );
 
@@ -102,7 +104,7 @@ export default function ProductReviewsView() {
                 <div className="pd-reply-form">
                   <textarea
                     className="pd-compose__input"
-                    placeholder="Ответ от магазина"
+                    placeholder={t('seller.reviews.replyPlaceholder')}
                     value={replyText}
                     maxLength={2000}
                     rows={2}
@@ -116,7 +118,7 @@ export default function ProductReviewsView() {
                       disabled={actions.pending}
                       onClick={() => void handleReply(review.id)}
                     >
-                      Ответить
+                      {t('seller.reviews.reply')}
                     </button>
                     <button
                       type="button"
@@ -126,7 +128,7 @@ export default function ProductReviewsView() {
                         setReplyText('');
                       }}
                     >
-                      Отмена
+                      {t('common.cancel')}
                     </button>
                   </div>
                 </div>
@@ -141,7 +143,7 @@ export default function ProductReviewsView() {
                         setReplyText('');
                       }}
                     >
-                      Ответить
+                      {t('seller.reviews.reply')}
                     </button>
                   ) : null}
                   {deleteButton}
@@ -152,7 +154,7 @@ export default function ProductReviewsView() {
           })}
         </div>
       ) : (
-        <p className="pd-reviews__empty">Пока нет отзывов</p>
+        <p className="pd-reviews__empty">{t('seller.reviews.empty')}</p>
       )}
     </div>
   );

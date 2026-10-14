@@ -33,6 +33,17 @@ export interface NotificationApi {
   enableTelegramNotifications(token: string, orderId?: string): Promise<void>;
 }
 
+/** store-visit: фиксация открытия витрины покупателем (список магазинов/посетители). */
+export interface StoreVisitApi {
+  recordStoreVisit(token: string, storeRef: string): Promise<void>;
+}
+
+/** share-actions: подготовка карточки товара для нативного шаринга (id для shareMessage). */
+export interface ShareApi {
+  /** Возвращает `PreparedInlineMessage.id`; `photoUrl` — публичный JPEG из бакета. */
+  prepareShare(token: string, publicId: string, productId: string, photoUrl: string): Promise<string>;
+}
+
 /** review-actions: запись отзывов/ответов по валидной сессии (actor из сессии). */
 export interface ReviewApi {
   createReview(token: string, productId: string, rating: number, text: string): Promise<void>;

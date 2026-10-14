@@ -4,7 +4,8 @@ import type { AddCategoryInput, UpdateCategoryPatch } from '../contracts/categor
 export interface CategoryRepository {
   fetchCategories(storeId: string): Promise<Category[]>;
   addCategory(storeId: string, input: AddCategoryInput): Promise<Category>;
-  updateCategory(id: string, patch: UpdateCategoryPatch): Promise<void>;
+  /** Обновляет категорию; возвращает прежний ключ обложки для очистки Storage (или null). */
+  updateCategory(id: string, patch: UpdateCategoryPatch): Promise<string | null>;
   deleteCategory(id: string, token: string | null): Promise<string | null>;
   /** Переставить категорию на позицию 1..N (порядок витрины); атомарно на сервере. */
   setCategoryOrder(id: string, position: number, token: string | null): Promise<void>;

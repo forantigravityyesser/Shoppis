@@ -1,9 +1,19 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+const storeRepository = {
+  fetchStoresByOwnerUser: vi.fn(),
+  fetchStoresByOwnerTelegram: vi.fn(),
+};
+
 vi.mock('../../composition/container', () => ({
   deps: () => ({
-    i18n: { getAppLanguage: () => 'ru', setAppLanguage: () => {} },
+    i18n: {
+      getAppLanguage: () => 'ru',
+      setAppLanguage: () => {},
+      applyStoreDefaultLanguage: () => {},
+    },
+    storeRepository,
   }),
 }));
 
@@ -11,6 +21,7 @@ import { useStore } from '../index';
 import { queryClient } from '../../queryClient';
 import { orderKeys } from '../../orders/order-cache';
 import type { ServerUser } from '../../contracts/auth';
+import type { Store } from '../../../domain/models/store';
 
 function user(id: string): ServerUser {
   return {
@@ -20,6 +31,7 @@ function user(id: string): ServerUser {
     firstName: '',
     languageCode: 'ru',
     photoUrl: '',
+    notificationsEnabled: false,
   };
 }
 
@@ -30,6 +42,8 @@ const PAGE = { pages: [{ orders: [], nextCursor: null }], pageParams: [null] };
 beforeEach(() => {
   useStore.setState({ sessionToken: null, serverUser: null });
   queryClient.clear();
+  storeRepository.fetchStoresByOwnerUser.mockReset();
+  storeRepository.fetchStoresByOwnerTelegram.mockReset();
 });
 
 describe('orders-кэш ↔ личность (docs/24 §3.4, ORD-HARDEN-04)', () => {
@@ -62,5 +76,109 @@ describe('orders-кэш ↔ личность (docs/24 §3.4, ORD-HARDEN-04)', ()
     useStore.getState().setSession('tok2', user('u1'));
 
     expect(queryClient.getQueryData(LIST_KEY)).toBeDefined();
+  });
+});
+
+function store(id: string): Store {
+  return {
+    id,
+    ownerUserId: 'u1',
+    ownerTelegramId: 'u1',
+    name: 'Shop',
+    description: '',
+    logoUrl: '',
+    bannerUrl: '',
+    supportHandle: '',
+    currencyCode: 'USD',
+    currencySymbol: '$',
+    language: 'ru',
+    status: 'ACTIVE',
+    publicId: `pub_${id}`,
+    createdAt: '',
+  };
+}
+
+describe('enterStorePreview / exitStorePreview — предпросмотр из seller', () => {
+  it('переводит контекст в buyer и строит viewedStore из currentStore', () => {
+    const current = { ...store('s1'), supportHandle: '@shop', logoUrl: 'logo.png' };
+    useStore.setState({ context: 'seller', storeId: 's1', currentStore: current });
+
+    useStore.getState().enterStorePreview('pub_s1', '/seller/inventory/product/p1');
+
+    const state = useStore.getState();
+    expect(state.context).toBe('buyer');
+    expect(state.previewReturnPath).toBe('/seller/inventory/product/p1');
+    expect(state.viewedStore).toEqual({
+      id: 's1',
+      publicId: 'pub_s1',
+      name: 'Shop',
+      status: 'ACTIVE',
+      supportHandle: '@shop',
+      logoUrl: 'logo.png',
+    });
+    expect(state.storeId).toBe('s1');
+    expect(state.currentStore).toBe(current);
+  });
+
+  it('пустые supportHandle/logoUrl становятся null (публичная проекция)', () => {
+    useStore.setState({ context: 'seller', storeId: 's1', currentStore: store('s1') });
+
+    useStore.getState().enterStorePreview('pub_s1', '/seller/inventory/product/p1');
+
+    expect(useStore.getState().viewedStore?.supportHandle).toBeNull();
+    expect(useStore.getState().viewedStore?.logoUrl).toBeNull();
+  });
+
+  it('чужой publicId — no-op (защита от неверного входа)', () => {
+    useStore.setState({
+      context: 'seller',
+      storeId: 's1',
+      currentStore: store('s1'),
+      viewedStore: null,
+      previewReturnPath: null,
+    });
+
+    useStore.getState().enterStorePreview('other', '/seller/inventory/product/p1');
+
+    expect(useStore.getState().context).toBe('seller');
+    expect(useStore.getState().viewedStore).toBeNull();
+    expect(useStore.getState().previewReturnPath).toBeNull();
+  });
+
+  it('exitStorePreview возвращает seller и чистит предпросмотр', () => {
+    useStore.setState({ context: 'seller', storeId: 's1', currentStore: store('s1') });
+    useStore.getState().enterStorePreview('pub_s1', '/seller/inventory/product/p1');
+
+    useStore.getState().exitStorePreview();
+
+    const state = useStore.getState();
+    expect(state.context).toBe('seller');
+    expect(state.viewedStore).toBeNull();
+    expect(state.previewReturnPath).toBeNull();
+    expect(state.storeId).toBe('s1');
+  });
+});
+
+describe('loadSellerStore — scope магазина при старте (01 §5)', () => {
+  it('у магазина владельца нет → storeId сбрасывается (иначе роутер минует онбординг)', async () => {
+    useStore.setState({
+      context: 'seller',
+      sessionToken: 'tok',
+      serverUser: user('u1'),
+      storeId: 'stale-deleted-store',
+    });
+    storeRepository.fetchStoresByOwnerUser.mockResolvedValue([]);
+
+    await expect(useStore.getState().loadSellerStore()).resolves.toBeNull();
+    expect(useStore.getState().storeId).toBeNull();
+  });
+
+  it('магазин найден → storeId и currentStore установлены', async () => {
+    useStore.setState({ context: 'seller', sessionToken: 'tok', serverUser: user('u1') });
+    storeRepository.fetchStoresByOwnerUser.mockResolvedValue([store('s1')]);
+
+    await expect(useStore.getState().loadSellerStore()).resolves.toBe('s1');
+    expect(useStore.getState().storeId).toBe('s1');
+    expect(useStore.getState().currentStore?.id).toBe('s1');
   });
 });

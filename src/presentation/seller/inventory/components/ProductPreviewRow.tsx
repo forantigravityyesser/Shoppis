@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { InventoryProductItem } from '../../../../application/hooks/useInventory';
 import ProductThumbnail from './ProductThumbnail';
 import AddProductTile from './AddProductTile';
@@ -26,6 +27,7 @@ export default function ProductPreviewRow({
   onOpenProduct,
   onAddProduct,
 }: ProductPreviewRowProps) {
+  const { t } = useTranslation();
   const trackRef = useRef<HTMLDivElement>(null);
   const [index, setIndex] = useState(0);
   const [stepPx, setStepPx] = useState(0);
@@ -80,7 +82,7 @@ export default function ProductPreviewRow({
             e.stopPropagation();
             step(-1);
           }}
-          aria-label="Предыдущие товары"
+          aria-label={t('seller.inventory.preview.prev')}
         >
           <ChevronLeft size={20} />
         </button>
@@ -94,7 +96,7 @@ export default function ProductPreviewRow({
             e.stopPropagation();
             step(1);
           }}
-          aria-label="Следующие товары"
+          aria-label={t('seller.inventory.preview.next')}
         >
           <ChevronRight size={20} />
         </button>

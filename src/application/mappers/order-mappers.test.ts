@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mapOrderDetails, mapOrderListPage } from './order-mappers';
+import { mapOrderDetails, mapOrderListPage, mapSalesListPage } from './order-mappers';
 
 function listItem(overrides: Record<string, unknown> = {}) {
   return {
@@ -108,6 +108,28 @@ describe('mapOrderListPage', () => {
       nextCursor: null,
     });
     expect(page.orders[0].currencySymbol).toBe('Br');
+  });
+});
+
+describe('mapSalesListPage (docs/25 §3.2)', () => {
+  it('маппит список и сумму всей группы', () => {
+    const page = mapSalesListPage({
+      orders: [listItem()],
+      nextCursor: 'c1',
+      totalMinor: 99000,
+    });
+    expect(page.totalMinor).toBe(99000);
+    expect(page.nextCursor).toBe('c1');
+    expect(page.orders[0].publicOrderNumber).toBe('SH-1');
+  });
+
+  it('невалидная проекция → пустая страница и 0', () => {
+    expect(mapSalesListPage(null)).toEqual({ orders: [], nextCursor: null, totalMinor: 0 });
+    expect(mapSalesListPage({ orders: 'nope', totalMinor: -1 })).toEqual({
+      orders: [],
+      nextCursor: null,
+      totalMinor: 0,
+    });
   });
 });
 

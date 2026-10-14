@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useStore } from '../../../application/store';
 import BackButton from '../../shared/components/BackButton';
 import LocalizationBlock from '../settings/LocalizationBlock';
@@ -8,6 +9,7 @@ import LocalizationBlock from '../settings/LocalizationBlock';
  * Store-контракта, списки не расширяются.
  */
 export default function SettingsLocalizationView() {
+  const { t } = useTranslation();
   const currentStore = useStore((s) => s.currentStore);
   const fetchCurrentStore = useStore((s) => s.fetchCurrentStore);
   const updateStoreProfile = useStore((s) => s.updateStoreProfile);
@@ -21,16 +23,16 @@ export default function SettingsLocalizationView() {
     <div className="screen">
       <div className="screen__header screen__header--row screen__header--center">
         <BackButton fallback="/seller/settings" />
-        <h1 className="screen__title">Язык и валюта</h1>
+        <h1 className="screen__title">{t('seller.settings.localizationTitle')}</h1>
       </div>
 
       {authLoading && !currentStore ? (
         <div className="card card__muted" style={{ textAlign: 'center' }}>
-          Загрузка магазина…
+          {t('seller.settings.loading')}
         </div>
       ) : !currentStore ? (
         <div className="card card__muted" style={{ textAlign: 'center' }}>
-          Магазин не найден
+          {t('seller.settings.notFound')}
         </div>
       ) : (
         <LocalizationBlock store={currentStore} onSave={updateStoreProfile} />

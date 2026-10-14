@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import { useInventoryHome } from '../../../application/hooks/useInventory';
 import {
   createProductPath,
@@ -25,6 +26,7 @@ import '../inventory/inventory.css';
  * Derived data (позиции/имена/назначение) живёт в `useInventoryHome`/application (docs/20 §8).
  */
 export default function InventoryView() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const {
     categories,
@@ -39,7 +41,16 @@ export default function InventoryView() {
   } = useInventoryHome();
   const reorder = useCategoryReorder();
   const { assignProductsToCategory } = useInventoryActions();
-  const [mode, setMode] = useState<InventoryMode>('products');
+  const [searchParams, setSearchParams] = useSearchParams();
+  /** Раздел держим в URL (`?mode=categories`), чтобы «назад» из карточки
+   *  категории возвращал именно в «Категории», а не в «Товары». */
+  const mode: InventoryMode = searchParams.get('mode') === 'categories' ? 'categories' : 'products';
+  const setMode = (next: InventoryMode) => {
+    const params = new URLSearchParams(searchParams);
+    if (next === 'categories') params.set('mode', 'categories');
+    else params.delete('mode');
+    setSearchParams(params, { replace: true });
+  };
   const [reorderId, setReorderId] = useState<string | null>(null);
   const [categoryAddId, setCategoryAddId] = useState<string | null>(null);
   /** Remount sheet при каждом открытии: сброс шага/выбора без effect (docs/20 §11). */
@@ -71,10 +82,10 @@ export default function InventoryView() {
 
       {error ? (
         <div className="inv-state">
-          <p className="inv-state__title">Не удалось загрузить каталог</p>
-          <p className="inv-state__subtitle">Проверьте соединение и попробуйте снова.</p>
+          <p className="inv-state__title">{t('seller.inventory.loadError')}</p>
+          <p className="inv-state__subtitle">{t('seller.inventory.loadErrorHint')}</p>
           <button type="button" className="inv-add-btn" onClick={() => window.location.reload()}>
-            Повторить
+            {t('common.retry')}
           </button>
         </div>
       ) : loading ? (
@@ -88,7 +99,7 @@ export default function InventoryView() {
       ) : (
         <section className="inv-section">
           <InventorySectionHead
-            title="Категории"
+            title={t('seller.inventory.mode.categories')}
             onAdd={() => navigate('/seller/inventory/category/new')}
           />
           <InventoryCategoryList

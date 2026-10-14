@@ -58,8 +58,7 @@ export const createCategorySlice: StateCreator<RootStore, [], [], CategorySlice>
   },
 
   updateCategory: async (id: string, patch: UpdateCategoryPatch) => {
-    const previous = get().categories.find((c) => c.id === id) ?? null;
-    await deps().categoryRepository.updateCategory(id, patch);
+    const removedImageKey = await deps().categoryRepository.updateCategory(id, patch);
     set((s) => ({
       categories: s.categories.map((c) =>
         c.id === id
@@ -78,13 +77,8 @@ export const createCategorySlice: StateCreator<RootStore, [], [], CategorySlice>
     }));
 
     // Обложка заменена/снята — удаляем прежний файл из Storage (best-effort).
-    if (
-      patch.imageStorageKey !== undefined &&
-      previous?.imageStorageKey &&
-      previous.imageStorageKey !== patch.imageStorageKey
-    ) {
-      void deps().storage.removeFilesByUrl([previous.imageStorageKey]);
-    }
+    // Ключ пришёл из БД, поэтому не зависим от загруженного списка категорий.
+    if (removedImageKey) void deps().storage.removeFilesByUrl([removedImageKey]);
   },
 
   deleteCategory: async (id: string) => {

@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next';
+
 export type InventoryMode = 'products' | 'categories';
 
 interface InventoryModeSwitcherProps {
@@ -5,16 +7,21 @@ interface InventoryModeSwitcherProps {
   onChange: (mode: InventoryMode) => void;
 }
 
-const TABS: Array<{ mode: InventoryMode; label: string }> = [
-  { mode: 'products', label: 'Товары' },
-  { mode: 'categories', label: 'Категории' },
-];
-
 /** Компактный переключатель секций Inventory: Товары (по умолчанию) / Категории. */
 export default function InventoryModeSwitcher({ mode, onChange }: InventoryModeSwitcherProps) {
+  const { t } = useTranslation();
+  const tabs: Array<{ mode: InventoryMode; label: string }> = [
+    { mode: 'products', label: t('seller.inventory.mode.products') },
+    { mode: 'categories', label: t('seller.inventory.mode.categories') },
+  ];
+
   return (
-    <div className="inv-switcher glass" role="tablist" aria-label="Разделы инвентаря">
-      {TABS.map((tab) => (
+    <div
+      className="inv-switcher glass"
+      role="tablist"
+      aria-label={t('seller.inventory.switcherAria')}
+    >
+      {tabs.map((tab) => (
         <button
           key={tab.mode}
           type="button"

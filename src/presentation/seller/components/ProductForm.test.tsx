@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router';
 
 import ProductForm from './ProductForm';
 import {
@@ -35,7 +36,11 @@ function renderForm(props: {
       />
     );
   }
-  render(<Harness />);
+  render(
+    <MemoryRouter>
+      <Harness />
+    </MemoryRouter>,
+  );
 }
 
 function createDeferred<T>() {

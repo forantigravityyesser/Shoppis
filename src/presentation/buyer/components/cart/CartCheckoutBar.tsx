@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { formatMoneyMinor } from '../../../../domain/rules/product-rules';
 
 interface Props {
@@ -13,6 +14,7 @@ interface Props {
  * сумму и не активируется, пока корзина не готова к оформлению (docs/18 §21–§22).
  */
 export default function CartCheckoutBar({ total, currencySymbol, disabled, onCheckout }: Props) {
+  const { t } = useTranslation();
   return (
     <div className="cart-cta" data-testid="cart-cta">
       <button
@@ -21,7 +23,7 @@ export default function CartCheckoutBar({ total, currencySymbol, disabled, onChe
         disabled={disabled}
         onClick={onCheckout}
       >
-        Оформить заказ · {formatMoneyMinor(total, currencySymbol)}
+        {t('buyer.cart.checkout', { total: formatMoneyMinor(total, currencySymbol) })}
       </button>
     </div>
   );

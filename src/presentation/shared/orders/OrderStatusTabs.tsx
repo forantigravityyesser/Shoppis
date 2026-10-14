@@ -1,5 +1,6 @@
 import { useRef, type KeyboardEvent } from 'react';
-import { DEFAULT_ORDER_TABS, type OrderTab } from './order-tabs';
+import { useTranslation } from 'react-i18next';
+import type { OrderTab } from './order-tabs';
 import type { OrderStatusFilter } from '../../../application/read-models/order';
 
 interface Props {
@@ -22,19 +23,29 @@ interface Props {
 export default function OrderStatusTabs({
   value,
   onChange,
-  tabs = DEFAULT_ORDER_TABS,
-  ariaLabel = 'Фильтр заказов',
+  tabs,
+  ariaLabel,
   panelId,
 }: Props) {
+  const { t } = useTranslation();
   const listRef = useRef<HTMLDivElement>(null);
+  /** Табы по умолчанию (docs/22 §5.1). «История» — фильтр-группировка, не статус. */
+  const resolvedTabs: OrderTab[] = tabs ?? [
+    { value: 'all', label: t('orders.tabs.all') },
+    { value: 'NEW', label: t('orders.tabs.NEW') },
+    { value: 'IN_TRANSIT', label: t('orders.tabs.IN_TRANSIT') },
+    { value: 'DELIVERED', label: t('orders.tabs.DELIVERED') },
+    { value: 'history', label: t('orders.tabs.history') },
+  ];
+  const resolvedAriaLabel = ariaLabel ?? t('orders.filterAria');
   const activeIndex = Math.max(
     0,
-    tabs.findIndex((tab) => tab.value === value),
+    resolvedTabs.findIndex((tab) => tab.value === value),
   );
 
   const selectByIndex = (index: number) => {
-    const wrapped = (index + tabs.length) % tabs.length;
-    const tab = tabs[wrapped];
+    const wrapped = (index + resolvedTabs.length) % resolvedTabs.length;
+    const tab = resolvedTabs[wrapped];
     if (!tab) return;
     onChange(tab.value);
     listRef.current?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[wrapped]?.focus();
@@ -58,7 +69,7 @@ export default function OrderStatusTabs({
         break;
       case 'End':
         event.preventDefault();
-        selectByIndex(tabs.length - 1);
+        selectByIndex(resolvedTabs.length - 1);
         break;
       default:
         break;
@@ -70,11 +81,11 @@ export default function OrderStatusTabs({
       ref={listRef}
       className="order-tabs"
       role="tablist"
-      aria-label={ariaLabel}
+      aria-label={resolvedAriaLabel}
       data-testid="order-tabs"
       onKeyDown={onKeyDown}
     >
-      {tabs.map((tab) => {
+      {resolvedTabs.map((tab) => {
         const active = tab.value === value;
         return (
           <button

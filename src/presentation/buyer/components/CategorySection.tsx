@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import type { StorefrontCategory } from '../../../application/read-models/storefront';
 import CategoryItem from './CategoryItem';
 
@@ -15,14 +16,15 @@ interface Props {
  * docs/13 §7.
  */
 export default function CategorySection({ categories, onSelect, onViewAll }: Props) {
+  const { t } = useTranslation();
   if (!categories.length) return null;
 
   return (
-    <section className="home-section" aria-label="Категории">
+    <section className="home-section" aria-label={t('buyer.home.sectionCategories')}>
       <div className="home-section__header">
-        <h2 className="home-section__title">Категории</h2>
+        <h2 className="home-section__title">{t('buyer.home.sectionCategories')}</h2>
         <button type="button" className="home-section__all" onClick={onViewAll}>
-          Все →
+          {t('buyer.home.viewAllCategories')}
         </button>
       </div>
       <div className="category-row">

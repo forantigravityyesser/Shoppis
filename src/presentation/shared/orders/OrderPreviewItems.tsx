@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import type { OrderPreviewItem } from '../../../application/read-models/order';
 import { getInitial } from '../../../domain/rules/initial';
 import SafeImage from '../components/SafeImage';
@@ -12,6 +13,7 @@ interface Props {
  * Нет снимка → placeholder с инициалом (SafeImage; без broken UI).
  */
 export default function OrderPreviewItems({ previewItems, itemCount }: Props) {
+  const { t } = useTranslation();
   if (previewItems.length === 0) return null;
   const extra = Math.max(0, itemCount - previewItems.length);
 
@@ -30,7 +32,10 @@ export default function OrderPreviewItems({ previewItems, itemCount }: Props) {
             }
           />
           {item.quantity > 1 ? (
-            <span className="order-preview__qty" aria-label={`Количество ${item.quantity}`}>
+            <span
+              className="order-preview__qty"
+              aria-label={t('orders.itemQtyAria', { count: item.quantity })}
+            >
               {item.quantity}
             </span>
           ) : null}

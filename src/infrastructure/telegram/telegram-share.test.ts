@@ -3,11 +3,15 @@ import { requestWriteAccess } from '@telegram-apps/sdk';
 import {
   MESSAGES_ACCESS_TIMEOUT_MS,
   requestMessagesAccess,
+  sharePreparedMessage,
 } from './telegram-share';
+
+const { shareMessage } = vi.hoisted(() => ({ shareMessage: vi.fn() }));
 
 vi.mock('@telegram-apps/sdk', () => ({
   requestWriteAccess: vi.fn(),
   shareURL: vi.fn(),
+  shareMessage,
 }));
 
 const mockRequestWriteAccess = vi.mocked(requestWriteAccess);
@@ -63,5 +67,37 @@ describe('requestMessagesAccess', () => {
       throw new Error('unavailable');
     });
     await expect(requestMessagesAccess()).resolves.toBe(false);
+  });
+});
+
+describe('sharePreparedMessage', () => {
+  beforeEach(() => {
+    shareMessage.mockReset();
+    shareMessage.mockReturnValue(Promise.resolve());
+    (shareMessage as unknown as { isAvailable: () => boolean }).isAvailable = vi.fn(() => true);
+  });
+
+  it('возвращает false для пустого id и не зовёт SDK', () => {
+    expect(sharePreparedMessage('')).toBe(false);
+    expect(shareMessage).not.toHaveBeenCalled();
+  });
+
+  it('открывает нативный диалог, когда метод доступен', () => {
+    expect(sharePreparedMessage('mid-1')).toBe(true);
+    expect(shareMessage).toHaveBeenCalledWith('mid-1');
+  });
+
+  it('возвращает false на старом клиенте (метод недоступен)', () => {
+    (shareMessage as unknown as { isAvailable: () => boolean }).isAvailable = vi.fn(() => false);
+    expect(sharePreparedMessage('mid-1')).toBe(false);
+    expect(shareMessage).not.toHaveBeenCalled();
+  });
+
+  it('не бросает при недоступном окружении (isAvailable бросает)', () => {
+    (shareMessage as unknown as { isAvailable: () => boolean }).isAvailable = vi.fn(() => {
+      throw new Error('not in telegram');
+    });
+    expect(() => sharePreparedMessage('mid-1')).not.toThrow();
+    expect(sharePreparedMessage('mid-1')).toBe(false);
   });
 });

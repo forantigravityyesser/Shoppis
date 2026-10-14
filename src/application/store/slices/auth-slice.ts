@@ -25,6 +25,12 @@ export interface AuthSlice {
    * проекция (`PublicStoreContext`) — без owner/private-полей. docs/15 §4.
    */
   viewedStore: PublicStoreContext | null;
+  /**
+   * Куда вернуть «назад» из покупательского предпросмотра карточки товара,
+   * открытого из seller-интерфейса (карточка товара продавца). `null` — не в
+   * предпросмотре.
+   */
+  previewReturnPath: string | null;
   authLoading: boolean;
   authError: string | null;
   /** Флаг первички как в старом useUIStore.isAppInitializing */
@@ -35,6 +41,12 @@ export interface AuthSlice {
   setSession: (token: string | null, user: ServerUser | null) => void;
   /** Сбросить identity (серверная сессия stateless — достаточно очистить память). */
   clearSession: () => void;
+  /**
+   * Зафиксировать полученное согласие на Telegram-уведомления в текущей сессии.
+   * Source of truth — сервер (`telegram_identities.notifications_enabled`); сюда
+   * значение попадает после успешного write-access и persist в БД.
+   */
+  setNotificationsEnabled: (enabled: boolean) => void;
   setStoreId: (storeId: string | null) => void;
   checkOwnership: () => Promise<boolean>;
   /**
@@ -55,6 +67,15 @@ export interface AuthSlice {
    * (показываем «магазин не найден»).
    */
   loadBuyerStore: (publicId: string | null) => Promise<string | null>;
+  /**
+   * Открыть покупательский предпросмотр витрины из seller-интерфейса: переводит
+   * `context` в `buyer` и заполняет `viewedStore` проекцией `currentStore` (та же
+   * витрина). Seller-состояние (`storeId`/`currentStore`/каталог) не сбрасывается —
+   * в отличие от `loadBuyerStore`. `returnPath` — куда вернёт «назад».
+   */
+  enterStorePreview: (publicId: string, returnPath: string) => void;
+  /** Выйти из покупательского предпросмотра: вернуть `context` в `seller`. */
+  exitStorePreview: () => void;
   fetchCurrentStore: () => Promise<void>;
   /**
    * Частичное обновление профиля витрины (persisted). Draft-состояние блока
@@ -74,6 +95,7 @@ export const createAuthSlice: StateCreator<RootStore, [], [], AuthSlice> = (set,
   storeId: null,
   currentStore: null,
   viewedStore: null,
+  previewReturnPath: null,
   authLoading: false,
   authError: null,
   isAppInitializing: true,
@@ -93,6 +115,11 @@ export const createAuthSlice: StateCreator<RootStore, [], [], AuthSlice> = (set,
     clearOrderCache(queryClient);
     set({ sessionToken: null, serverUser: null });
   },
+
+  setNotificationsEnabled: (enabled) =>
+    set((s) =>
+      s.serverUser ? { serverUser: { ...s.serverUser, notificationsEnabled: enabled } } : {},
+    ),
 
   setStoreId: (storeId) => {
     if (get().storeId === storeId) return;
@@ -176,6 +203,12 @@ export const createAuthSlice: StateCreator<RootStore, [], [], AuthSlice> = (set,
         set({ storeId: first.id, currentStore: first });
         return first.id;
       }
+      // У владельца нет магазина (в т.ч. удалён из БД): сбрасываем возможно
+      // оставшийся в памяти storeId, чтобы роутер показал онбординг.
+      get().resetCatalog();
+      get().resetCategories();
+      get().resetOrders();
+      set({ storeId: null, currentStore: null });
       return null;
     } catch {
       return null;
@@ -211,6 +244,27 @@ export const createAuthSlice: StateCreator<RootStore, [], [], AuthSlice> = (set,
     }
   },
 
+  enterStorePreview: (publicId, returnPath) => {
+    const store = get().currentStore;
+    if (!store || store.publicId !== publicId) return;
+    set({
+      viewedStore: {
+        id: store.id,
+        publicId: store.publicId,
+        name: store.name,
+        status: store.status,
+        supportHandle: store.supportHandle || null,
+        logoUrl: store.logoUrl || null,
+      },
+      context: 'buyer',
+      previewReturnPath: returnPath,
+    });
+  },
+
+  exitStorePreview: () => {
+    set({ context: 'seller', viewedStore: null, previewReturnPath: null });
+  },
+
   fetchCurrentStore: async () => {
     const { storeId } = get();
     if (!storeId) {
@@ -219,7 +273,16 @@ export const createAuthSlice: StateCreator<RootStore, [], [], AuthSlice> = (set,
     }
     set({ authLoading: true, authError: null });
     try {
-      set({ currentStore: await deps().storeRepository.fetchStore(storeId), authLoading: false });
+      const store = await deps().storeRepository.fetchStore(storeId);
+      if (!store) {
+        // Магазин удалён/недоступен — сбрасываем scope, роутер вернёт онбординг.
+        get().resetCatalog();
+        get().resetCategories();
+        get().resetOrders();
+        set({ storeId: null, currentStore: null, authLoading: false });
+        return;
+      }
+      set({ currentStore: store, authLoading: false });
     } catch (e) {
       set({ authLoading: false, authError: (e as Error).message });
       throw e;

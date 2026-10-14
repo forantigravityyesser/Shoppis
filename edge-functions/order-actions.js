@@ -13,20 +13,14 @@
 //      BUYER_BOT_TOKEN / SELLER_BOT_TOKEN (fallback BOT_TOKEN), APP_URL?
 
 import { env } from './_shared/env.js';
-import { adminClient, anonClient } from './_shared/clients.js';
+import { adminClient } from './_shared/clients.js';
 import { bearerToken, json, methodNotAllowed, preflight, readJson } from './_shared/http.js';
 import { verifySession } from './_shared/auth.js';
-import { notify } from './_shared/telegram.js';
+import { notify, storeReplyMarkup } from './_shared/telegram.js';
+import { formatOrderNotification, resolveOrderNotifications } from './_shared/order-notify.js';
+import { deliveryFromOrder, loadOrderNotificationData } from './_shared/order-context.js';
 import { errorToResponse } from './_shared/errors.js';
 import { validateOrderAction } from './_shared/validate.js';
-
-const STATUS_RU = {
-  NEW: 'Новый',
-  IN_TRANSIT: 'В пути',
-  DELIVERED: 'Доставлено',
-  REFUSED: 'Отказ',
-  CANCELLED: 'Отменён',
-};
 
 const ERROR_STATUS = {
   ORDER_NOT_FOUND: 404,
@@ -90,49 +84,76 @@ function dispatch(client, action, actorType, session, body) {
   }
 }
 
-async function notifyBuyerStatus(client, body, result) {
-  const { data: ids } = await client.database
-    .from('telegram_identities')
-    .select('telegram_user_id, notifications_enabled')
-    .eq('user_id', result.buyerUserId)
-    .limit(1);
-  // Без согласия (write access) бот покупателя написать не сможет — не шлём.
-  if (ids?.[0]?.notifications_enabled !== true) return;
-  const chatId = ids[0].telegram_user_id;
-  if (!chatId) return;
-
-  let orderNumber = result.orderId;
-  let storeId = null;
-  if (body.orderId) {
-    const { data: orderRow } = await client.database
-      .from('orders')
-      .select('public_order_number, store_id')
-      .eq('id', body.orderId)
-      .maybeSingle();
-    orderNumber = orderRow?.public_order_number ?? orderNumber;
-    storeId = orderRow?.store_id ?? null;
-  }
-
-  // Кнопка «Открыть витрину» — по opaque public_id, не по внутреннему id.
-  let publicId = '';
-  if (storeId) {
-    const { data: storeRow } = await client.database
-      .from('stores')
-      .select('public_id')
-      .eq('id', storeId)
-      .maybeSingle();
-    publicId = storeRow?.public_id ?? '';
-  }
-
-  await notify({
-    bot: 'buyer',
-    chatId,
-    publicId,
-    logPrefix: 'order-actions',
-    text:
-      `📦 <b>Статус заказа изменился</b>\n\n` +
-      `Номер: <code>${String(orderNumber).slice(0, 12)}</code>\nНовый статус: <b>${STATUS_RU[result.status] || result.status}</b>`,
+/**
+ * Уведомления по событию заказа (buyer и/или seller). Best-effort: резолвит
+ * получателей по действию (`resolveOrderNotifications`), гейтит покупателя по
+ * согласию (`notifications_enabled`), тянет номер/сумму/контакт и шлёт письма
+ * (см. `_shared/order-notify`). Продавцу — владелец магазина (`owner_telegram_id`).
+ */
+async function notifyOrderEvents(client, { action, actorType, outcome, reason, orderId, result }) {
+  const notifications = resolveOrderNotifications({
+    action,
+    actorType,
+    outcome,
+    status: result.status,
   });
+  if (notifications.length === 0) return;
+
+  // Данные заказа/магазина/позиций для письма (номер, сумма, контакт, состав, доставка).
+  const { order: orderRow, store: storeRow, items } = await loadOrderNotificationData(
+    client,
+    orderId,
+  );
+  const publicId = storeRow?.public_id ?? '';
+  const supportHandle = storeRow?.support_handle ?? '';
+  const currencySymbol = orderRow?.currency_symbol_snapshot || storeRow?.currency_symbol || '';
+  const delivery = deliveryFromOrder(orderRow);
+
+  // Chat id покупателя — только при согласии (write access), резолвим один раз.
+  let buyerChatId = null;
+  if (notifications.some((n) => n.recipient === 'buyer') && result.buyerUserId) {
+    try {
+      const { data } = await client.database
+        .from('telegram_identities')
+        .select('telegram_user_id, notifications_enabled')
+        .eq('user_id', result.buyerUserId)
+        .limit(1);
+      if (data?.[0]?.notifications_enabled === true) {
+        buyerChatId = data[0].telegram_user_id ?? null;
+      }
+    } catch (e) {
+      console.error('[order-actions] buyer identity lookup failed:', e);
+    }
+  }
+
+  const targets = {
+    buyer: { chatId: buyerChatId, contactHandle: supportHandle },
+    seller: { chatId: storeRow?.owner_telegram_id ?? null, contactHandle: null },
+  };
+
+  for (const { recipient, event } of notifications) {
+    const target = targets[recipient];
+    if (!target?.chatId) continue;
+    const message = formatOrderNotification({
+      event,
+      recipient,
+      orderNumber: orderRow?.public_order_number || result.orderId,
+      totalMinor: orderRow?.total_minor,
+      currencySymbol,
+      reasonCode: reason ?? null,
+      contactHandle: target.contactHandle,
+      items,
+      delivery,
+    });
+    if (!message) continue;
+    await notify({
+      bot: recipient,
+      chatId: target.chatId,
+      replyMarkup: storeReplyMarkup(recipient, publicId, message.contact),
+      logPrefix: 'order-actions',
+      text: message.text,
+    });
+  }
 }
 
 export default async function (request) {
@@ -169,14 +190,22 @@ export default async function (request) {
     return errorToResponse(ERROR_STATUS, e?.message || e, 'Order action failed');
   }
 
-  // Уведомление покупателю о смене статуса (best-effort).
+  // Уведомления по событию заказа (buyer и/или seller, best-effort).
   if (
     (action === 'transition' || action === 'delivery-outcome' || action === 'cancel') &&
     result.buyerUserId
   ) {
     try {
-      const client = anonClient(baseUrl);
-      await notifyBuyerStatus(client, body, result);
+      // Admin-клиент: нужен `stores.owner_telegram_id` (server-only, вне public-грантов).
+      const client = adminClient(baseUrl);
+      await notifyOrderEvents(client, {
+        action,
+        actorType: validated.actorType,
+        outcome: body.outcome,
+        reason: body.reason,
+        orderId: body.orderId,
+        result,
+      });
     } catch (e) {
       console.error('[order-actions] notify error:', e);
     }

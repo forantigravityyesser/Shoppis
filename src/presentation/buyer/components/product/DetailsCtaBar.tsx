@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Check, Heart } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 
 const ADDED_FEEDBACK_MS = 1200;
 
@@ -29,6 +30,7 @@ export default function DetailsCtaBar({
   onToggleFavorite,
   onAddToCart,
 }: Props) {
+  const { t } = useTranslation();
   // Локальный морф кнопки «✓ Добавлено» после успешного добавления (PD-12).
   const [added, setAdded] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -53,7 +55,7 @@ export default function DetailsCtaBar({
       <motion.button
         type="button"
         className={`pd-cta__fav${isFavorite ? ' pd-cta__fav--active' : ''}`}
-        aria-label={isFavorite ? 'Убрать из избранного' : 'В избранное'}
+        aria-label={isFavorite ? t('buyer.favorites.removeAria') : t('buyer.favorites.addAria')}
         aria-pressed={isFavorite}
         onClick={onToggleFavorite}
         whileTap={{ scale: 0.88 }}
@@ -72,7 +74,7 @@ export default function DetailsCtaBar({
 
       <span className="pd-cta__buy">
         <span className="pd-cta__price">
-          <span className="pd-cta__price-label">Итого</span>
+          <span className="pd-cta__price-label">{t('buyer.product.total')}</span>
           <span className="pd-cta__price-current">{priceLabel}</span>
           {originalPriceLabel ? <s className="pd-cta__price-old">{originalPriceLabel}</s> : null}
         </span>
@@ -88,10 +90,10 @@ export default function DetailsCtaBar({
               поэтому появление «Добавлено» не сдвигает цену (без layout shift). */}
           <span className="pd-cta__add-inner">
             <span aria-hidden={added} className={added ? 'is-hidden' : undefined}>
-              {soldOut ? 'Нет в наличии' : 'Добавить в корзину'}
+              {soldOut ? t('buyer.product.outOfStock') : t('buyer.product.addToCart')}
             </span>
             <span aria-hidden={!added} className={`pd-cta__add-added${added ? '' : ' is-hidden'}`}>
-              <Check size={16} aria-hidden /> Добавлено
+              <Check size={16} aria-hidden /> {t('buyer.product.added')}
             </span>
           </span>
         </motion.button>

@@ -1,8 +1,15 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { MemoryRouter, Route, Routes } from 'react-router';
 
-type ToastShape = { id: string; text: string; imageUrl?: string | null } | null;
+type ToastShape = {
+  id: string;
+  text: string;
+  imageUrl?: string | null;
+  action?: string | null;
+} | null;
 
 const { clearToast, toastRef } = vi.hoisted(() => ({
   clearToast: vi.fn(),
@@ -16,6 +23,17 @@ vi.mock('../../../application/store', () => ({
 
 import Toast from './Toast';
 
+function renderToast() {
+  return render(
+    <MemoryRouter initialEntries={['/product/p1']}>
+      <Routes>
+        <Route path="/product/:id" element={<Toast />} />
+        <Route path="/cart" element={<div>cart-screen</div>} />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
 beforeEach(() => {
   clearToast.mockReset();
   toastRef.current = null;
@@ -27,7 +45,7 @@ afterEach(() => {
 
 describe('Toast', () => {
   it('без сообщения ничего не рендерит', () => {
-    const { container } = render(<Toast />);
+    const { container } = renderToast();
     expect(container).toBeEmptyDOMElement();
   });
 
@@ -35,7 +53,7 @@ describe('Toast', () => {
     vi.useFakeTimers();
     toastRef.current = { id: 't1', text: 'Добавлено в корзину' };
 
-    render(<Toast />);
+    renderToast();
     expect(screen.getByRole('status')).toHaveTextContent('Добавлено в корзину');
 
     act(() => {
@@ -46,8 +64,29 @@ describe('Toast', () => {
 
   it('с imageUrl показывает миниатюру товара', () => {
     toastRef.current = { id: 't2', text: 'Добавлено в корзину', imageUrl: 'thumb.jpg' };
-    render(<Toast />);
+    renderToast();
     const img = screen.getByRole('status').querySelector('img');
     expect(img).toHaveAttribute('src', 'thumb.jpg');
+  });
+
+  it('клик по тосту с action переводит на маршрут и скрывает тост', async () => {
+    toastRef.current = {
+      id: 't3',
+      text: 'Добавлено в корзину',
+      imageUrl: 'thumb.jpg',
+      action: '/cart',
+    };
+    renderToast();
+
+    await userEvent.click(screen.getByRole('button', { name: /Добавлено в корзину/ }));
+
+    expect(clearToast).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('cart-screen')).toBeInTheDocument();
+  });
+
+  it('без action тост не кликабелен', () => {
+    toastRef.current = { id: 't4', text: 'Готово' };
+    renderToast();
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
   });
 });

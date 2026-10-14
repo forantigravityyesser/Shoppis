@@ -9,7 +9,11 @@ const { invokeCheckout, requestMessagesAccess, enableTelegramNotifications } = v
 
 vi.mock('../../composition/container', () => ({
   deps: () => ({
-    i18n: { getAppLanguage: () => 'ru', setAppLanguage: () => {} },
+    i18n: {
+      getAppLanguage: () => 'ru',
+      setAppLanguage: () => {},
+      applyStoreDefaultLanguage: () => {},
+    },
     checkoutApi: { invokeCheckout },
     telegram: { requestMessagesAccess },
     notificationApi: { enableTelegramNotifications },
@@ -39,6 +43,7 @@ function seedCart(): void {
       firstName: 'Иван',
       languageCode: 'ru',
       photoUrl: '',
+      notificationsEnabled: false,
     },
     cartByStore: {
       'store-a': [

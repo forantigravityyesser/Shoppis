@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import i18n from 'i18next';
 import type { ProductFormPayload } from '../read-models/inventory-view';
 import type { DraftMode } from '../rules/product-draft-session';
 
@@ -17,6 +18,8 @@ export interface UseProductDraftSaveParams {
   complete: (localId: string) => void;
   setSaving: (localId: string, saving: boolean) => void;
   setError: (localId: string, error: string | null) => void;
+  /** Колбэк с id сохранённого товара (для перехода на карточку после создания/сохранения). */
+  onSaved?: (productId: string) => void;
 }
 
 /**
@@ -30,7 +33,8 @@ export interface UseProductDraftSaveParams {
  * затрагивает остальные, а результат привязывается к правильной карточке даже при переключении.
  */
 export function useProductDraftSave(params: UseProductDraftSaveParams) {
-  const { activeDraft, createProduct, updateProduct, complete, setSaving, setError } = params;
+  const { activeDraft, createProduct, updateProduct, complete, setSaving, setError, onSaved } =
+    params;
 
   return useCallback(
     async (payload: ProductFormPayload): Promise<void> => {
@@ -39,22 +43,23 @@ export function useProductDraftSave(params: UseProductDraftSaveParams) {
       setSaving(draft.localId, true);
       setError(draft.localId, null);
       try {
+        let savedProductId: string;
         if (draft.mode === 'edit' && draft.productId) {
           await updateProduct(draft.productId, payload);
+          savedProductId = draft.productId;
         } else {
-          await createProduct(payload);
+          savedProductId = await createProduct(payload);
         }
         complete(draft.localId);
+        onSaved?.(savedProductId);
       } catch (e) {
         setError(
           draft.localId,
-          e instanceof Error && e.message
-            ? e.message
-            : 'Не удалось сохранить товар. Попробуйте ещё раз.',
+          e instanceof Error && e.message ? e.message : i18n.t('seller.product.form.saveError'),
         );
         throw e;
       }
     },
-    [activeDraft, createProduct, updateProduct, complete, setSaving, setError],
+    [activeDraft, createProduct, updateProduct, complete, setSaving, setError, onSaved],
   );
 }

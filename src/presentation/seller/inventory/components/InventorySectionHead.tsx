@@ -1,5 +1,6 @@
 import { useRef } from 'react';
 import { Plus } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useStuck } from '../../../shared/hooks/useStuck';
 
 interface InventorySectionHeadProps {
@@ -17,8 +18,10 @@ interface InventorySectionHeadProps {
 export default function InventorySectionHead({
   title,
   onAdd,
-  addLabel = 'Добавить',
+  addLabel,
 }: InventorySectionHeadProps) {
+  const { t } = useTranslation();
+  const resolvedAddLabel = addLabel ?? t('seller.inventory.add');
   const headRef = useRef<HTMLDivElement>(null);
   const stuck = useStuck(headRef);
 
@@ -31,14 +34,14 @@ export default function InventorySectionHead({
           onClick={onAdd}
         >
           <Plus size={16} strokeWidth={2.5} />
-          <span>{addLabel}</span>
+          <span>{resolvedAddLabel}</span>
         </button>
       </div>
       <div className="inv-section__head" ref={headRef}>
         <h2 className="inv-section__title">{title}</h2>
         <span className="inv-add-btn inv-add-btn--header inv-add-btn--ghost" aria-hidden>
           <Plus size={16} strokeWidth={2.5} />
-          <span>{addLabel}</span>
+          <span>{resolvedAddLabel}</span>
         </span>
       </div>
     </>

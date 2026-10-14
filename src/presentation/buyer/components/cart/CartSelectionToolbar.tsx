@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next';
+
 interface Props {
   selectedCount: number;
   /** Все валидные позиции выбраны → контрол предлагает «Снять всё». */
@@ -18,15 +20,16 @@ export default function CartSelectionToolbar({
   onToggleAll,
   updating = false,
 }: Props) {
+  const { t } = useTranslation();
   return (
     <div className="cart-toolbar" aria-busy={updating}>
       <span className="cart-toolbar__label">
-        Выбрано {selectedCount}
+        {t('buyer.cart.selection.selected', { count: selectedCount })}
         {updating ? (
           <span
             className="cart-spinner"
             role="status"
-            aria-label="Обновление корзины"
+            aria-label={t('buyer.cart.selection.updatingAria')}
             data-testid="cart-updating"
           />
         ) : null}
@@ -37,7 +40,7 @@ export default function CartSelectionToolbar({
         aria-pressed={allSelected}
         onClick={onToggleAll}
       >
-        {allSelected ? 'Снять всё' : 'Выбрать все'}
+        {allSelected ? t('buyer.cart.selection.clearAll') : t('buyer.cart.selection.selectAll')}
       </button>
     </div>
   );

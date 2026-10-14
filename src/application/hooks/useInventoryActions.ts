@@ -1,6 +1,8 @@
 import { useCallback } from 'react';
+import i18n from 'i18next';
 import { useNavigate } from 'react-router';
 import { UNCATEGORIZED_ID } from '../../domain/constants/categories';
+import type { Category } from '../../domain/models/category';
 import type { ProductStatus } from '../../domain/models/product';
 import { ProductStatusError } from '../contracts/product-status';
 import type {
@@ -42,12 +44,22 @@ export interface UpdateCategoryInput {
 export function useInventoryActions() {
   const navigate = useNavigate();
 
+  /**
+   * Создаёт категорию и возвращает её, БЕЗ навигации. Нужно для создания
+   * категории прямо из формы товара (модалка), чтобы не покидать форму.
+   */
+  const createCategoryInPlace = useCallback(
+    async (input: CreateCategoryInput): Promise<Category> =>
+      useStore.getState().addCategory(input),
+    [],
+  );
+
   const createCategory = useCallback(
     async (input: CreateCategoryInput) => {
-      await useStore.getState().addCategory(input);
+      await createCategoryInPlace(input);
       navigate('/seller/inventory');
     },
-    [navigate],
+    [navigate, createCategoryInPlace],
   );
 
   const updateCategory = useCallback(async (id: string, patch: UpdateCategoryInput) => {
@@ -70,7 +82,7 @@ export function useInventoryActions() {
    */
   const createProduct = useCallback(async (payload: ProductFormPayload): Promise<string> => {
     const { storeId } = useStore.getState();
-    if (!storeId) throw new Error('Магазин не выбран');
+    if (!storeId) throw new Error(i18n.t('common.storeNotSelected'));
     const input: NewProductInput = { storeId, ...toCatalogFields(payload) };
     return useStore.getState().saveProduct(input);
   }, []);
@@ -144,6 +156,7 @@ export function useInventoryActions() {
 
   return {
     createCategory,
+    createCategoryInPlace,
     createProduct,
     updateCategory,
     deleteCategory,

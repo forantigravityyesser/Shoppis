@@ -1,148 +1,157 @@
 // telegram-bot-buyer.js — webhook edge-функция БОТА ПОКУПАТЕЛЯ.
 //
-// Роль: единственный бот для ВСЕХ покупателей и ВСЕХ магазинов.
-// Отдельный бот под каждый магазин НЕ создаётся: магазин различается
-// параметром startapp=shop_<public_id>, а «Мои магазины» — привязки покупателя.
+// Роль: единственный бот для всех покупателей и магазинов. Покупатель попадает
+// в витрину напрямую (Direct Mini App, `shop_<public_id>`), а в чат бота — после
+// заказа/разрешения на сообщения. Поэтому источник «какие витрины он открывал» —
+// серверная таблица buyer_store_visits (пишет edge `store-visit` из Mini App),
+// а не этот бот.
 //
-// ВАЖНО (витрина-first): покупатель СНАЧАЛА попадает в витрину НАПРЯМУЮ
-// по ссылке продавца (Direct Mini App, opaque public_id):
-//   https://t.me/<BUYER_BOT_USERNAME>/<BUYER_APP_SHORTNAME>?startapp=shop_<public_id>
-// Тап открывает сразу Mini App, чата с этим ботом у человека ещё нет.
-// В бот (чат) он попадает ПОСЛЕ заказа: на экране «Заказ оформлен» фронт
-// официально предлагает разрешить сообщения (requestWriteAccess, best-effort),
-// покупатель разрешает, и process-checkout шлёт сюда «Заказ принят».
-// Разрешение НЕ является условием заказа: при отказе/таймауте заказ всё равно
-// создаётся, а уведомление просто не доставляется. Сюда же приходят смена
-// статуса и акции. Прямой /start без параметра показывает список уже
-// посещённых витрин (бот работает и без БД в graceful-режиме).
+// Функции бота:
+//   * ярлык на последнюю открытую витрину (и per-chat кнопка-меню чата);
+//   * «Список магазинов» — только посещённые витрины (buyer_store_list_read);
+//   * «Активные заказы» — NEW / в пути / доставлено без исхода
+//     (buyer_active_orders_read), по всем магазинам покупателя.
 //
-// Env:
-//   BUYER_BOT_TOKEN (fallback: BOT_TOKEN) — токен бота покупателя
-//   APP_URL — базовый URL Mini App
-//   INSFORGE_BASE_URL, ANON_KEY — customers/stores (опционально, graceful)
+// Env: BUYER_BOT_TOKEN (fallback BOT_TOKEN), APP_URL, INSFORGE_BASE_URL, API_KEY,
+//      BUYER_BOT_USERNAME, BUYER_APP_SHORTNAME, TELEGRAM_WEBHOOK_SECRET?
 
-const JSON_HEADERS = { 'Content-Type': 'application/json' };
+import { env } from './_shared/env.js';
+import { adminClient } from './_shared/clients.js';
+import { json, methodNotAllowed, preflight } from './_shared/http.js';
+import {
+  answerCallback,
+  editOrSend,
+  sendMessage,
+  setStoreMenuButton,
+  webhookAuthorized,
+} from './_shared/bot-api.js';
+import {
+  buyerHowKeyboard,
+  buyerHowText,
+  buyerMainMenu,
+  buyerNoStoresText,
+  buyerOrdersKeyboard,
+  buyerStoreKeyboard,
+  buyerStoreWelcomeText,
+  buyerStoresView,
+  buyerWelcomeGrantText,
+  buyerWelcomeText,
+  formatBuyerOrdersText,
+} from './_shared/bot-views.js';
 
-function env(name, fallback = '') {
-  try {
-    const v = typeof Deno !== 'undefined' ? Deno.env.get(name) : undefined;
-    return v || fallback;
-  } catch {
-    return fallback;
-  }
-}
+const BOT = 'buyer';
 
 function cfg() {
   return {
-    token: env('BUYER_BOT_TOKEN') || env('BOT_TOKEN'),
-    appUrl: (env('APP_URL') || 'https://your-app.region.insforge.app').replace(/\/$/, ''),
-    baseUrl: env('INSFORGE_BASE_URL'),
-    anonKey: env('ANON_KEY'),
+    appUrl: env('APP_URL'),
+    buyerUsername: env('BUYER_BOT_USERNAME'),
+    buyerApp: env('BUYER_APP_SHORTNAME'),
   };
 }
 
-async function tg(token, method, payload) {
-  if (!token) {
-    console.error(`[buyer-bot] missing token, skip ${method}`);
+function db() {
+  const baseUrl = env('INSFORGE_BASE_URL');
+  if (!baseUrl) return null;
+  try {
+    return adminClient(baseUrl);
+  } catch (e) {
+    console.error('[buyer-bot] admin client error:', e);
     return null;
   }
+}
+
+async function resolveUserId(telegramId) {
+  const client = db();
+  if (!client || !telegramId) return null;
   try {
-    const res = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
-      method: 'POST',
-      headers: JSON_HEADERS,
-      body: JSON.stringify(payload),
+    const { data } = await client.database
+      .from('telegram_identities')
+      .select('user_id')
+      .eq('telegram_user_id', String(telegramId))
+      .limit(1);
+    return data?.[0]?.user_id ?? null;
+  } catch (e) {
+    console.error('[buyer-bot] identity lookup error:', e);
+    return null;
+  }
+}
+
+/** Витрины покупателя: только те, что он открывал (по last_visited_at desc). */
+async function loadStores(userId) {
+  const client = db();
+  if (!client || !userId) return [];
+  try {
+    const { data, error } = await client.database.rpc('buyer_store_list_read', {
+      p_actor_user_id: userId,
     });
-    if (!res.ok) console.error(`[buyer-bot] ${method} failed:`, await res.text());
-    return res;
+    if (error) throw error;
+    const payload = Array.isArray(data) ? data[0] : data;
+    return Array.isArray(payload) ? payload : [];
   } catch (e) {
-    console.error(`[buyer-bot] ${method} error:`, e);
-    return null;
+    console.error('[buyer-bot] store list error:', e);
+    return [];
   }
 }
 
-const sendMessage = (token, chat_id, text, reply_markup) =>
-  tg(token, 'sendMessage', { chat_id, text, parse_mode: 'HTML', disable_web_page_preview: true, ...(reply_markup ? { reply_markup } : {}) });
-
-const editMessage = (token, chat_id, message_id, text, reply_markup) =>
-  tg(token, 'editMessageText', { chat_id, message_id, text, parse_mode: 'HTML', disable_web_page_preview: true, ...(reply_markup ? { reply_markup } : {}) });
-
-const answerCallback = (token, id) =>
-  tg(token, 'answerCallbackQuery', { callback_query_id: id });
-
-// Mini App конкретной витрины: Direct Mini App через opaque public_id.
-function storeAppUrl(appUrl, publicId) {
-  return `${appUrl}?startapp=shop_${publicId}`;
-}
-
-// --- InsForge (опционально). Все вызовы tolerant: бот работает и без БД. ---
-function dbHeaders(anonKey) {
-  return { apikey: anonKey, Authorization: `Bearer ${anonKey}`, 'Content-Type': 'application/json' };
-}
-
-async function findStore(baseUrl, anonKey, publicId) {
+/** Активные заказы покупателя по всем магазинам. */
+async function loadActiveOrders(userId) {
+  const client = db();
+  if (!client || !userId) return { orders: [], total: 0 };
   try {
-    const res = await fetch(
-      `${baseUrl.replace(/\/$/, '')}/api/database/stores?public_id=eq.${encodeURIComponent(publicId)}&select=id,name,public_id`,
-      { headers: dbHeaders(anonKey) }
-    );
-    if (!res.ok) return null;
-    const j = await res.json();
-    const rows = Array.isArray(j) ? j : (j?.data ?? []);
-    return rows[0] || null;
-  } catch (e) {
-    console.error('[buyer-bot] findStore error:', e);
-    return null;
-  }
-}
-
-// Привязка покупателя к витрине: upsert customers(store_id, telegram_id).
-// Таблица уже имеет UNIQUE(store_id, telegram_id) — это и есть «список магазинов».
-// on_conflict обязателен для PostgREST merge-duplicates, иначе будет дубль-ошибка.
-async function bindBuyerToStore(baseUrl, anonKey, storeId, tgUser) {
-  try {
-    const res = await fetch(`${baseUrl.replace(/\/$/, '')}/api/database/customers?on_conflict=store_id,telegram_id`, {
-      method: 'POST',
-      headers: { ...dbHeaders(anonKey), Prefer: 'resolution=merge-duplicates,return=minimal' },
-      body: JSON.stringify({
-        store_id: storeId,
-        telegram_id: String(tgUser.id),
-        username: tgUser.username || 'User',
-      }),
+    const { data, error } = await client.database.rpc('buyer_active_orders_read', {
+      p_actor_user_id: userId,
+      p_limit: 20,
     });
-    if (!res.ok) console.error('[buyer-bot] bind buyer failed:', await res.text());
+    if (error) throw error;
+    const payload = Array.isArray(data) ? data[0] : data;
+    if (!payload || typeof payload !== 'object') return { orders: [], total: 0 };
+    return { orders: payload.orders ?? [], total: payload.total ?? 0 };
   } catch (e) {
-    console.error('[buyer-bot] bind buyer error:', e);
+    console.error('[buyer-bot] active orders error:', e);
+    return { orders: [], total: 0 };
   }
 }
 
-// Витрины покупателя: все customers.telegram_id = X → подтягиваем stores.
-async function getBuyerStores(baseUrl, anonKey, telegramId) {
+/** Согласие на сообщения (write access) → фиксируем флаг уведомлений на сервере. */
+async function markNotificationsEnabled(userId) {
+  const client = db();
+  if (!client || !userId) return;
   try {
-    const r1 = await fetch(
-      `${baseUrl.replace(/\/$/, '')}/api/database/customers?telegram_id=eq.${encodeURIComponent(String(telegramId))}&select=store_id`,
-      { headers: dbHeaders(anonKey) }
-    );
-    if (!r1.ok) return null;
-    const j1 = await r1.json();
-    const rows = Array.isArray(j1) ? j1 : (j1?.data ?? []);
-    const ids = [...new Set(rows.map((r) => r.store_id).filter(Boolean))].slice(0, 20);
-    if (!ids.length) return [];
-    const r2 = await fetch(
-      `${baseUrl.replace(/\/$/, '')}/api/database/stores?id=in.(${ids.map(encodeURIComponent).join(',')})&select=id,name,public_id`,
-      { headers: dbHeaders(anonKey) }
-    );
-    if (!r2.ok) return ids.map((id) => ({ id }));
-    const j2 = await r2.json();
-    return Array.isArray(j2) ? j2 : (j2?.data ?? ids.map((id) => ({ id })));
+    const { error } = await client.database
+      .from('telegram_identities')
+      .update({
+        notifications_enabled: true,
+        notifications_enabled_at: new Date().toISOString(),
+      })
+      .eq('user_id', userId);
+    if (error) throw error;
   } catch (e) {
-    console.error('[buyer-bot] getBuyerStores error:', e);
+    console.error('[buyer-bot] notifications flag error:', e);
+  }
+}
+
+/** Зафиксировать открытие витрины (на случай входа по ссылке в чат бота). */
+async function recordVisit(userId, publicId) {
+  const client = db();
+  if (!client || !userId || !publicId) return null;
+  try {
+    const { data, error } = await client.database.rpc('buyer_store_visit_upsert', {
+      p_actor_user_id: userId,
+      p_store_ref: publicId,
+    });
+    if (error) throw error;
+    return Array.isArray(data) ? data[0] : data;
+  } catch (e) {
+    console.error('[buyer-bot] visit upsert error:', e);
     return null;
   }
 }
 
 // /start shop_<public_id> | /start store_<id> (legacy) | /start <public_id>
 function parseStartParam(text) {
-  const m = String(text || '').trim().match(/^\/start(@\S+)?\s*(.*)$/);
+  const m = String(text || '')
+    .trim()
+    .match(/^\/start(@\S+)?\s*(.*)$/);
   if (!m) return '';
   return (m[2] || '').trim();
 }
@@ -158,167 +167,149 @@ function extractStoreId(param) {
   return p.split(/\s+/)[0];
 }
 
-export default {
-  async fetch(request) {
-    if (request.method === 'OPTIONS') {
-      return new Response(null, {
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'POST, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type',
-        },
-      });
-    }
-    if (request.method !== 'POST') return new Response('Method not allowed', { status: 405 });
+/** Вход по ссылке продавца: витрина открыта в Mini App, фиксируем визит. */
+async function onStoreEntry(chatId, tgUser, publicId) {
+  const c = cfg();
+  const userId = await resolveUserId(tgUser.id);
+  const visit = await recordVisit(userId, publicId);
+  if (!visit) {
+    return sendMessage(
+      BOT,
+      chatId,
+      '😕 <b>Витрина не найдена</b>\n\nВозможно, продавец удалил магазин или ссылка устарела. Попросите новую ссылку.',
+    );
+  }
+  if (userId) await setStoreMenuButton(chatId, visit.name, publicId);
+  return sendMessage(
+    BOT,
+    chatId,
+    buyerStoreWelcomeText(visit.name),
+    buyerStoreKeyboard(c.buyerUsername, c.buyerApp, publicId),
+  );
+}
 
-    try {
-      const update = await request.json();
-      this.handleUpdate(update).catch((e) => console.error('[buyer-bot] handle error:', e));
-      return new Response(JSON.stringify({ ok: true }), { headers: JSON_HEADERS });
-    } catch (e) {
-      console.error('[buyer-bot] parse error:', e);
-      return new Response(JSON.stringify({ ok: true }), { headers: JSON_HEADERS });
-    }
-  },
+/** /start без ссылки: последняя витрина + меню. */
+async function onMain(chatId, tgUser, { edit = false, messageId, granted = false } = {}) {
+  const c = cfg();
+  const userId = await resolveUserId(tgUser.id);
+  const stores = await loadStores(userId);
+  const lastStore = stores[0] ?? null;
+  if (lastStore?.publicId) await setStoreMenuButton(chatId, lastStore.name, lastStore.publicId);
+  const text = granted ? buyerWelcomeGrantText(lastStore) : buyerWelcomeText(lastStore);
+  const kb = buyerMainMenu({
+    botUsername: c.buyerUsername,
+    appShortname: c.buyerApp,
+    lastStore,
+  });
+  return edit ? editOrSend(BOT, chatId, messageId, text, kb) : sendMessage(BOT, chatId, text, kb);
+}
 
-  async handleUpdate(update) {
-    const c = cfg();
-    if (update.callback_query) return this.onCallback(c, update.callback_query);
-    const msg = update.message || update.edited_message;
-    if (!msg?.chat?.id) return;
-    const text = (msg.text || '').trim();
-    const chatId = msg.chat.id;
-    const tgUser = msg.from || {};
+async function onMyShops(chatId, tgUser, { edit = false, messageId } = {}) {
+  const c = cfg();
+  const userId = await resolveUserId(tgUser.id);
+  const stores = await loadStores(userId);
+  if (!stores.length) {
+    const text = buyerNoStoresText();
+    const kb = buyerHowKeyboard();
+    return edit ? editOrSend(BOT, chatId, messageId, text, kb) : sendMessage(BOT, chatId, text, kb);
+  }
+  const view = buyerStoresView({
+    stores,
+    botUsername: c.buyerUsername,
+    appShortname: c.buyerApp,
+  });
+  return edit
+    ? editOrSend(BOT, chatId, messageId, view.text, view.keyboard)
+    : sendMessage(BOT, chatId, view.text, view.keyboard);
+}
 
-    if (/^\/start(@\w+)?(\s|$)/.test(text)) {
-      const storeId = extractStoreId(parseStartParam(text));
-      if (storeId) return this.onStoreEntry(c, chatId, tgUser, storeId);
-      return this.onMain(c, chatId, tgUser);
-    }
-    if (/^\/myshops(@\w+)?|^\/mystores(@\w+)?/.test(text)) return this.onMyShops(c, chatId, tgUser, false);
-    if (/^\/help(@\w+)?/.test(text)) {
-      return sendMessage(c.token, chatId,
-        '🛍 <b>Бот покупателя</b>\n\n' +
-        'В магазин можно попасть только по ссылке-приглашению от продавца.\n\n' +
-        '/myshops — витрины, где вы уже были (корзина, заказы и избранное — отдельно в каждой)\n' +
-        '/start — это же меню\n\n' +
-        'Уведомления о заказе и смене статуса приходят сюда, если вы разрешили сообщения. ' +
-        'После оформления заказа Mini App предложит включить уведомления — нажмите «Разрешить». ' +
-        'Это необязательно: заказ работает и без уведомлений.');
-    }
-    if (text.startsWith('/')) return this.onMain(c, chatId, tgUser);
-    // Обычный текст без ссылки — подсказываем, где взять приглашение.
-    return sendMessage(c.token, chatId,
-      '🔗 Чтобы попасть в магазин, нужна ссылка-приглашение от продавца.\n' +
-      'Если вы уже переходили по ссылкам — откройте /myshops.');
-  },
+async function onOrders(chatId, tgUser, { edit = false, messageId } = {}) {
+  const userId = await resolveUserId(tgUser.id);
+  const result = await loadActiveOrders(userId);
+  const text = formatBuyerOrdersText(result);
+  const kb = buyerOrdersKeyboard();
+  return edit ? editOrSend(BOT, chatId, messageId, text, kb) : sendMessage(BOT, chatId, text, kb);
+}
 
-  // Вход по ссылке продавца: привязываем и даём кнопку web_app именно в эту витрину.
-  async onStoreEntry(c, chatId, tgUser, publicId) {
-    const hasDb = c.baseUrl && c.anonKey;
-    let storeName = '';
-    if (hasDb) {
-      const store = await findStore(c.baseUrl, c.anonKey, publicId);
-      if (!store) {
-        return sendMessage(c.token, chatId,
-          '😕 <b>Витрина не найдена</b>\n\nВозможно, продавец удалил магазин или ссылка устарела. Попросите новую ссылку.');
-      }
-      storeName = store.name ? ` «${escapeHtml(store.name)}»` : '';
-      if (tgUser?.id && store.id) await bindBuyerToStore(c.baseUrl, c.anonKey, store.id, tgUser);
-    }
-    return sendMessage(c.token, chatId,
-      `✅ <b>Добро пожаловать${storeName}!</b>\n\n` +
-      'Вы зашли по ссылке продавца: витрина уже открыта в Mini App.\n' +
-      'Корзина, заказы и избранное здесь — только этого магазина.\n' +
-      'После оформления заказа Mini App предложит включить уведомления — нажмите «Разрешить», и сюда придёт «Заказ принят», а затем статусы и акции. Это необязательно: заказ работает и без разрешения.',
-      {
-        inline_keyboard: [
-          [{ text: '🛍️ Открыть витрину', web_app: { url: storeAppUrl(c.appUrl, publicId) } }],
-          [{ text: '📋 Мои магазины', callback_data: 'buyer_myshops' }],
-        ],
-      });
-  },
+function onHelp(chatId) {
+  return sendMessage(
+    BOT,
+    chatId,
+    '🛍 <b>Справка</b>\n\n' +
+      '/start — главное меню\n' +
+      '/myshops — магазины, которые вы открывали\n' +
+      '/orders — активные заказы\n\n' +
+      'В магазин можно попасть только по ссылке-приглашению от продавца. ' +
+      'Уведомления о заказе и смене статуса приходят сюда, если вы разрешили сообщения.',
+  );
+}
 
-  async onMain(c, chatId, tgUser) {
-    // /start без параметра: если есть привязки — сразу список, иначе онбординг.
-    if (c.baseUrl && c.anonKey && tgUser?.id) {
-      const stores = await getBuyerStores(c.baseUrl, c.anonKey, tgUser.id);
-      if (stores?.length) return this.sendShopList(c, chatId, stores);
-    }
-    return sendMessage(c.token, chatId,
-      '🛍 <b>Бот покупателя</b>\n\n' +
-      'Здесь живут все ваши магазины: заказы, статусы доставки и акции продавцов.\n\n' +
-      'Как начать:\n' +
-      '1️⃣ Получите у продавца ссылку-приглашение\n' +
-      '2️⃣ Перейдите по ней — витрина откроется сразу\n' +
-      '3️⃣ Она сохранится в /myshops, и сюда будут приходить уведомления',
-      {
-        inline_keyboard: [
-          [{ text: '📋 Мои магазины', callback_data: 'buyer_myshops' }],
-          [{ text: 'ℹ️ Как это работает', callback_data: 'buyer_how' }],
-        ],
-      });
-  },
+async function onCallback(q) {
+  const chatId = q.message?.chat?.id;
+  const messageId = q.message?.message_id;
+  const data = q.data || '';
+  const tgUser = q.from || {};
+  await answerCallback(BOT, q.id);
+  if (!chatId) return;
 
-  async onMyShops(c, chatId, tgUser, edit, messageId) {
-    const hasDb = c.baseUrl && c.anonKey;
-    if (!hasDb || !tgUser?.id) {
-      const text = '📋 <b>Мои магазины</b>\n\nПерейдите в магазин по ссылке-приглашению от продавца — он появится здесь.';
-      const kb = { inline_keyboard: [[{ text: 'ℹ️ Как это работает', callback_data: 'buyer_how' }]] };
-      return edit ? editMessage(c.token, chatId, messageId, text, kb) : sendMessage(c.token, chatId, text, kb);
-    }
-    const stores = await getBuyerStores(c.baseUrl, c.anonKey, tgUser.id);
-    if (!stores?.length) {
-      const text = '📋 <b>Мои магазины</b>\n\nПока пусто. Попросите у продавца ссылку-приглашение и перейдите по ней — магазин сохранится здесь.';
-      const kb = { inline_keyboard: [[{ text: 'ℹ️ Как это работает', callback_data: 'buyer_how' }]] };
-      return edit ? editMessage(c.token, chatId, messageId, text, kb) : sendMessage(c.token, chatId, text, kb);
-    }
-    if (edit) {
-      // editMessageText не может заменить сообщение на новое с web_app-кнопками для разных витрин
-      // надёжнее отправить свежим сообщением — Telegram сам покажет кнопки открытия.
-      await tg(c.token, 'deleteMessage', { chat_id: chatId, message_id: messageId }).catch(() => {});
-    }
-    return this.sendShopList(c, chatId, stores);
-  },
+  if (data === 'buyer_menu') return onMain(chatId, tgUser, { edit: true, messageId });
+  if (data === 'buyer_myshops') return onMyShops(chatId, tgUser, { edit: true, messageId });
+  if (data === 'buyer_orders' || data === 'buyer_orders_refresh') {
+    return onOrders(chatId, tgUser, { edit: true, messageId });
+  }
+  if (data === 'buyer_how') {
+    return editOrSend(BOT, chatId, messageId, buyerHowText(), buyerHowKeyboard());
+  }
+}
 
-  // Каждой витрине — своя кнопка web_app с её public_id (изоляция контекста на фронте).
-  async sendShopList(c, chatId, stores) {
-    const rows = stores.slice(0, 15).map((s) => ([
-      { text: `🛍️ ${s.name || 'Магазин'}`, web_app: { url: storeAppUrl(c.appUrl, s.public_id || s.id) } },
-    ]));
-    rows.push([{ text: 'ℹ️ Как это работает', callback_data: 'buyer_how' }]);
-    return sendMessage(c.token, chatId,
-      '📋 <b>Мои магазины</b>\n\nВыберите витрину. Корзина, заказы и избранное — свои в каждой.',
-      { inline_keyboard: rows });
-  },
+async function handleUpdate(update) {
+  if (update.callback_query) return onCallback(update.callback_query);
+  const msg = update.message || update.edited_message;
+  if (!msg?.chat?.id) return;
+  const chatId = msg.chat.id;
+  const tgUser = msg.from || {};
 
-  async onCallback(c, q) {
-    const chatId = q.message?.chat?.id;
-    const messageId = q.message?.message_id;
-    const data = q.data || '';
-    await answerCallback(c.token, q.id);
-    if (!chatId) return;
-    const tgUser = q.from || {};
+  // Пользователь разрешил боту писать (Mini App requestWriteAccess / Start-меню) —
+  // фиксируем флаг уведомлений и присылаем приветствие с меню.
+  if (msg.write_access_allowed) {
+    await markNotificationsEnabled(await resolveUserId(tgUser.id));
+    return onMain(chatId, tgUser, { granted: true });
+  }
 
-    if (data === 'buyer_myshops') return this.onMyShops(c, chatId, tgUser, true, messageId);
-    if (data === 'buyer_main') {
-      return editMessage(c.token, chatId, messageId,
-        '🛍 <b>Бот покупателя</b>\n\nВыберите действие:',
-        { inline_keyboard: [[{ text: '📋 Мои магазины', callback_data: 'buyer_myshops' }], [{ text: 'ℹ️ Как это работает', callback_data: 'buyer_how' }]] });
-    }
-    if (data === 'buyer_how') {
-      return editMessage(c.token, chatId, messageId,
-        'ℹ️ <b>Как это работает</b>\n\n' +
-        '1. Продавец создаёт витрину в <b>боте продавца</b> и присылает вам ссылку\n' +
-        '2. Вы переходите — попадаете в витрину (Direct Mini App с <code>?startapp=shop_...</code>)\n' +
-        '3. Корзина, заказы и избранное — отдельные в каждом магазине\n' +
-        '4. После оформления заказа Mini App предложит включить уведомления — это необязательно\n\n' +
-        'Без ссылки продавца попасть в чужую витрину нельзя.',
-        { inline_keyboard: [[{ text: '📋 Мои магазины', callback_data: 'buyer_myshops' }], [{ text: '⬅️ Назад', callback_data: 'buyer_main' }]] });
-    }
-  },
-};
+  const text = (msg.text || '').trim();
+  // Прочие сервисные сообщения (без текста) игнорируем.
+  if (!text) return;
 
-function escapeHtml(s) {
-  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  if (/^\/start(@\w+)?(\s|$)/.test(text)) {
+    const storeRef = extractStoreId(parseStartParam(text));
+    if (storeRef) return onStoreEntry(chatId, tgUser, storeRef);
+    return onMain(chatId, tgUser);
+  }
+  if (/^\/myshops(@\w+)?|^\/mystores(@\w+)?/.test(text)) {
+    return onMyShops(chatId, tgUser, {});
+  }
+  if (/^\/orders(@\w+)?(\s|$)/.test(text)) return onOrders(chatId, tgUser, {});
+  if (/^\/help(@\w+)?/.test(text)) return onHelp(chatId);
+  if (text.startsWith('/')) return onMain(chatId, tgUser);
+  return sendMessage(
+    BOT,
+    chatId,
+    '🔗 Чтобы попасть в магазин, нужна ссылка-приглашение от продавца.\n' +
+      'Если вы уже переходили по ссылкам — откройте /myshops.',
+  );
+}
+
+export default async function handler(request) {
+  if (request.method === 'OPTIONS') return preflight();
+  if (request.method !== 'POST') return methodNotAllowed();
+  if (!webhookAuthorized(request)) {
+    return json({ ok: false, error: 'forbidden' }, 403);
+  }
+  try {
+    const update = await request.json();
+    await handleUpdate(update);
+  } catch (e) {
+    console.error('[buyer-bot] handle error:', e);
+  }
+  return json({ ok: true });
 }

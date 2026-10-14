@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   /** Публичный URL или локальный blob-URL предпросмотра; пусто — нет баннера. */
@@ -10,6 +11,7 @@ interface Props {
 
 /** Загрузка/замена баннера магазина с предпросмотром. */
 export default function BannerUploader({ previewUrl, busy, onPick, onClear }: Props) {
+  const { t } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleChange = (file: File | undefined) => {
@@ -22,21 +24,26 @@ export default function BannerUploader({ previewUrl, busy, onPick, onClear }: Pr
       {previewUrl ? (
         <div style={styles.previewWrap}>
           <label style={styles.previewLabel}>
-            <img src={previewUrl} alt="Баннер магазина" style={styles.image} decoding="async" />
+            <img
+              src={previewUrl}
+              alt={t('seller.settings.banner.alt')}
+              style={styles.image}
+              decoding="async"
+            />
             <input
               ref={inputRef}
               type="file"
               accept="image/*"
               onChange={(e) => handleChange(e.target.files?.[0])}
               style={styles.hiddenInput}
-              aria-label="Заменить баннер"
+              aria-label={t('seller.settings.banner.replaceAria')}
             />
           </label>
           <button
             type="button"
             onClick={onClear}
             disabled={busy}
-            aria-label="Убрать баннер"
+            aria-label={t('seller.settings.banner.removeAria')}
             style={styles.clearButton}
           >
             ✕
@@ -45,14 +52,14 @@ export default function BannerUploader({ previewUrl, busy, onPick, onClear }: Pr
       ) : (
         <label style={styles.emptyLabel}>
           <span style={{ fontSize: 24, lineHeight: 1 }}>🖼️</span>
-          <span style={{ fontSize: 13, color: '#666' }}>Добавить баннер магазина</span>
+          <span style={{ fontSize: 13, color: '#666' }}>{t('seller.settings.banner.add')}</span>
           <input
             ref={inputRef}
             type="file"
             accept="image/*"
             onChange={(e) => handleChange(e.target.files?.[0])}
             style={styles.hiddenInput}
-            aria-label="Добавить баннер"
+            aria-label={t('seller.settings.banner.addAria')}
           />
         </label>
       )}

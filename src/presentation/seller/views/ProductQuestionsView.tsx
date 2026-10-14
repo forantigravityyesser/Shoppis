@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useParams } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import { useStore } from '../../../application/store';
 import { useSellerProductQuestions } from '../../../application/hooks/useSellerProductSocial';
 import { useQuestionActions } from '../../../application/hooks/useQuestionActions';
@@ -15,6 +16,7 @@ import '../../shared/product-social/product-social.css';
  * товара. Владелец видит вопросы и у архивных товаров. docs/14 §9 (PD-11c).
  */
 export default function ProductQuestionsView() {
+  const { t } = useTranslation();
   const { productId = '' } = useParams();
   const publicId = useStore((s) => s.currentStore?.publicId ?? null);
 
@@ -51,7 +53,7 @@ export default function ProductQuestionsView() {
   if (loading) {
     return (
       <div className="glass inv-state prod-tab-empty">
-        <p className="inv-state__title">Загрузка…</p>
+        <p className="inv-state__title">{t('common.loading')}</p>
       </div>
     );
   }
@@ -59,9 +61,9 @@ export default function ProductQuestionsView() {
   if (error) {
     return (
       <div className="glass inv-state prod-tab-empty">
-        <p className="inv-state__title">Не удалось загрузить вопросы.</p>
+        <p className="inv-state__title">{t('seller.questions.loadError')}</p>
         <button type="button" className="pd-retry" onClick={refresh}>
-          Повторить
+          {t('common.retry')}
         </button>
       </div>
     );
@@ -81,7 +83,7 @@ export default function ProductQuestionsView() {
                 disabled={actions.pending}
                 onClick={() => void handleDelete(question.id)}
               >
-                Удалить вопрос
+                {t('seller.questions.delete')}
               </button>
             );
 
@@ -90,7 +92,7 @@ export default function ProductQuestionsView() {
                 <div className="pd-reply-form">
                   <textarea
                     className="pd-compose__input"
-                    placeholder="Ответ покупателю"
+                    placeholder={t('seller.questions.answerPlaceholder')}
                     value={answerText}
                     maxLength={2000}
                     rows={2}
@@ -104,7 +106,7 @@ export default function ProductQuestionsView() {
                       disabled={actions.pending}
                       onClick={() => void handleAnswer(question.id)}
                     >
-                      Ответить
+                      {t('seller.questions.answer')}
                     </button>
                     <button
                       type="button"
@@ -114,7 +116,7 @@ export default function ProductQuestionsView() {
                         setAnswerText('');
                       }}
                     >
-                      Отмена
+                      {t('common.cancel')}
                     </button>
                   </div>
                 </div>
@@ -129,7 +131,7 @@ export default function ProductQuestionsView() {
                         setAnswerText('');
                       }}
                     >
-                      Ответить
+                      {t('seller.questions.answer')}
                     </button>
                   ) : null}
                   {deleteButton}
@@ -140,7 +142,7 @@ export default function ProductQuestionsView() {
           })}
         </div>
       ) : (
-        <p className="pd-reviews__empty">Пока нет вопросов</p>
+        <p className="pd-reviews__empty">{t('seller.questions.empty')}</p>
       )}
     </div>
   );

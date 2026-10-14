@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import { PackagePlus } from 'lucide-react';
 import { useInventoryActions } from '../../../../application/hooks/useInventoryActions';
 import { useProductDetail } from '../../../../application/hooks/useProduct';
@@ -14,6 +15,7 @@ import StockControlSheet from './StockControlSheet';
 
 /** Вкладка «Карточка»: сводка остатков, варианты, атрибуты, показатели и действия. */
 export default function ProductOverview() {
+  const { t } = useTranslation();
   const { productId = '' } = useParams();
   const navigate = useNavigate();
   const { product } = useProductDetail(productId);
@@ -48,7 +50,7 @@ export default function ProductOverview() {
       setStatusError(
         e instanceof ProductStatusError
           ? { code: e.code, message: e.message }
-          : { code: 'UNKNOWN', message: 'Не удалось изменить статус. Попробуйте ещё раз.' },
+          : { code: 'UNKNOWN', message: t('seller.product.overview.statusError') },
       );
     } finally {
       setPending(null);
@@ -66,7 +68,7 @@ export default function ProductOverview() {
       navigate('/seller/inventory');
     } catch (e) {
       console.error('[inventory] deleteProduct failed', e);
-      setDeleteError('Не удалось удалить товар. Попробуйте ещё раз.');
+      setDeleteError(t('seller.product.overview.deleteError'));
       setDeleting(false);
     }
   };
@@ -77,11 +79,11 @@ export default function ProductOverview() {
         <div className="prod-stats">
           <div className="prod-stat">
             <span className="prod-stat__value">{product.stockAvailable}</span>
-            <span className="prod-stat__label">В наличии</span>
+            <span className="prod-stat__label">{t('seller.product.overview.inStock')}</span>
           </div>
           <div className="prod-stat">
             <span className="prod-stat__value">{product.stockHeld}</span>
-            <span className="prod-stat__label">В ожидании</span>
+            <span className="prod-stat__label">{t('seller.product.overview.held')}</span>
           </div>
         </div>
         <button
@@ -93,14 +95,14 @@ export default function ProductOverview() {
           }}
         >
           <PackagePlus size={16} />
-          <span>Контроль остатков</span>
+          <span>{t('seller.product.overview.stockControl')}</span>
         </button>
       </section>
 
       <section className="glass prod-panel">
-        <div className="card__title">Варианты</div>
+        <div className="card__title">{t('seller.product.overview.variants')}</div>
         {product.variants.length === 0 ? (
-          <div className="card__muted">Нет вариантов</div>
+          <div className="card__muted">{t('seller.product.overview.noVariants')}</div>
         ) : (
           <div className="prod-variants">
             {product.variants.map((v) => (
@@ -114,9 +116,13 @@ export default function ProductOverview() {
                   </span>
                 </div>
                 <div className="prod-variant__stock">
-                  <span className="prod-variant__avail">{v.availableQuantity} шт.</span>
+                  <span className="prod-variant__avail">
+                    {t('seller.product.overview.availableCount', { count: v.availableQuantity })}
+                  </span>
                   {v.heldQuantity > 0 ? (
-                    <span className="prod-variant__held">{v.heldQuantity} в ожидании</span>
+                    <span className="prod-variant__held">
+                      {t('seller.product.overview.heldCount', { count: v.heldQuantity })}
+                    </span>
                   ) : null}
                 </div>
               </div>
@@ -127,7 +133,7 @@ export default function ProductOverview() {
 
       {product.attributes.length > 0 ? (
         <section className="glass prod-panel">
-          <div className="card__title">Характеристики</div>
+          <div className="card__title">{t('seller.product.overview.features')}</div>
           {product.attributes.map((a, index) => (
             <div className="row" key={`${a.name}-${index}`}>
               <span className="row__label">{a.name}</span>
@@ -150,7 +156,7 @@ export default function ProductOverview() {
                   disabled={pending !== null}
                   onClick={() => void changeStatus(lastStatus)}
                 >
-                  Повторить
+                  {t('common.retry')}
                 </button>
               </>
             ) : null}
@@ -165,7 +171,9 @@ export default function ProductOverview() {
               disabled={!canPublish || pending === 'publish'}
               onClick={publish}
             >
-              {pending === 'publish' ? 'Публикация…' : 'Вернуть на витрину'}
+              {pending === 'publish'
+                ? t('seller.product.overview.publishing')
+                : t('seller.product.overview.publish')}
             </button>
           ) : (
             <button
@@ -174,16 +182,20 @@ export default function ProductOverview() {
               disabled={pending === 'archive'}
               onClick={archive}
             >
-              {pending === 'archive' ? 'В архив…' : 'В архив'}
+              {pending === 'archive'
+                ? t('seller.product.overview.archiving')
+                : t('seller.product.overview.archive')}
             </button>
           )}
           <button type="button" className="btn-ghost" onClick={() => navigate(`${base}/edit`)}>
-            Редактировать
+            {t('seller.product.overview.edit')}
           </button>
         </div>
         {archived ? (
           <button type="button" className="prod-remove" disabled={deleting} onClick={() => void remove()}>
-            {deleting ? 'Удаление…' : 'Удалить из архива'}
+            {deleting
+              ? t('seller.inventory.editCategory.deleting')
+              : t('seller.product.overview.deleteFromArchive')}
           </button>
         ) : null}
         {deleteError ? (
@@ -192,10 +204,7 @@ export default function ProductOverview() {
           </p>
         ) : null}
         {!canPublish ? (
-          <p className="prod-hint">
-            Добавьте хотя бы один вариант выбора при заказе (размер/объём), чтобы выставить товар на
-            витрину.
-          </p>
+          <p className="prod-hint">{t('seller.product.overview.publishHint')}</p>
         ) : null}
       </section>
 

@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next';
+
 interface Props {
   text: string;
   confirmLabel?: string;
@@ -15,15 +17,16 @@ interface Props {
  */
 export default function OrderConfirm({
   text,
-  confirmLabel = 'Подтвердить',
-  cancelLabel = 'Отмена',
+  confirmLabel,
+  cancelLabel,
   pending = false,
   error,
   onConfirm,
   onCancel,
 }: Props) {
+  const { t } = useTranslation();
   return (
-    <div className="order-confirm" role="group" aria-label="Подтверждение действия" aria-busy={pending}>
+    <div className="order-confirm" role="group" aria-label={t('orders.confirmAria')} aria-busy={pending}>
       <p className="order-confirm__text">{text}</p>
       {error ? (
         <p className="order-confirm__error" role="alert">
@@ -37,7 +40,7 @@ export default function OrderConfirm({
           onClick={onCancel}
           disabled={pending}
         >
-          {cancelLabel}
+          {cancelLabel ?? t('common.cancel')}
         </button>
         <button
           type="button"
@@ -45,7 +48,7 @@ export default function OrderConfirm({
           onClick={onConfirm}
           disabled={pending}
         >
-          {confirmLabel}
+          {confirmLabel ?? t('common.confirm')}
         </button>
       </div>
     </div>

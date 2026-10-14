@@ -4,9 +4,10 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 
-const { useBuyerCart, useCheckout, state } = vi.hoisted(() => ({
+const { useBuyerCart, useCheckout, useStorefrontHome, state } = vi.hoisted(() => ({
   useBuyerCart: vi.fn(),
   useCheckout: vi.fn(),
+  useStorefrontHome: vi.fn(),
   state: {
     viewedStore: { publicId: 'pub1', name: 'Shop', supportHandle: 'john' } as null | {
       publicId: string;
@@ -19,6 +20,7 @@ const { useBuyerCart, useCheckout, state } = vi.hoisted(() => ({
 
 vi.mock('../../../application/hooks/useBuyerCart', () => ({ useBuyerCart }));
 vi.mock('../../../application/hooks/useCheckout', () => ({ useCheckout }));
+vi.mock('../../../application/hooks/useStorefrontHome', () => ({ useStorefrontHome }));
 vi.mock('../../../application/hooks/useHaptic', () => ({
   useHaptic: () => ({ selectTick: vi.fn() }),
 }));
@@ -31,17 +33,32 @@ import type { BuyerCartState } from '../../../application/hooks/useBuyerCart';
 import type { CheckoutState } from '../../../application/hooks/useCheckout';
 import type { ReconciledCartItem } from '../../../application/services/cart-reconciliation';
 import type { CartItemView } from '../../../application/read-models/cart';
-import type { StorefrontStore } from '../../../application/read-models/storefront';
+import type { StorefrontHome, StorefrontStore } from '../../../application/read-models/storefront';
+import type { StorefrontHomeState } from '../../../application/hooks/useStorefrontHome';
 
 const STORE: StorefrontStore = {
   id: 's1',
   publicId: 'pub1',
   name: 'Shop',
+  description: null,
   bannerUrl: null,
   status: 'ACTIVE',
   currencyCode: 'USD',
   currencySymbol: '$',
 };
+
+const HOME: StorefrontHome = { store: STORE, categories: [] };
+
+function contextState(overrides: Partial<StorefrontHomeState> = {}): StorefrontHomeState {
+  return {
+    home: HOME,
+    loading: false,
+    error: null,
+    notFound: false,
+    refresh: vi.fn(),
+    ...overrides,
+  };
+}
 
 function view(overrides: Partial<CartItemView> = {}): CartItemView {
   return {
@@ -147,7 +164,9 @@ function renderCart() {
 beforeEach(() => {
   useBuyerCart.mockReset();
   useCheckout.mockReset();
+  useStorefrontHome.mockReset();
   useCheckout.mockReturnValue(checkoutState());
+  useStorefrontHome.mockReturnValue(contextState());
   state.viewedStore = { publicId: 'pub1', name: 'Shop', supportHandle: 'john' };
   state.serverUser = null;
 });
@@ -323,14 +342,24 @@ describe('CartView', () => {
     expect(screen.getByRole('button', { name: /Оформить заказ/ })).toBeDisabled();
   });
 
-  it('PAUSED: уведомление и заблокированный CTA', () => {
-    useBuyerCart.mockReturnValue(
-      cartState({ storePaused: true, canCheckout: false, items: [entry()] }),
+  it('PAUSED: корзина закрыта тем же экраном, что Home/Каталог', () => {
+    useBuyerCart.mockReturnValue(cartState({ storePaused: true, canCheckout: false }));
+    useStorefrontHome.mockReturnValue(
+      contextState({
+        home: { ...HOME, store: { ...STORE, status: 'PAUSED' } },
+      }),
     );
     renderCart();
-    expect(
-      screen.getByText('Магазин временно недоступен для оформления заказов.'),
-    ).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Оформить заказ/ })).toBeDisabled();
+
+    expect(screen.getByText('Магазин временно закрыт')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Оформить заказ/ })).not.toBeInTheDocument();
+  });
+
+  it('магазин не найден: экран «Магазин не найден»', () => {
+    useBuyerCart.mockReturnValue(cartState());
+    useStorefrontHome.mockReturnValue(contextState({ home: null, notFound: true }));
+    renderCart();
+
+    expect(screen.getByText('Магазин не найден')).toBeInTheDocument();
   });
 });

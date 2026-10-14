@@ -1,4 +1,6 @@
 import { Shapes } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { UNCATEGORIZED_ID } from '../../../../domain/constants/categories';
 import type {
   InventoryCategoryItem,
   InventoryProductItem,
@@ -28,6 +30,7 @@ export default function InventoryCategoryRow({
   position,
   onReorder,
 }: InventoryCategoryRowProps) {
+  const { t } = useTranslation();
   return (
     <article className="inv-cat" onClick={onOpen}>
       <div className="inv-cat__head">
@@ -44,7 +47,11 @@ export default function InventoryCategoryRow({
             <Shapes size={16} strokeWidth={2} />
           )}
         </span>
-        <span className="inv-cat__name">{category.name}</span>
+        <span className="inv-cat__name">
+          {category.id === UNCATEGORIZED_ID
+            ? t('seller.inventory.categoryPicker.uncategorized')
+            : category.name}
+        </span>
         {position && onReorder ? (
           <button
             type="button"
@@ -53,7 +60,7 @@ export default function InventoryCategoryRow({
               e.stopPropagation();
               onReorder();
             }}
-            aria-label={`Позиция ${position} в каталоге. Изменить`}
+            aria-label={t('seller.inventory.positionAria', { position })}
           >
             {position}
           </button>
@@ -61,9 +68,15 @@ export default function InventoryCategoryRow({
         <span className="inv-cat__count">
           {category.productCount}
           {category.archivedCount > 0 ? (
-            <span className="inv-cat__archived" title={`${category.archivedCount} в архиве`}>
+            <span
+              className="inv-cat__archived"
+              title={t('seller.inventory.archivedCount', { count: category.archivedCount })}
+            >
               +{category.archivedCount}
-              <span className="inv-cat__archived-word"> в архиве</span>
+              <span className="inv-cat__archived-word">
+                {' '}
+                {t('seller.inventory.archived')}
+              </span>
             </span>
           ) : null}
         </span>
@@ -71,7 +84,7 @@ export default function InventoryCategoryRow({
 
       {previewProducts.length === 0 ? (
         <div className="inv-cat__empty">
-          <span className="inv-cat__empty-text">Пока нет товаров</span>
+          <span className="inv-cat__empty-text">{t('seller.inventory.noProducts')}</span>
           <button
             type="button"
             className="inv-cat__empty-add"
@@ -80,7 +93,7 @@ export default function InventoryCategoryRow({
               onAddProduct();
             }}
           >
-            + Добавить товар
+            + {t('seller.inventory.addProduct')}
           </button>
         </div>
       ) : (

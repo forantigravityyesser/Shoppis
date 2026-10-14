@@ -1,4 +1,5 @@
 import { AnimatePresence, motion as Motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   /** Кнопка видна только когда у блока есть несохранённые изменения. */
@@ -9,6 +10,7 @@ interface Props {
 
 /** Локальная кнопка сохранения блока: плавно появляется при изменениях. 12 §3, §7. */
 export default function BlockSaveButton({ visible, saving, onClick }: Props) {
+  const { t } = useTranslation();
   return (
     <AnimatePresence initial={false}>
       {visible ? (
@@ -26,7 +28,7 @@ export default function BlockSaveButton({ visible, saving, onClick }: Props) {
             cursor: saving ? 'default' : 'pointer',
           }}
         >
-          {saving ? 'Сохранение…' : 'Сохранить'}
+          {saving ? t('common.saving') : t('common.save')}
         </Motion.button>
       ) : null}
     </AnimatePresence>

@@ -67,12 +67,15 @@ export default async function (request) {
 
     const { data: found, error: findError } = await client.database
       .from('telegram_identities')
-      .select('user_id')
+      .select('user_id, notifications_enabled')
       .eq('telegram_user_id', telegramUserId)
       .limit(1);
     if (findError) throw findError;
 
     let userId = found?.[0]?.user_id;
+    // Server — source of truth согласия на уведомления: клиент не должен держать
+    // его в своём persist, иначе после сброса флага в БД UI остаётся «включено».
+    let notificationsEnabled = found?.[0]?.notifications_enabled === true;
 
     if (userId) {
       const { error } = await client.database
@@ -93,6 +96,8 @@ export default async function (request) {
         .from('telegram_identities')
         .insert([{ user_id: userId, telegram_user_id: telegramUserId, ...identityPatch }]);
       if (identityError) throw identityError;
+      // Новый identity: согласие по умолчанию отсутствует.
+      notificationsEnabled = false;
     }
 
     const now = Math.floor(Date.now() / 1000);
@@ -112,6 +117,7 @@ export default async function (request) {
         firstName: tgUser.first_name || '',
         languageCode: tgUser.language_code || '',
         photoUrl: tgUser.photo_url || '',
+        notificationsEnabled,
       },
     });
   } catch (e) {

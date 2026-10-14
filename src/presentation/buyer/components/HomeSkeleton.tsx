@@ -11,6 +11,7 @@ export default function HomeSkeleton() {
         <div className="home-skel__actions">
           <div className="skel skel--btn" />
           <div className="skel skel--btn" />
+          <div className="skel skel--btn" />
         </div>
       </div>
       <div className="home-skel__sheet">

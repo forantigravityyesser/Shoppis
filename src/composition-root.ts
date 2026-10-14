@@ -10,6 +10,7 @@ import { configureDependencies, type AppContainer } from './application/composit
 import * as productRepository from './infrastructure/repositories/product-repository';
 import * as categoryRepository from './infrastructure/repositories/category-repository';
 import * as orderRepository from './infrastructure/repositories/order-repository';
+import * as sellerDashboardRepository from './infrastructure/repositories/seller-dashboard-repository';
 import * as orderRealtime from './infrastructure/realtime/order-realtime';
 import * as storefrontRepository from './infrastructure/repositories/storefront-repository';
 import * as storefrontProductRepository from './infrastructure/repositories/storefront-product-repository';
@@ -27,6 +28,7 @@ import {
   fetchStoresByOwnerTelegram,
 } from './infrastructure/repositories/store-repository.dev';
 import * as storage from './infrastructure/storage/file-storage';
+import * as shareImage from './infrastructure/storage/share-image';
 import * as imageUpload from './infrastructure/storage/image-upload';
 import * as authApi from './infrastructure/functions/auth-api';
 import * as shopApi from './infrastructure/functions/shop-api';
@@ -34,6 +36,8 @@ import * as storeSettingsApi from './infrastructure/functions/store-settings-api
 import * as checkoutApi from './infrastructure/functions/checkout-api';
 import * as orderApi from './infrastructure/functions/order-api';
 import * as notificationApi from './infrastructure/functions/notification-api';
+import * as shareApi from './infrastructure/functions/share-api';
+import * as storeVisitApi from './infrastructure/functions/store-visit-api';
 import * as reviewApi from './infrastructure/functions/review-api';
 import * as questionApi from './infrastructure/functions/question-api';
 import * as identity from './infrastructure/auth/identity-provider';
@@ -47,12 +51,13 @@ const container: AppContainer = {
   categoryRepository,
   orderRepository,
   orderRealtime,
+  sellerDashboardRepository,
   storefrontRepository,
   storefrontProductRepository,
   sellerProductSocialRepository,
   storefrontCatalogRepository,
   cartRepository,
-  storage,
+  storage: { ...storage, ensureShareImage: shareImage.ensureShareImage },
   imageUpload,
   authApi,
   shopApi,
@@ -60,6 +65,8 @@ const container: AppContainer = {
   checkoutApi,
   orderApi,
   notificationApi,
+  storeVisitApi,
+  shareApi,
   reviewApi,
   questionApi,
   identity,
@@ -78,6 +85,7 @@ const container: AppContainer = {
     getBuyerBotUsername: telegramApp.getBuyerBotUsername,
     getBuyerAppShortname: telegramApp.getBuyerAppShortname,
     openTelegramLink: telegramApp.openTelegramLink,
+    sharePreparedMessage: telegramShare.sharePreparedMessage,
     requestMessagesAccess: telegramShare.requestMessagesAccess,
     getViewportSnapshot: telegramApp.getViewportSnapshot,
     subscribeViewport: telegramApp.subscribeViewport,

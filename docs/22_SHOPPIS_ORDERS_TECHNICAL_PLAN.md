@@ -403,8 +403,33 @@ interface OrderListItem {
 
 ### 5.10 Notifications и чат
 
-- Уведомления — существующий механизм (`process-checkout`, `order-actions`, гейт
-  `notifications_enabled`); failure не ломает заказ (best-effort).
+- Уведомления — единый механизм: тексты/получатели в `edge-functions/_shared/order-notify.js`
+  (`resolveOrderNotifications` → кто и что; `formatOrderNotification` → HTML + контакт),
+  отправка — `_shared/telegram.notify`. Триггеры: `process-checkout` (оформление:
+  buyer+seller), `order-actions` (смена статуса/итог вручения/отмена), `notifications-actions`
+  (досыл «Заказ оформлен» после opt-in). Гейт покупателя — `notifications_enabled`
+  (seller-письма шлются всегда); failure не ломает заказ (best-effort).
+- Событийная матрица (buyer/seller, эмодзи-стиль, RU-тексты):
+
+  | Событие | Buyer | Seller |
+  |---|---|---|
+  | Оформление (`ORDER_CREATED`) | ✅ | ✅ |
+  | → В пути (`STATUS_IN_TRANSIT`) | ✅ | — |
+  | → Доставлено (`STATUS_DELIVERED`) | ✅ | — |
+  | Забрал (`OUTCOME_RECEIVED`) | ✅ | — |
+  | Отказ (`OUTCOME_REFUSED`, текст по причине) | ✅ | — |
+  | Отмена покупателем (`BUYER_CANCELLED`) | ✅ | ✅ |
+  | Отмена продавцом (`SELLER_CANCELLED`) | ✅ | — |
+
+- Контакт в письме — inline-кнопка `t.me/<handle>`: покупателю «💬 Написать продавцу»
+  (публичный `stores.support_handle`, во всех его письмах); продавцу «💬 Написать покупателю»
+  (TG-снимок покупателя, в «Новый заказ»). Невалидный/отсутствующий контакт → кнопки и
+  строки-подсказки нет (само письмо шлётся). Суммы в письмах — `minor/100`.
+- Состав данных в письме (`_shared/order-context.js` грузит снапшоты best-effort):
+  покупателю в «оформлен»/«в пути»/«доставлено» — позиции (название — размер × N — сумма,
+  до `MAX_ITEMS_IN_MESSAGE=8`, далее «… и ещё K»), «Итого» и блок «Доставка»
+  (получатель/телефон/адрес) для сверки; продавцу в «Новый заказ» — позиции (название + размер,
+  без сумм) вместо голого счётчика. Пользовательские данные экранируются (`&`/`<`/`>`).
 - In-app центра уведомлений нет; in-app чата нет — контакт только через внешний Telegram-flow.
 
 ### 5.11 Non-goals этапа
@@ -867,6 +892,29 @@ backoff, `onResync`-сверка после реконнекта; деталь �
 Гейты: `typecheck` ✅ · `lint` ✅ (0 errors) · `test` 1081/1081 ✅ · `build` ✅ ·
 `migrations:check` 0001..0052 ✅ · `commerce:harness` 143/143 ✅. Ручные `LOCAL`/`TELEGRAM` — за
 человеком (см. `24 §9`). Текущий номер миграции — `0052`; следующие — с `0053`.
+
+### ORD-HARDEN-13 — качественные письма уведомлений по заказам ✅ (2026-10-11)
+
+Единый источник текстов/получателей: `edge-functions/_shared/order-notify.js` (чистые функции,
+без сети) + тесты `_shared/order-notify.test.js`. Триггеры `process-checkout` (оформление →
+buyer+seller), `order-actions` (смена статуса/итог вручения/отмена → buyer и, где нужно, seller),
+`notifications-actions` (досыл после opt-in) переведены с захардкоженных строк на builder.
+
+- **Событийная матрица** (см. `§5.10`): `ORDER_CREATED`, `STATUS_IN_TRANSIT`, `STATUS_DELIVERED`,
+  `OUTCOME_RECEIVED`, `OUTCOME_REFUSED` (текст по причине отказа), `BUYER_CANCELLED` (buyer+seller),
+  `SELLER_CANCELLED` (buyer). Отмену продавцом теперь тоже видит покупатель.
+- **Контакт в письме** — inline-кнопка `t.me/<handle>`: buyer→«Написать продавцу»
+  (`stores.support_handle`, во всех его письмах); seller→«Написать покупателю» (TG-снимок
+  покупателя, в «Новый заказ»). Валидация username — edge-дубль `store-contact-rules`.
+- **`_shared/telegram.js`**: `storeReplyMarkup(bot, publicId, contact)` — опциональная вторая строка
+  контакта (обратносовместимо). `order-actions` резолвит получателей/сумму/контакт через
+  `adminClient` (нужен `stores.owner_telegram_id`). Суммы — `minor/100`. Убраны мёртвые
+  `templates` в `telegram-notify.js`.
+- **Состав/доставка в письмах** (`order-context.js` + `formatOrderNotification.items/delivery`):
+  покупателю — позиции/итого/доставка (сверка), продавцу — позиции (название + размер).
+- Тесты: `order-notify.test.js` (24) + `order-context.test.js` (6). Гейты: `typecheck` ✅ ·
+  `lint` ✅ · `test` 1114/1114 ✅ · `build:edge` ✅. Edge `order-actions`/`process-checkout`/
+  `notifications-actions` пересобраны и задеплоены.
 
 ---
 

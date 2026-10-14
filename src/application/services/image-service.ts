@@ -32,6 +32,20 @@ export async function uploadCatalogImages(files: File[]): Promise<InventoryImage
   }
 }
 
+/**
+ * Use Case удаления фото каталога из Storage (best-effort, ошибки не пробрасываются).
+ * Единственная точка входа для presentation при очистке «сирот»: фото, снятые с формы
+ * или оставшиеся в так и не сохранённом черновике, удаляются вместе с миниатюрой.
+ */
+export function removeCatalogImages(
+  images: Array<InventoryImageItem | null | undefined>,
+): Promise<void> {
+  const urls = images
+    .filter((image): image is InventoryImageItem => Boolean(image))
+    .flatMap((image) => [image.url, image.thumbUrl]);
+  return deps().storage.removeFilesByUrl(urls);
+}
+
 /** Обложка категории: компактный квадрат, возвращает публичный URL. */
 export function uploadCategoryCoverImage(file: File): Promise<string> {
   return deps().imageUpload.uploadCategoryCover(file);

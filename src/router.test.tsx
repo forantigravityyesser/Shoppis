@@ -20,6 +20,7 @@ vi.mock('./application/hooks/useHaptic', () => ({
 
 vi.mock('./application/hooks/useStorefrontLink', () => ({
   useStorefrontLink: () => 'https://t.me/bot?startapp=shop_pub1',
+  useStorefrontProductLink: () => 'https://t.me/bot?startapp=prod_pub1_p1',
 }));
 
 vi.mock('./application/hooks/useOpenTelegramLink', () => ({

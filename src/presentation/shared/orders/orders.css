@@ -565,6 +565,87 @@
   cursor: default;
 }
 
+/* ---- Оверлей смены статуса (продавец) ---- */
+.order-transition {
+  --order-transition-accent: var(--color-accent);
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-3);
+  padding: var(--spacing-6);
+  background: var(--color-bg-card);
+  text-align: center;
+}
+
+.order-transition--transit {
+  --order-transition-accent: #0066cc;
+}
+
+.order-transition--delivered,
+.order-transition--received {
+  --order-transition-accent: #1a7f4b;
+}
+
+.order-transition--cancelled {
+  --order-transition-accent: var(--color-danger);
+}
+
+.order-transition--refused {
+  --order-transition-accent: #c25a00;
+}
+
+.order-transition__ring {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 120px;
+  height: 120px;
+  border-radius: var(--radius-full);
+  background: var(--order-transition-accent);
+  pointer-events: none;
+  animation: order-transition-pulse 1.2s ease-out infinite;
+}
+
+.order-transition__icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 88px;
+  height: 88px;
+  border-radius: var(--radius-full);
+  color: var(--order-transition-accent);
+  background: color-mix(in srgb, var(--order-transition-accent) 14%, transparent);
+}
+
+.order-transition__label {
+  position: relative;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+@keyframes order-transition-pulse {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.35;
+  }
+  100% {
+    transform: scale(1.15);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .order-transition__ring {
+    animation: none;
+  }
+}
+
 /* ---- Скелетоны ---- */
 .order-skeleton {
   display: flex;
@@ -854,4 +935,48 @@
 .order-refuse__label {
   font-size: var(--font-size-md);
   color: var(--color-text-primary);
+}
+
+/* ---- Продажи (docs/25 §4.3): цвет суммы + секции экрана ---- */
+
+.order-card__total--earned {
+  color: var(--color-success);
+}
+
+.order-card__total--potential {
+  color: var(--color-warning);
+}
+
+.sales-section {
+  margin-bottom: var(--spacing-5);
+}
+
+.sales-section__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--spacing-3);
+  margin-bottom: var(--spacing-3);
+}
+
+.sales-section__title {
+  margin: 0;
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.sales-section__sum {
+  font-size: var(--font-size-xl);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+
+.sales-section__sum--earned {
+  color: var(--color-success);
+}
+
+.sales-section__sum--potential {
+  color: var(--color-warning);
 }

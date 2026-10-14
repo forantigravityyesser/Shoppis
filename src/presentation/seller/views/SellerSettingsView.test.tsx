@@ -14,6 +14,8 @@ const mockState = {
   authLoading: false,
   fetchCurrentStore: vi.fn(),
   updateStoreStatus: vi.fn(),
+  userSettings: { language: 'ru' as const },
+  setLanguage: vi.fn(),
 };
 
 vi.mock('react-router', async (importOriginal) => {

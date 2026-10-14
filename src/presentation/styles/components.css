@@ -58,6 +58,36 @@
   background: #333;
 }
 
+/* Кликабельный тост (напр. «Добавлено в корзину» → переход в корзину):
+   раскладку/паддинги несёт внутренняя кнопка, чтобы клик ловился по всей капсуле. */
+.toast--action {
+  padding: 0;
+}
+
+.toast__action {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px 8px 8px;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.toast__action:active {
+  opacity: 0.85;
+}
+
+.toast__action:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
 .toast__icon {
   flex: 0 0 auto;
   color: #4ade80;
@@ -68,6 +98,34 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* ---- Flying card (сердце → таб «Избранное») — анимация через framer-motion ---- */
+.fly-card {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 70;
+  border-radius: 7px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.22);
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+.fly-card__img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.fly-card__fallback {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(145deg, #efeafb 0%, #e6e4f4 50%, #ecedf7 100%);
 }
 
 /* ---- ProductCard (buyer) — стили в presentation/buyer/home.css ---- */
@@ -204,6 +262,28 @@
   to {
     transform: rotate(360deg);
   }
+}
+
+/* ---- ScreenLoader (Suspense-fallback при переходах на lazy-экраны) ---- */
+.screen-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-3);
+  min-height: 50vh;
+  padding: var(--spacing-6);
+  text-align: center;
+}
+
+.screen-loader--compact {
+  min-height: 160px;
+  padding: var(--spacing-5);
+}
+
+.screen-loader__label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
 }
 
 /* CartItemCard стилизуется в presentation/buyer/cart.css (docs/18);

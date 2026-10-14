@@ -1093,6 +1093,8 @@ CartEmptyState
 - ✅ Серверный гейт `process-checkout` (`notifications_enabled`) и тот же гейт в `order-actions`
   (buyer-status notify); seller-notify — всегда. `notifications-actions`/`order-actions` edge
   пересобраны (`npm run build:edge`) и **задеплоены**.
+- ✅ Тексты/получатели вынесены в `_shared/order-notify.js` (событийная матрица, контакт-кнопки) —
+  см. `22 §5.10` + `ORD-HARDEN-13` (2026-10-11). Досыл «Заказ оформлен» идёт через тот же builder.
 - ✅ `04 §11` переписан под новый порядок. Тесты: `useCheckout` (10), `CheckoutSuccess` (6),
   `notification-api` (4), `telegram-share` (6), `order-slice` (9), `CartView` (12). Гейты зелёные —
   **768/768**, `build`/`build:edge` ✅.

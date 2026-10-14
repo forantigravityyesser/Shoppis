@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Send, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { normalizeTelegramUsername } from '../../../domain/rules/store-contact-rules';
 import type { Store } from '../../../domain/models/store';
 import type { StoreProfilePatch } from '../../../application/contracts/store';
@@ -12,13 +13,12 @@ interface Props {
   onSave: (patch: StoreProfilePatch) => Promise<void>;
 }
 
-const INVALID_MESSAGE = 'Введите username, @username или ссылку t.me/…';
-
 /**
  * Блок связи с покупателями. Контакт — общий (продавец/менеджер/бот); храним
  * чистый username, на blur/save нормализуем `@user` / `t.me/user` → `user`. 12 §4.3.
  */
 export default function CommunicationBlock({ store, suggestedUsername, onSave }: Props) {
+  const { t } = useTranslation();
   const [handle, setHandle] = useState(store.supportHandle);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,7 +45,7 @@ export default function CommunicationBlock({ store, suggestedUsername, onSave }:
       return;
     }
     if (!normalized.valid) {
-      setError(INVALID_MESSAGE);
+      setError(t('seller.settings.communication.invalid'));
       return;
     }
     setHandle(normalized.username);
@@ -76,7 +76,7 @@ export default function CommunicationBlock({ store, suggestedUsername, onSave }:
   const save = async () => {
     if (saving) return;
     if (!valid) {
-      setError(INVALID_MESSAGE);
+      setError(t('seller.settings.communication.invalid'));
       return;
     }
 
@@ -96,10 +96,8 @@ export default function CommunicationBlock({ store, suggestedUsername, onSave }:
 
   return (
     <section className="card">
-      <div className="card__title">Связь с покупателями</div>
-      <p style={styles.hint}>
-        Контакт для связи: продавец, менеджер или бот. Покупатель откроет диалог по кнопке.
-      </p>
+      <div className="card__title">{t('seller.settings.communication.title')}</div>
+      <p style={styles.hint}>{t('seller.settings.communication.hint')}</p>
 
       <div style={styles.inputRow}>
         <span style={styles.icon} aria-hidden="true">
@@ -107,8 +105,8 @@ export default function CommunicationBlock({ store, suggestedUsername, onSave }:
         </span>
         <input
           type="text"
-          aria-label="Контакт для связи"
-          placeholder="@username или t.me/username"
+          aria-label={t('seller.settings.communication.inputAria')}
+          placeholder={t('seller.settings.communication.placeholder')}
           value={handle}
           onChange={(e) => {
             setHandle(e.target.value);
@@ -121,7 +119,7 @@ export default function CommunicationBlock({ store, suggestedUsername, onSave }:
           <button
             type="button"
             onClick={clear}
-            aria-label="Очистить контакт"
+            aria-label={t('seller.settings.communication.clearAria')}
             style={styles.clearButton}
           >
             <X size={16} />
@@ -135,18 +133,20 @@ export default function CommunicationBlock({ store, suggestedUsername, onSave }:
         disabled={saving || !suggestedUsername}
         style={{ ...styles.prefill, ...(suggestedUsername ? null : styles.prefillDisabled) }}
       >
-        {suggestedUsername ? `Подставить мой @${suggestedUsername}` : 'Подставить мой @username'}
+        {suggestedUsername
+          ? t('seller.settings.communication.prefillWith', { username: suggestedUsername })
+          : t('seller.settings.communication.prefillGeneric')}
       </button>
 
       {valid && draftValue ? (
         <div style={styles.previewRow}>
           <span style={styles.preview}>
-            Ссылка для покупателей:{' '}
+            {t('seller.settings.communication.linkLabel')}{' '}
             <a
               href={`https://t.me/${draftValue}`}
               target="_blank"
               rel="noopener noreferrer"
-              aria-label="Открыть контакт в Telegram"
+              aria-label={t('seller.settings.communication.openAria')}
               style={styles.link}
             >
               t.me/{draftValue}
@@ -155,10 +155,10 @@ export default function CommunicationBlock({ store, suggestedUsername, onSave }:
           <button
             type="button"
             onClick={() => void copy()}
-            aria-label="Копировать контакт"
+            aria-label={t('seller.settings.communication.copyAria')}
             style={styles.copyButton}
           >
-            {copied ? 'Скопировано' : 'Копировать'}
+            {copied ? t('common.copied') : t('common.copy')}
           </button>
         </div>
       ) : null}

@@ -32,6 +32,7 @@ const DETAIL: StorefrontProductDetail = {
     id: 's1',
     publicId: 'pub1',
     name: 'Nike',
+    description: null,
     bannerUrl: null,
     status: 'ACTIVE',
     currencyCode: 'USD',

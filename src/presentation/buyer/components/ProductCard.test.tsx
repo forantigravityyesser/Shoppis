@@ -6,6 +6,11 @@ import userEvent from '@testing-library/user-event';
 const { useFavorites } = vi.hoisted(() => ({ useFavorites: vi.fn() }));
 vi.mock('../../../application/hooks/useFavorites', () => ({ useFavorites }));
 
+vi.mock('../../../application/store', () => ({
+  useStore: (selector: (state: { pushAnimation: () => void }) => unknown) =>
+    selector({ pushAnimation: vi.fn() }),
+}));
+
 import ProductCard from './ProductCard';
 import type { StorefrontProductCard } from '../../../application/read-models/storefront';
 

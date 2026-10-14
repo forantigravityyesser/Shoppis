@@ -1,16 +1,20 @@
 import { useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { CheckCircle2 } from 'lucide-react';
+import { useNavigate } from 'react-router';
 import { useStore } from '../../../application/store';
 
 /**
  * Лёгкий тост-фидбек приложения (например, «Добавлено в корзину»). Читает
  * сообщение из `UiSlice.toast` (текст + опциональная миниатюра), авто-скрывает
  * через 2с. Плавное появление/уход — PD-12. Монтируется в layout.
+ * Если у сообщения задан `action`, клик по тосту переводит на этот маршрут
+ * (например, во вкладку корзины).
  */
 export default function Toast() {
   const toast = useStore((s) => s.toast);
   const clearToast = useStore((s) => s.clearToast);
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!toast) return;
@@ -18,12 +22,27 @@ export default function Toast() {
     return () => clearTimeout(timer);
   }, [toast, clearToast]);
 
+  const handleAction = () => {
+    const action = toast?.action;
+    if (!action) return;
+    clearToast();
+    navigate(action);
+  };
+
+  const content = toast ? (
+    <>
+      {toast.imageUrl ? <img className="toast__thumb" src={toast.imageUrl} alt="" /> : null}
+      <CheckCircle2 className="toast__icon" size={18} aria-hidden />
+      <span className="toast__text">{toast.text}</span>
+    </>
+  ) : null;
+
   return (
     <AnimatePresence>
       {toast ? (
         <motion.div
           key={toast.id}
-          className="toast"
+          className={`toast${toast.action ? ' toast--action' : ''}`}
           role="status"
           aria-live="polite"
           initial={{ opacity: 0, y: 16, scale: 0.96 }}
@@ -31,9 +50,13 @@ export default function Toast() {
           exit={{ opacity: 0, y: 16, scale: 0.96 }}
           transition={{ type: 'spring', stiffness: 420, damping: 30 }}
         >
-          {toast.imageUrl ? <img className="toast__thumb" src={toast.imageUrl} alt="" /> : null}
-          <CheckCircle2 className="toast__icon" size={18} aria-hidden />
-          <span className="toast__text">{toast.text}</span>
+          {toast.action ? (
+            <button type="button" className="toast__action" onClick={handleAction}>
+              {content}
+            </button>
+          ) : (
+            content
+          )}
         </motion.div>
       ) : null}
     </AnimatePresence>

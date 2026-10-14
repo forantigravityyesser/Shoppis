@@ -5,7 +5,9 @@ import {
   isValidCurrency,
   isValidLanguage,
   isValidStatus,
+  normalizeStoreDescription,
   normalizeStoreName,
+  validateStoreDescription,
   validateStoreName,
 } from '../../domain/rules/store-settings-rules';
 import type { Store, StoreStatus } from '../../domain/models/store';
@@ -28,6 +30,11 @@ export async function updateStoreProfileDev(
     values.name = name;
   }
   if (patch.bannerUrl !== undefined) values.banner_url = patch.bannerUrl;
+  if (patch.description !== undefined) {
+    const description = normalizeStoreDescription(patch.description);
+    if (validateStoreDescription(description)) throw new Error('DESCRIPTION_TOO_LONG');
+    values.description = description;
+  }
   if (patch.currency !== undefined) {
     if (!isValidCurrency(patch.currency)) throw new Error('INVALID_CURRENCY');
     values.currency = patch.currency;

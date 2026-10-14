@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ChevronDown, Plus } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import BottomSheet from '../../../shared/components/BottomSheet';
 import type { InventoryVariantItem } from '../../../../application/hooks/useProduct';
 import type { UpdateVariantStockPatch } from '../../../../application/hooks/useInventoryActions';
@@ -38,6 +39,7 @@ export default function StockControlSheet({
   variants,
   onClose,
 }: StockControlSheetProps) {
+  const { t } = useTranslation();
   const updateVariantStock = useStore((s) => s.updateVariantStock);
   const moveHeldToAvailable = useStore((s) => s.moveHeldToAvailable);
   /** Правки только «в наличии», по id варианта; остальное (held) всегда из источника. */
@@ -99,8 +101,8 @@ export default function StockControlSheet({
       const message = (e as Error).message ?? '';
       setSaveError(
         message.includes('INVENTORY_RESERVED_BY_ORDERS')
-          ? 'Часть остатков зарезервирована активными заказами. Освободить их можно только после отмены или отказа заказа.'
-          : 'Не удалось перенести остатки. Попробуйте ещё раз.',
+          ? t('seller.product.stock.reservedError')
+          : t('seller.product.stock.moveError'),
       );
     } finally {
       setMovingId(null);
@@ -124,7 +126,7 @@ export default function StockControlSheet({
       onClose();
     } catch (e) {
       console.error('[inventory] stock save failed', e);
-      setSaveError('Не удалось сохранить остатки. Попробуйте ещё раз.');
+      setSaveError(t('seller.product.stock.saveError'));
     } finally {
       setSaving(false);
     }
@@ -133,10 +135,10 @@ export default function StockControlSheet({
   return (
     <BottomSheet open={open} onClose={onClose}>
       <div className="stock-sheet">
-      <h2 className="sheet__title">Контроль остатков</h2>
+      <h2 className="sheet__title">{t('seller.product.stock.title')}</h2>
 
       {rows.length === 0 ? (
-        <div className="card__muted">Нет вариантов для управления остатками.</div>
+        <div className="card__muted">{t('seller.product.stock.noVariants')}</div>
       ) : (
         <div className="stock-list">
           {rows.map((row) => {
@@ -162,13 +164,17 @@ export default function StockControlSheet({
                   <span className="stock-item__counts">
                     <span className="stock-item__count">
                       <span className="stock-item__count-num">{toInt(row.available)}</span>
-                      <span className="stock-item__count-label">в наличии</span>
+                      <span className="stock-item__count-label">
+                        {t('seller.product.stock.inStockShort')}
+                      </span>
                     </span>
                     <span
                       className={`stock-item__count${row.held > 0 ? ' stock-item__count--held' : ''}`}
                     >
                       <span className="stock-item__count-num">{row.held}</span>
-                      <span className="stock-item__count-label">в ожидании</span>
+                      <span className="stock-item__count-label">
+                        {t('seller.product.stock.heldShort')}
+                      </span>
                     </span>
                   </span>
                   <ChevronDown
@@ -182,7 +188,9 @@ export default function StockControlSheet({
                   <div className="stock-item__editor">
                     <div className="field__row">
                       <label className="field">
-                        <span className="field__label">В наличии</span>
+                        <span className="field__label">
+                          {t('seller.product.stock.availableLabel')}
+                        </span>
                         <input
                           className="field__input"
                           type="number"
@@ -194,7 +202,9 @@ export default function StockControlSheet({
                         />
                       </label>
                       <label className="field">
-                        <span className="field__label">В ожидании</span>
+                        <span className="field__label">
+                          {t('seller.product.stock.heldLabel')}
+                        </span>
                         <input
                           className="field__input"
                           type="number"
@@ -212,7 +222,9 @@ export default function StockControlSheet({
                         disabled={movingId === row.id}
                         onClick={() => void moveHeld(row.id)}
                       >
-                        {movingId === row.id ? 'Переносим…' : 'Всё в наличии'}
+                        {movingId === row.id
+                          ? t('seller.product.stock.moving')
+                          : t('seller.product.stock.moveAll')}
                       </button>
                     ) : null}
                   </div>
@@ -232,7 +244,7 @@ export default function StockControlSheet({
         }}
       >
         <Plus size={16} strokeWidth={2.5} />
-        <span>Добавить вариант</span>
+        <span>{t('seller.product.stock.addVariant')}</span>
       </button>
 
       {saveError ? (
@@ -248,7 +260,7 @@ export default function StockControlSheet({
           disabled={rows.length === 0 || saving}
           onClick={save}
         >
-          {saving ? 'Сохранение…' : 'Сохранить'}
+          {saving ? t('common.saving') : t('common.save')}
         </button>
       </div>
 

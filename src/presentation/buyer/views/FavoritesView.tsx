@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import { useStore } from '../../../application/store';
 import { useStorefrontHome } from '../../../application/hooks/useStorefrontHome';
 import { useFavorites } from '../../../application/hooks/useFavorites';
@@ -19,6 +20,7 @@ import '../catalog.css';
  * живой `ids`; клик по сердцу на карточке и в карточке товара уже пишут в тот же store.
  */
 export default function FavoritesView() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const viewedStore = useStore((s) => s.viewedStore);
   const serverUser = useStore((s) => s.serverUser);
@@ -33,7 +35,7 @@ export default function FavoritesView() {
 
   const header = (
     <CatalogHeader
-      title="Избранное"
+      title={t('buyer.favorites.title')}
       buyerAvatarUrl={serverUser?.photoUrl ?? null}
       buyerName={serverUser?.firstName ?? ''}
       onProfile={() => navigate('/account')}
@@ -50,10 +52,10 @@ export default function FavoritesView() {
         {header}
         <div className="home-sheet catalog-sheet">
           <div className="catalog-error" role="alert">
-            <p className="catalog-error__title">Не удалось загрузить избранное</p>
-            <p className="catalog-error__text">Проверьте соединение и попробуйте снова.</p>
+            <p className="catalog-error__title">{t('buyer.favorites.loadError')}</p>
+            <p className="catalog-error__text">{t('buyer.catalog.loadErrorHint')}</p>
             <button type="button" className="home-retry" onClick={refresh}>
-              Повторить
+              {t('common.retry')}
             </button>
           </div>
         </div>
@@ -84,10 +86,10 @@ export default function FavoritesView() {
       <div className="home-sheet catalog-sheet">
         {favorites.error ? (
           <div className="catalog-error" role="alert" data-testid="favorites-error">
-            <p className="catalog-error__title">Не удалось загрузить избранное</p>
-            <p className="catalog-error__text">Проверьте соединение и попробуйте снова.</p>
+            <p className="catalog-error__title">{t('buyer.favorites.loadError')}</p>
+            <p className="catalog-error__text">{t('buyer.catalog.loadErrorHint')}</p>
             <button type="button" className="home-retry" onClick={favorites.refresh}>
-              Повторить
+              {t('common.retry')}
             </button>
           </div>
         ) : products.length > 0 ? (
@@ -98,10 +100,8 @@ export default function FavoritesView() {
           />
         ) : (
           <div className="catalog-empty" role="status">
-            <p className="catalog-empty__title">В избранном пока пусто</p>
-            <p className="catalog-empty__text">
-              Нажмите на ♥ у товара, чтобы сохранить его здесь.
-            </p>
+            <p className="catalog-empty__title">{t('buyer.favorites.emptyTitle')}</p>
+            <p className="catalog-empty__text">{t('buyer.favorites.emptyText')}</p>
           </div>
         )}
       </div>

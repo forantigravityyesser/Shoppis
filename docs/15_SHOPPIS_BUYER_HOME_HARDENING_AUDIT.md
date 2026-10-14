@@ -193,7 +193,7 @@ serverUser.firstName → первая буква (generic helper getInitial)
 Разделение понятий:
 
 ```text
-StorefrontStore → публичные данные магазина (name, logoUrl, bannerUrl, status, supportHandle, currency)
+StorefrontStore → публичные данные магазина (name, description, logoUrl, bannerUrl, status, supportHandle, currency)
 ServerUser      → данные текущего покупателя (photoUrl, firstName)
 ```
 
@@ -292,14 +292,14 @@ interface PublicStoreContext {
 }
 ```
 
-`bannerUrl` и валюта в контекст **не** входят — они приходят из `storefront_home_read` и в резолвере были бы дублированием payload.
+`bannerUrl`, валюта и `description` в контекст **не** входят — они приходят из `storefront_home_context_read` (описание добавлено миграцией `0056`, §6.3) и в резолвере были бы дублированием payload.
 
 Buyer flow **никогда** не получает:
 
 ```text
 owner_user_id
 owner_telegram_id
-private seller data (description/language/created_at, если не нужно витрине)
+private seller data (language/created_at, если не нужно витрине)
 ```
 
 ### 4.2 Резолвер
@@ -470,6 +470,7 @@ Home ≠ Catalog   и   Product Detail ≠ Home
 - **`0022_storefront_home_read_no_seller_avatar.sql`** — home-проекция без `sellerAvatarUrl` (выполнено).
 - **`0023_storefront_home_split_read.sql`** — `storefront_home_context_read` + `storefront_home_products_read(p_public_id, p_cursor, p_limit)` с deterministic `order by (created_at, id desc)` и keyset-курсором; монолитный `storefront_home_read` удалён (выполнено).
 - **`0024_home_products_keyset_index.sql`** — частичный индекс `products (store_id, created_at desc, id desc) where status='ACTIVE'` для O(page) keyset-пагинации (выполнено). Ранее существовавшая коллизия номера `0024` (`0024_product_link.sql`, Product Detail) устранена переименованием в `0025_product_link.sql` (`§17`, HOME-FIX-05).
+- **`0056_store_description.sql`** — `store_update_profile_atomic` принимает `description` (`btrim`, лимит 300, `DESCRIPTION_TOO_LONG`); `storefront_home_context_read` отдаёт `description` в объекте `store` (выполнено). `storefront_public_context_read` (pause/notFound) намеренно не меняется.
 - Обе — `security definer`, `set search_path = public`, доступ через PostgREST RPC (как `0014`).
 - Возврат `originalPrice` **не включать** (§7.4).
 

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Package } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { InventoryProductItem } from '../../../../../application/hooks/useInventory';
 import InventorySectionHead from '../InventorySectionHead';
 import InventoryProductSearch from './InventoryProductSearch';
@@ -20,6 +21,7 @@ export default function InventoryProductsSection({
   onOpenProduct,
   onAddProduct,
 }: InventoryProductsSectionProps) {
+  const { t } = useTranslation();
   const [query, setQuery] = useState('');
 
   const filtered = useMemo(() => {
@@ -30,16 +32,16 @@ export default function InventoryProductsSection({
 
   return (
     <section className="inv-section">
-      <InventorySectionHead title="Товары" onAdd={onAddProduct} />
+      <InventorySectionHead title={t('seller.inventory.products.title')} onAdd={onAddProduct} />
 
       {products.length === 0 ? (
         <div className="inv-state inv-state--empty">
           <div className="inv-state__icon" aria-hidden>
             <Package size={40} strokeWidth={1.6} />
           </div>
-          <p className="inv-state__title">Нет товаров</p>
+          <p className="inv-state__title">{t('seller.inventory.products.empty')}</p>
           <button type="button" className="inv-add-btn" onClick={onAddProduct}>
-            + Добавить товар
+            + {t('seller.inventory.addProduct')}
           </button>
         </div>
       ) : (
@@ -47,8 +49,10 @@ export default function InventoryProductsSection({
           <InventoryProductSearch value={query} onChange={setQuery} />
           {filtered.length === 0 ? (
             <div className="inv-state">
-              <p className="inv-state__title">Ничего не найдено</p>
-              <p className="inv-state__subtitle">Попробуйте изменить запрос</p>
+              <p className="inv-state__title">{t('seller.inventory.noResults')}</p>
+              <p className="inv-state__subtitle">
+                {t('seller.inventory.categoryView.noResultsHint')}
+              </p>
             </div>
           ) : (
             <InventoryProductList products={filtered} onOpenProduct={onOpenProduct} />

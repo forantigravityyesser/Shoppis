@@ -20,6 +20,7 @@ function toProfilePayload(patch: StoreProfilePatch): Record<string, unknown> {
   const payload: Record<string, unknown> = {};
   if (patch.name !== undefined) payload.name = patch.name;
   if (patch.bannerUrl !== undefined) payload.banner_url = patch.bannerUrl;
+  if (patch.description !== undefined) payload.description = patch.description;
   if (patch.currency !== undefined) payload.currency = patch.currency;
   if (patch.language !== undefined) payload.language = patch.language;
   if (patch.supportHandle !== undefined) payload.support_handle = patch.supportHandle;

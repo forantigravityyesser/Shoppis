@@ -62,6 +62,7 @@ describe('StoreIdentityBlock', () => {
     );
 
     expect(screen.getByLabelText('Название магазина')).toHaveValue('Old Name');
+    expect(screen.getByLabelText('Описание магазина')).toHaveValue('');
     expect(saveButton()).toBeNull();
   });
 
@@ -92,6 +93,31 @@ describe('StoreIdentityBlock', () => {
     await user.click(saveButton() as HTMLElement);
 
     expect(onSave).toHaveBeenCalledWith({ name: 'New Name' });
+  });
+
+  it('сохраняет только изменённое описание (с обрезкой пробелов)', async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(<StoreIdentityBlock store={makeStore()} onSave={onSave} onUploadBanner={vi.fn()} />);
+
+    const textarea = screen.getByLabelText('Описание магазина');
+    await user.type(textarea, '  Лучший магазин  ');
+    expect(saveButton()).toBeInTheDocument();
+    await user.click(saveButton() as HTMLElement);
+
+    expect(onSave).toHaveBeenCalledWith({ description: 'Лучший магазин' });
+  });
+
+  it('показывает описания из store', () => {
+    render(
+      <StoreIdentityBlock
+        store={makeStore({ description: 'Официальный магазин' })}
+        onSave={vi.fn()}
+        onUploadBanner={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText('Описание магазина')).toHaveValue('Официальный магазин');
   });
 
   it('загружает баннер и отправляет только bannerUrl', async () => {

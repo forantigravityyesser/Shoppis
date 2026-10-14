@@ -138,6 +138,21 @@ shared UI списка/деталей + actions (buyer cancel, 6 seller-дейс
 `lint` (0 errors) · `test` 1081/1081 · `build` · `migrations:check` 0001..0052 · `commerce:harness`
 143/143; ручные `LOCAL`/`TELEGRAM` — за человеком. Текущая миграция — `0052`.
 
+**Актуализация (2026-10-11) — Seller Dashboard / Главная продавца (`25`):** вкладка **Главная**
+продавца реализована из четырёх блоков (Продажи/Заказы/Инвентарь/Требует внимания) и добавлена
+вкладка **Продажи** (`/seller/sales`) — `25_SHOPPIS_SELLER_DASHBOARD_PLAN.md` (этапы `SDB-00…SDB-10`
+✅). Один серверный read главной `seller_dashboard_read` (counts по статусам-зеркалам табов, суммы
+дохода, счётчики инвентаря) + `seller_sales_list_read` (проекция заказов по группам
+`earned`/`potential`), миграция **`0053`**; edge `seller-dashboard` + `order-queries` action `sales`;
+application-контур (read-модели/порты/мапперы/хуки/кэш); блоки главной (индикаторы заказов, товары/
+категории, заработано/потенциально) с навигацией; экран «Продажи» — два раздела с переключателем
+(«Заработано» зелёный / «Потенциальные» жёлтый; `?group=`), карточки → деталь заказа. Суммы — только
+в текущей валюте магазина (MVP). **Правка (2026-10-11):** потенциальный доход включает заказы в
+статусе `NEW` (миграция `0055`). Harness расширен **Test 31–34**. Гейты: `typecheck` · `lint`
+(0 errors) · `test` 1233/1233 · `build` · `build:edge` · `migrations:check` 0001..0055 ·
+`commerce:harness` 175/175; ручные `LOCAL`/`TELEGRAM` — за человеком. Миграции захода — `0053`/`0055`
+(текущая в проекте — `0055`).
+
 **Актуализация (2026-10-10) — Product Copy (независимые черновики):** добавлено ТЗ «+ Создать копию»
 поверх существующих форм создания/редактирования — `23_SHOPPIS_PRODUCT_COPY_TECHNICAL_PLAN.md`
 (этапы `PC-00…PC-08`). Копирование — локальное преобразование данных формы; сохранение — существующий
@@ -182,6 +197,8 @@ Spec §9.0.
 18. `21_SHOPPIS_CART_COMMERCE_HARDENING_AUDIT.md` — commerce hardening Cart/Checkout/Order: idempotency (retry + SQL reserve-before-order), серверный quantity-contract, `held_quantity` custody, SQL/integration/concurrency тесты, checkout-error → reconciliation, `MAX_CART_ITEMS`, split `cart-rules`/`checkout-rules`; этапы CART-HARDEN-01…12, deferred realtime с триггером. Владелец P0 независимых осей цены — `20` INV-HARDEN-02 (общая зависимость).
 19. `22_SHOPPIS_ORDERS_TECHNICAL_PLAN.md` — Заказы и Детали заказа (покупатель + продавец): перенос внешнего технического плана в формат проекта — аудит фундамента по коду, разбор внешнего плана (что уже закрыто `21`, что остаётся), целевая архитектура read/command (`order-queries` + миграция `0042`, cursor-пагинация, store-scope), read models `OrderListItem`/`OrderDetails`, security/PII, контакты, shared UI, матрица lifecycle-действий, тесты и DoD; этапы ORD-00…ORD-13 (ЧТО+КАК).
 20. `23_SHOPPIS_PRODUCT_COPY_TECHNICAL_PLAN.md` — Копирование карточки товара (независимые черновики): «+ Создать копию» поверх существующих форм создания/редактирования — сессия независимых черновиков, переключение, независимое сохранение, лимит 6, сброс фото/остатков, независимые цены/опции, отсутствие связи карточек; Stage 0 — карта кода (`файл:строка`) и расхождения ТЗ с кодом (R1–R9), этапы PC-00…PC-08, тестовая матрица, DoD; этап PC-00 (подтверждение) — до кода.
+21. `24_SHOPPIS_ORDERS_HARDENING_AUDIT.md` — hardening блока заказов (второй слой поверх `22`): P0 прямой доступ к защищённым order-RPC (`0048`), терминальность delivery outcome (`0049`), исторический символ валюты (`0050`), кэш↔личность, enum-safety (`0051`), `pg_temp`/HMAC (`0052`), дедуп/a11y, интеграционные RPC-тесты; этапы ORD-HARDEN-00…12.
+22. `25_SHOPPIS_SELLER_DASHBOARD_PLAN.md` — Главная продавца и вкладка **Продажи**: 4 блока (Продажи/Заказы/Инвентарь/Требует внимания), серверная сводка `seller_dashboard_read` + `seller_sales_list_read` (миграция `0053`), edge `seller-dashboard` и `order-queries` action `sales`, read-модели/хуки/кэш, экран `/seller/sales` (секции «Заработано»/«Потенциальные»); этапы SDB-00…SDB-10 (ЧТО+КАК).
 
 ## Принцип двух сред проверки
 Telegram — не финальная интеграция, а целевая среда исполнения и проверки с первых этапов. Каждый глобальный этап имеет два состояния: `LOCAL VERIFIED` (браузер / локальный контур) и `TELEGRAM VERIFIED` (реальный Telegram Mini App на development-окружении). Этап не закрывается без обоих.

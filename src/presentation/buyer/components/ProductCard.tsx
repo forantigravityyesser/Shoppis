@@ -1,4 +1,5 @@
 import { ShoppingCart } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { StorefrontProductCard } from '../../../application/read-models/storefront';
 import { formatMoneyMinor } from '../../../domain/rules/product-rules';
 import { getInitial } from '../../../domain/rules/initial';
@@ -18,6 +19,7 @@ interface Props {
  * `role=button` на контейнере и вложенных кнопок. docs/15 §7.1.
  */
 export default function ProductCard({ product, currencySymbol, onOpen }: Props) {
+  const { t } = useTranslation();
   const { id, title, imageUrl, price, available } = product;
 
   return (
@@ -42,7 +44,9 @@ export default function ProductCard({ product, currencySymbol, onOpen }: Props) 
         </span>
 
         <span className="product-card__info">
-          {!available ? <span className="product-card__badge">Нет в наличии</span> : null}
+          {!available ? (
+            <span className="product-card__badge">{t('buyer.product.outOfStock')}</span>
+          ) : null}
           <span className="product-card__title">{title}</span>
           <span className="product-card__price">
             <ShoppingCart size={14} strokeWidth={2.5} aria-hidden />
@@ -51,7 +55,7 @@ export default function ProductCard({ product, currencySymbol, onOpen }: Props) 
         </span>
       </button>
 
-      <FavoriteButton productId={id} />
+      <FavoriteButton productId={id} imageUrl={imageUrl} />
     </article>
   );
 }

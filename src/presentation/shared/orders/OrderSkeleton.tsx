@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next';
+
 interface Props {
   variant?: 'list' | 'detail';
   /** Кол-во карточек-заглушек для списка. */
@@ -10,10 +12,11 @@ interface Props {
  * «Загрузка заказов» (docs/24 §2.7 D9 / ORD-HARDEN-10).
  */
 export default function OrderSkeleton({ variant = 'list', count = 3 }: Props) {
+  const { t } = useTranslation();
   if (variant === 'detail') {
     return (
       <div className="order-skeleton" data-testid="order-skeleton" role="status">
-        <span className="sr-only">Загрузка заказа…</span>
+        <span className="sr-only">{t('orders.skeleton.detail')}</span>
         <div className="order-skeleton__block order-skeleton__block--head" aria-hidden />
         <div className="order-skeleton__block" aria-hidden>
           <div className="order-skeleton__line" />
@@ -30,7 +33,7 @@ export default function OrderSkeleton({ variant = 'list', count = 3 }: Props) {
 
   return (
     <div className="order-skeleton" data-testid="order-skeleton" role="status">
-      <span className="sr-only">Загрузка заказов…</span>
+      <span className="sr-only">{t('orders.skeleton.list')}</span>
       {Array.from({ length: Math.max(1, count) }).map((_, index) => (
         <div className="order-skeleton__block" key={index} aria-hidden>
           <div className="order-skeleton__line" />

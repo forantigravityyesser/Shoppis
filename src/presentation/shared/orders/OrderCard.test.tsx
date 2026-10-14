@@ -57,4 +57,19 @@ describe('OrderCard', () => {
     expect(screen.getByText('Покупатель: Данила')).toBeInTheDocument();
     expect(screen.getByText('Действие')).toBeInTheDocument();
   });
+
+  it('priceTone окрашивает сумму: earned/potential (docs/25 §4.3)', () => {
+    const { rerender } = render(<OrderCard order={order()} priceTone="earned" />);
+    expect(screen.getByText('2200 Br')).toHaveClass('order-card__total--earned');
+
+    rerender(<OrderCard order={order()} priceTone="potential" />);
+    expect(screen.getByText('2200 Br')).toHaveClass('order-card__total--potential');
+  });
+
+  it('без priceTone сумма без тонального класса', () => {
+    render(<OrderCard order={order()} />);
+    const total = screen.getByText('2200 Br');
+    expect(total.className).toContain('order-card__total');
+    expect(total.className).not.toMatch(/order-card__total--/);
+  });
 });

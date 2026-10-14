@@ -11,7 +11,11 @@ const { updateProduct, addProduct, fetchCatalog, removeFilesByUrl } = vi.hoisted
 
 vi.mock('../../composition/container', () => ({
   deps: () => ({
-    i18n: { getAppLanguage: () => 'ru', setAppLanguage: () => {} },
+    i18n: {
+      getAppLanguage: () => 'ru',
+      setAppLanguage: () => {},
+      applyStoreDefaultLanguage: () => {},
+    },
     productRepository: { updateProduct, addProduct, fetchCatalog },
     storage: { removeFilesByUrl },
   }),
@@ -19,7 +23,7 @@ vi.mock('../../composition/container', () => ({
 
 import { useStore } from '../index';
 import type { NewProductInput } from '../../contracts/product';
-import type { Product, ProductImage } from '../../../domain/models/product';
+import type { Product } from '../../../domain/models/product';
 
 function product(id: string, categoryId: string | null): Product {
   return {
@@ -48,12 +52,8 @@ const EMPTY_CATALOG = {
   productLinks: [],
 };
 
-function image(storageKey: string, thumbStorageKey: string | null, productId: string): ProductImage {
-  return { id: storageKey, productId, storageKey, thumbStorageKey, sortOrder: 0 };
-}
-
 beforeEach(() => {
-  updateProduct.mockReset().mockResolvedValue(undefined);
+  updateProduct.mockReset().mockResolvedValue([]);
   addProduct.mockReset().mockResolvedValue('new-1');
   fetchCatalog.mockReset().mockResolvedValue(EMPTY_CATALOG);
   removeFilesByUrl.mockReset().mockResolvedValue(undefined);
@@ -126,10 +126,12 @@ describe('product-slice.saveProduct — создание/фото (docs/23 §6, 
     expect(removeFilesByUrl).not.toHaveBeenCalled();
   });
 
-  it('при редактировании чистит только откреплённые фото своего товара', async () => {
-    useStore.setState({
-      images: [image('a', 'at', 'p1'), image('b', 'bt', 'p1'), image('c', 'ct', 'p2')],
-    });
+  it('при редактировании чистит откреплённые фото, даже если каталог не загружен в стейт', async () => {
+    // Прежние фото приходят из репозитория (БД), стейт `images` пуст.
+    updateProduct.mockResolvedValue([
+      { storageKey: 'a', thumbStorageKey: 'at' },
+      { storageKey: 'b', thumbStorageKey: 'bt' },
+    ]);
 
     await useStore
       .getState()
@@ -144,7 +146,13 @@ describe('product-slice.saveProduct — создание/фото (docs/23 §6, 
     expect(removed).toContain('b');
     expect(removed).toContain('bt');
     expect(removed).not.toContain('a');
-    expect(removed).not.toContain('c');
-    expect(removed).not.toContain('ct');
+    expect(removed).not.toContain('at');
+  });
+
+  it('не трогает Storage, если патч не меняет фото', async () => {
+    await useStore.getState().saveProduct({ id: 'p1', title: 'новое' });
+
+    expect(updateProduct).toHaveBeenCalledWith('p1', { title: 'новое' }, 'tok');
+    expect(removeFilesByUrl).not.toHaveBeenCalled();
   });
 });

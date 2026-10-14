@@ -42,6 +42,7 @@ const HOME: StorefrontHome = {
     id: 's1',
     publicId: 'pub1',
     name: 'Nike Shop',
+    description: null,
     bannerUrl: null,
     status: 'ACTIVE',
     currencyCode: 'USD',

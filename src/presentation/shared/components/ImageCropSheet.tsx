@@ -1,6 +1,7 @@
 import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
 import type { Area } from 'react-easy-crop';
 import { Minimize2, ZoomIn } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import BottomSheet from './BottomSheet';
 import { compressImage, cropToFile } from '../../../utils/image';
 import '../image-crop.css';
@@ -50,11 +51,12 @@ export default function ImageCropSheet({
   aspect,
   title,
   outputWidth,
-  confirmLabel = 'Готово',
+  confirmLabel,
   onConfirm,
   onClose,
   nested = false,
 }: ImageCropSheetProps) {
+  const { t } = useTranslation();
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [source, setSource] = useState<PreparedSource | null>(null);
@@ -79,12 +81,12 @@ export default function ImageCropSheet({
         setError(null);
       })
       .catch(() => {
-        if (!cancelled) setError('Не удалось обработать фото. Попробуйте другое.');
+        if (!cancelled) setError(t('imageCrop.prepareFailed'));
       });
     return () => {
       cancelled = true;
     };
-  }, [file]);
+  }, [file, t]);
 
   // Освобождаем последний blob-URL при размонтировании.
   useEffect(
@@ -106,7 +108,7 @@ export default function ImageCropSheet({
     try {
       onConfirm(await cropToFile(source.file, area, outputWidth));
     } catch {
-      setError('Не удалось обработать фото. Попробуйте ещё раз.');
+      setError(t('imageCrop.cropFailed'));
     } finally {
       setBusy(false);
     }
@@ -126,7 +128,7 @@ export default function ImageCropSheet({
           <Suspense
             fallback={
               <div className="image-crop__loading" style={{ height: stageHeight }}>
-                Загрузка…
+                {t('common.loading')}
               </div>
             }
           >
@@ -149,7 +151,7 @@ export default function ImageCropSheet({
         </div>
       ) : (
         <div className="image-crop__loading" style={{ height: stageHeight }}>
-          {preparing ? 'Подготовка фото…' : 'Нет изображения'}
+          {preparing ? t('imageCrop.preparing') : t('imageCrop.noImage')}
         </div>
       )}
 
@@ -163,7 +165,7 @@ export default function ImageCropSheet({
           value={zoom}
           disabled={disabled}
           onChange={(e) => setZoom(Number(e.target.value))}
-          aria-label="Масштаб"
+          aria-label={t('imageCrop.zoom')}
         />
         <ZoomIn size={16} aria-hidden />
       </div>
@@ -176,7 +178,7 @@ export default function ImageCropSheet({
 
       <div className="image-crop__actions">
         <button type="button" className="btn-ghost" onClick={onClose} disabled={busy}>
-          Отмена
+          {t('common.cancel')}
         </button>
         <button
           type="button"
@@ -184,7 +186,7 @@ export default function ImageCropSheet({
           onClick={() => void confirm()}
           disabled={disabled}
         >
-          {busy ? 'Обработка…' : confirmLabel}
+          {busy ? t('imageCrop.processing') : (confirmLabel ?? t('common.done'))}
         </button>
       </div>
     </BottomSheet>

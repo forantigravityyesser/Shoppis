@@ -1,19 +1,33 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 
-const { productRef, reviewsRef, questionsRef, seenRef } = vi.hoisted(() => ({
-  productRef: { current: {} as Record<string, unknown> },
-  reviewsRef: { current: { reviews: [] as Array<{ id: string }> } },
-  questionsRef: {
-    current: { questions: [] as Array<{ id: string; answer: unknown }> },
-  },
-  seenRef: { current: new Set<string>() },
-}));
+const { productRef, reviewsRef, questionsRef, seenRef, openPreviewRef, storeRef } = vi.hoisted(
+  () => ({
+    productRef: { current: {} as Record<string, unknown> },
+    reviewsRef: { current: { reviews: [] as Array<{ id: string }> } },
+    questionsRef: {
+      current: { questions: [] as Array<{ id: string; answer: unknown }> },
+    },
+    seenRef: { current: new Set<string>() },
+    openPreviewRef: { current: vi.fn() },
+    storeRef: {
+      current: { currentStore: null as null | { publicId: string; status: string } },
+    },
+  }),
+);
 
 vi.mock('../../../application/hooks/useProduct', () => ({
   useProductDetail: () => ({ product: productRef.current, loading: false }),
+}));
+
+vi.mock('../../../application/hooks/useProductPreview', () => ({
+  useProductPreview: () => ({ openProductPreview: openPreviewRef.current }),
+}));
+
+vi.mock('../../../application/store', () => ({
+  useStore: (selector: (state: unknown) => unknown) => selector(storeRef.current),
 }));
 
 vi.mock('../../../application/hooks/useSellerProductSocial', () => ({
@@ -64,6 +78,8 @@ beforeEach(() => {
   reviewsRef.current = { reviews: [] };
   questionsRef.current = { questions: [] };
   seenRef.current = new Set<string>();
+  openPreviewRef.current.mockReset();
+  storeRef.current = { currentStore: { publicId: 'pub1', status: 'ACTIVE' } };
 });
 
 describe('seller ProductView — вкладки и индикаторы', () => {
@@ -101,5 +117,36 @@ describe('seller ProductView — вкладки и индикаторы', () => 
     expect(
       screen.getByRole('link', { name: /Вопросы/ }).querySelector('.prod-tab__badge'),
     ).toBeNull();
+  });
+});
+
+describe('seller ProductView — предпросмотр «как покупатель»', () => {
+  it('открывает публичную карточку товара из блока цены', () => {
+    renderView();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Смотреть как покупатель' }));
+
+    expect(openPreviewRef.current).toHaveBeenCalledWith('p1', '/seller/inventory/product/p1');
+  });
+
+  it('скрыт для архивного товара', () => {
+    productRef.current = { ...PRODUCT, status: 'ARCHIVED' };
+    renderView();
+
+    expect(screen.queryByRole('button', { name: 'Смотреть как покупатель' })).toBeNull();
+  });
+
+  it('скрыт, когда магазин на паузе', () => {
+    storeRef.current.currentStore = { publicId: 'pub1', status: 'PAUSED' };
+    renderView();
+
+    expect(screen.queryByRole('button', { name: 'Смотреть как покупатель' })).toBeNull();
+  });
+
+  it('скрыт без публичного id витрины', () => {
+    storeRef.current.currentStore = null;
+    renderView();
+
+    expect(screen.queryByRole('button', { name: 'Смотреть как покупатель' })).toBeNull();
   });
 });

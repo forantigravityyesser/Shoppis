@@ -1,13 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
   STORE_CURRENCIES,
+  STORE_DESCRIPTION_MAX,
   STORE_LANGUAGES,
   STORE_STATUSES,
   isProfilePatchEmpty,
   isValidCurrency,
   isValidLanguage,
   isValidStatus,
+  normalizeStoreDescription,
   normalizeStoreName,
+  validateStoreDescription,
   validateStoreName,
 } from './store-settings-rules';
 
@@ -68,8 +71,27 @@ describe('isProfilePatchEmpty', () => {
   it('treats any defined field as non-empty', () => {
     expect(isProfilePatchEmpty({ name: 'Nike' })).toBe(false);
     expect(isProfilePatchEmpty({ bannerUrl: '' })).toBe(false);
+    expect(isProfilePatchEmpty({ description: '' })).toBe(false);
     expect(isProfilePatchEmpty({ currency: 'USD' })).toBe(false);
     expect(isProfilePatchEmpty({ language: 'ru' })).toBe(false);
     expect(isProfilePatchEmpty({ supportHandle: 'john' })).toBe(false);
+  });
+});
+
+describe('normalizeStoreDescription', () => {
+  it('trims surrounding whitespace', () => {
+    expect(normalizeStoreDescription('  О нас  ')).toBe('О нас');
+    expect(normalizeStoreDescription('')).toBe('');
+  });
+});
+
+describe('validateStoreDescription', () => {
+  it('accepts empty and up-to-limit descriptions', () => {
+    expect(validateStoreDescription('')).toBeNull();
+    expect(validateStoreDescription('a'.repeat(STORE_DESCRIPTION_MAX))).toBeNull();
+  });
+
+  it('rejects descriptions over the limit', () => {
+    expect(validateStoreDescription('a'.repeat(STORE_DESCRIPTION_MAX + 1))).not.toBeNull();
   });
 });

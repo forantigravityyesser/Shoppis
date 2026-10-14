@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import type { OrderDetails } from '../../../application/read-models/order';
@@ -199,6 +199,31 @@ describe('SellerOrderDetailsView (ORD-08/ORD-10)', () => {
       outcome: 'REFUSED',
       reason: 'PRODUCT_NOT_MATCHED_EXPECTATIONS',
     });
+  });
+
+  it('смена статуса → оверлей → возврат к списку заказов', async () => {
+    vi.useFakeTimers();
+    try {
+      h.useOrderDetails.mockReturnValue(detailsState({ order: order({ status: 'NEW' }) }));
+      render(tree());
+
+      fireEvent.click(screen.getByRole('button', { name: 'Передать в доставку' }));
+      expect(h.transitionOrder).toHaveBeenCalledWith({ orderId: 'o1', toStatus: 'IN_TRANSIT' });
+      expect(screen.getByTestId('order-transition')).toBeInTheDocument();
+      expect(screen.queryByTestId('seller-orders-route')).toBeNull();
+
+      // Выдержка подписи + фейд-аут.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(800);
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(400);
+      });
+
+      expect(screen.getByTestId('seller-orders-route')).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('терминальный заказ → действий нет', () => {

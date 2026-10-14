@@ -13,6 +13,7 @@ import type {
   OrderListPage,
   OrderListItem,
   OrderPreviewItem,
+  SalesListPage,
 } from '../read-models/order';
 
 /**
@@ -137,6 +138,16 @@ export function mapOrderListPage(raw: unknown): OrderListPage {
     orders: asArray(raw.orders).map(mapOrderListItem),
     nextCursor: asNullableString(raw.nextCursor),
   };
+}
+
+/**
+ * Продажи (docs/25 §3.2): та же проекция `OrderListItem`, плюс сумма всей группы
+ * (`totalMinor`) для заголовка секции. Невалидная проекция → пустая страница с 0.
+ */
+export function mapSalesListPage(raw: unknown): SalesListPage {
+  const base = mapOrderListPage(raw);
+  const totalMinor = isRecord(raw) ? parseMoney(raw.totalMinor) : 0;
+  return { orders: base.orders, nextCursor: base.nextCursor, totalMinor };
 }
 
 export function mapOrderItemView(raw: unknown): OrderItemView {

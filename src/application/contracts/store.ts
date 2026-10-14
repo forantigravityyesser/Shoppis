@@ -23,10 +23,11 @@ export interface CreateShopPayload {
  * поэтому `update-profile` отправляет частичный patch. 12 §4.2.
  */
 
-/** Идентификация: название и баннер. */
+/** Идентификация: название, баннер и описание. */
 export interface StoreIdentityPatch {
   name?: string;
   bannerUrl?: string;
+  description?: string;
 }
 
 /** Локализация: валюта и язык. Символ валюты выводится из кода, не передаётся. */

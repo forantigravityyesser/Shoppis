@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { formatMoneyMinor } from '../../../domain/rules/product-rules';
 
 interface Props {
@@ -30,6 +31,7 @@ export default function PriceRangeSlider({
   onChangeMin,
   onChangeMax,
 }: Props) {
+  const { t } = useTranslation();
   const range = max - min || 1;
   const leftPct = ((valueMin - min) / range) * 100;
   const rightPct = ((valueMax - min) / range) * 100;
@@ -55,7 +57,7 @@ export default function PriceRangeSlider({
           step={step}
           value={valueMin}
           onChange={(e) => onChangeMin(Number(e.target.value))}
-          aria-label="Цена от"
+          aria-label={t('buyer.catalog.priceFromAria')}
         />
         <input
           type="range"
@@ -65,7 +67,7 @@ export default function PriceRangeSlider({
           step={step}
           value={valueMax}
           onChange={(e) => onChangeMax(Number(e.target.value))}
-          aria-label="Цена до"
+          aria-label={t('buyer.catalog.priceToAria')}
         />
       </div>
     </div>

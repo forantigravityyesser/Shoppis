@@ -91,6 +91,10 @@
   border: none;
   background: none;
   cursor: zoom-in;
+  /* Фон-плейсхолдер: миниатюра, пока грузится full (совпадает с contain-фото). */
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
 }
 
 .pd-gallery__placeholder {

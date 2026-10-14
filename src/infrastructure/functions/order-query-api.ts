@@ -1,5 +1,5 @@
 import { invokeFunction } from '../insforge/functions-gateway';
-import type { OrderScope, OrderStatusFilter } from '../../application/read-models/order';
+import type { OrderScope, OrderStatusFilter, SalesGroup } from '../../application/read-models/order';
 
 interface OrderQueryResponse {
   success?: boolean;
@@ -18,6 +18,13 @@ export interface OrderListRequest {
 export interface OrderDetailsRequest {
   scope: OrderScope;
   orderId: string;
+}
+
+export interface SalesListRequest {
+  storeRef: string;
+  group: SalesGroup;
+  cursor?: string | null;
+  limit?: number;
 }
 
 async function callOrderQuery(
@@ -57,5 +64,20 @@ export function requestOrderDetails(
     action: 'detail',
     scope: request.scope,
     orderId: request.orderId,
+  });
+}
+
+/** Raw sales list projection (JSON) from the `order-queries` edge (action `sales`). */
+export function requestSalesList(
+  sessionToken: string,
+  request: SalesListRequest,
+): Promise<unknown> {
+  return callOrderQuery(sessionToken, {
+    action: 'sales',
+    scope: 'seller',
+    storeRef: request.storeRef,
+    group: request.group,
+    cursor: request.cursor ?? null,
+    limit: request.limit ?? 20,
   });
 }

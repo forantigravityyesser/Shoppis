@@ -1,0 +1,78 @@
+/* language-switcher.css — выбор языка интерфейса: две крупные кнопки с флагом
+   и названием языка. Активный язык — акцентная заливка + галочка. */
+
+.lang-switch {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+}
+
+.lang-switch__btn {
+  position: relative;
+  flex: 1 1 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 56px;
+  padding: 12px 14px;
+  border: 1.5px solid rgba(0, 0, 0, 0.08);
+  border-radius: var(--radius-lg, 16px);
+  background: #ffffff;
+  font-family: inherit;
+  font-size: var(--font-size-md, 14px);
+  font-weight: var(--font-weight-semibold, 600);
+  color: var(--color-text-primary, #1a1a2e);
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(26, 26, 46, 0.06);
+  transition:
+    background 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease,
+    box-shadow 0.16s ease,
+    transform 0.1s ease;
+}
+
+.lang-switch__btn:hover {
+  border-color: var(--color-accent, #6c5ce7);
+}
+
+.lang-switch__btn:active {
+  transform: scale(0.97);
+}
+
+.lang-switch__btn--active,
+.lang-switch__btn--active:hover {
+  background: var(--color-accent, #6c5ce7);
+  border-color: var(--color-accent, #6c5ce7);
+  color: var(--color-text-on-accent, #ffffff);
+  box-shadow: 0 10px 26px rgba(108, 92, 231, 0.32);
+}
+
+.lang-switch__flag {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.lang-switch__label {
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.lang-switch__check {
+  flex-shrink: 0;
+}
+
+.lang-switch__btn:focus-visible {
+  outline: 2px solid var(--color-accent, #6c5ce7);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lang-switch__btn {
+    transition: none;
+  }
+  .lang-switch__btn:active {
+    transform: none;
+  }
+}

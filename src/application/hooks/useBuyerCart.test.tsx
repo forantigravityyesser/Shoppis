@@ -46,6 +46,7 @@ const STORE: StorefrontStore = {
   id: 's1',
   publicId: 'pub1',
   name: 'Shop',
+  description: null,
   bannerUrl: null,
   status: 'ACTIVE',
   currencyCode: 'USD',

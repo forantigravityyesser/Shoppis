@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import { useOrderDetails } from '../../../application/hooks/useOrderDetails';
 import { useOrderActions } from '../../../application/hooks/useOrderActions';
 import { useOrdersRealtime } from '../../../application/hooks/useOrdersRealtime';
@@ -23,6 +24,7 @@ import '../../shared/orders/orders.css';
  * инвалидирует detail+list (`useOrderActions`), поэтому здесь статус обновится сам.
  */
 export default function OrderDetailsView() {
+  const { t } = useTranslation();
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
   const { order, loading, error, notFound, refetch } = useOrderDetails({
@@ -53,8 +55,8 @@ export default function OrderDetailsView() {
   const cancelAction =
     cancellable && confirming ? (
       <OrderConfirm
-        text="Отменить этот заказ?"
-        confirmLabel="Отменить заказ"
+        text={t('buyer.orders.cancelText')}
+        confirmLabel={t('buyer.orders.cancelOrder')}
         pending={actions.isPending}
         error={actionError}
         onConfirm={handleCancel}
@@ -68,7 +70,7 @@ export default function OrderDetailsView() {
         actions={[
           {
             key: 'cancel',
-            label: 'Отменить заказ',
+            label: t('buyer.orders.cancelOrder'),
             variant: 'danger',
             disabled: actions.isPending,
             onClick: () => {
@@ -84,18 +86,18 @@ export default function OrderDetailsView() {
     <OrderSkeleton variant="detail" />
   ) : error ? (
     <div className="orders-error" role="alert" data-testid="order-detail-error">
-      <p className="orders-error__title">Не удалось загрузить заказ</p>
-      <p className="orders-error__text">Проверьте соединение и попробуйте снова.</p>
+      <p className="orders-error__title">{t('buyer.orders.loadError')}</p>
+      <p className="orders-error__text">{t('orders.error.text')}</p>
       <button type="button" className="orders-retry" onClick={refetch}>
-        Повторить
+        {t('common.retry')}
       </button>
     </div>
   ) : notFound || !order ? (
     <OrderEmptyState
-      text="Заказ не найден"
+      text={t('buyer.orders.notFound')}
       action={
         <button type="button" className="orders-retry" onClick={() => navigate('/orders')}>
-          К заказам
+          {t('buyer.orders.toOrders')}
         </button>
       }
     />
@@ -105,8 +107,8 @@ export default function OrderDetailsView() {
       contact={
         <OrderContactButton
           username={order.contact.supportHandle}
-          label="Написать продавцу"
-          fallbackText="Продавец не указал контакт для связи."
+          label={t('buyer.orders.writeSeller')}
+          fallbackText={t('buyer.checkout.contactNotSpecified')}
         />
       }
       actions={cancelAction}
@@ -120,7 +122,9 @@ export default function OrderDetailsView() {
           <BackButton fallback="/orders" />
         </div>
         <h1 className="catalog-header__title">
-          {order ? `Заказ № ${order.publicOrderNumber}` : 'Заказ'}
+          {order
+            ? t('buyer.orders.orderNumber', { number: order.publicOrderNumber })
+            : t('buyer.orders.order')}
         </h1>
         <div className="catalog-header__actions" />
       </header>

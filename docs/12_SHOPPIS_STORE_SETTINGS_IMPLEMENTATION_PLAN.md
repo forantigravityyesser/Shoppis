@@ -49,7 +49,7 @@ SPEC → Domain/Contract → Backend authorization + mutation → Application po
 | `StoreStatus` | уже `'ACTIVE' \| 'PAUSED'` |
 | `StoreCurrency` | `'USD' \| 'RUB' \| 'BYN'` (EUR нет) |
 | `StoreLanguage` | `'ru' \| 'en'` |
-| `StoreProfilePatch` | есть, но включает `description/logoUrl/currencySymbol` (`src/application/contracts/store.ts`) |
+| `StoreProfilePatch` | per-block patches; `description` редактируется (S-11), `logoUrl/currencySymbol` контрактом не выставляются (`src/application/contracts/store.ts`) |
 | `StoreRepository.updateStoreProfile()` | прямой SDK-update `stores`; мёртвый код — **удалён в S-01** |
 | Мутации каталога | `catalog-actions` (edge) → PL/pgSQL `*.atomic` (`migrations/0011`), `actor_user_id` из сессии |
 | Checkout PAUSED | серверный guard `STORE_PAUSED` уже есть в `create_order_atomic` (`migrations/0004:76`) |
@@ -107,7 +107,7 @@ interface Store {
 
 ```ts
 // src/application/contracts/store.ts
-interface StoreIdentityPatch     { name?: string; bannerUrl?: string; }
+interface StoreIdentityPatch     { name?: string; bannerUrl?: string; description?: string; }
 interface StoreLocalizationPatch { currency?: StoreCurrency; language?: StoreLanguage; }
 interface StoreContactPatch      { supportHandle?: string; }
 
@@ -117,7 +117,7 @@ type StoreProfilePatch = StoreIdentityPatch & StoreLocalizationPatch & StoreCont
 Правила:
 - пустой patch (`{}`) — отклоняется backend (`EMPTY_PATCH`);
 - `currencySymbol` **не** приходит от клиента — выводится из `currency` (domain/backend);
-- `description`, `logoUrl` в MVP не редактируются (колонки в БД остаются, контрактом не выставляются);
+- `description` редактируется в блоке Identity (S-11): `btrim`, лимит `300` символов (`DESCRIPTION_TOO_LONG`); `logoUrl` контрактом не выставляется (колонка в БД остаётся);
 - `status` меняется только action `update-status`.
 
 ### 4.3 Contact handle (семантика)
@@ -289,7 +289,7 @@ clean ──edit──▶ dirty ──save──▶ saving ──ok──▶ cle
 - **Цель:** финализировать контракты и чистые правила без backend/UI; убрать мёртвый код, мешавший контракту.
 - **Файлы:** `application/contracts/store.ts` (per-block patches + `StoreStatusPatch`), `domain/rules/store-settings-rules.ts(+test)`, `domain/rules/store-contact-rules.ts(+test)`, удалён мёртвый `updateStoreProfile` (порт/репозиторий/composition).
 - **Тесты (L1):** name (trim/empty-whitespace), currency, language, status, empty-patch; normalize contact (`@john`, `john`, `t.me/john`, `https://t.me/john`; мусор → invalid). 76 тестов зелёные (+14).
-- **Acceptance:** редактируемые patch не содержат `description/logoUrl/currencySymbol`; `updateStoreProfile` удалён; typecheck/build/lint зелёные. ✔
+- **Acceptance:** редактируемые patch не содержат `description/logoUrl/currencySymbol`; `updateStoreProfile` удалён; typecheck/build/lint зелёные. ✔ _(MVP-граница S-01; `description` добавлен позднее — см. S-11)_
 - **Verification:** `npm test`, `npm run typecheck`, `npm run build`, `npm run lint`.
 
 ### S-02 — Backend profile mutation `[x]`
@@ -404,6 +404,16 @@ clean ──edit──▶ dirty ──save──▶ saving ──ok──▶ cle
 [ ] Ошибки/двойной клик: без дублей, draft не теряется
 ```
 
+### S-11 — Store description (seller + buyer) `[x]`
+- **Цель:** продавец задаёт публичное описание магазина (≤300 символов); покупатель читает его на главной витрины через выпадающую панель.
+- **Файлы:** `migrations/0056_store_description.sql` (`store_update_profile_atomic` +`description` (btrim, лимит 300, `DESCRIPTION_TOO_LONG`); `storefront_home_context_read` отдаёт `description` в store); `edge-functions/store-actions.js` (+`DESCRIPTION_TOO_LONG: 400`); `application/contracts/store.ts` (`StoreIdentityPatch` +`description`); `domain/rules/store-settings-rules.ts` (`STORE_DESCRIPTION_MAX = 300`, `normalizeStoreDescription`/`validateStoreDescription`, empty-patch); `store-settings-api.ts`/`.dev.ts` (запись `description`); `read-models/storefront.ts` + оба storefront-mapper'а (`description`); `presentation/seller/settings/StoreIdentityBlock.tsx` (textarea + счётчик); `presentation/buyer/components/HomeHeader.tsx` (кнопка описания слева от поиска) + новый `StoreDescriptionPopover.tsx` (панель поверх баннера, framer-motion), `HomeView.tsx`, `HomeSkeleton.tsx`, `home.css`; i18n `ru`/`en`.
+- **Поведение:** поле живёт в блоке «Профиль магазина» и сохраняется той же кнопкой Save (только при изменении, с `btrim`); лимит 300 символов (клиент `maxLength` + сервер); пустое описание → кнопка в шапке покупателя скрыта; панель закрывается тапом по фону или `Escape`.
+- **Публичная проекция:** `description` добавлен только в home-контекст (`storefront_home_context_read`); `storefront_public_context_read` (pause/notFound) намеренно не меняется.
+- **Тесты:** L1 (`store-settings-rules`, +4), L2 (`store-settings-api` payload `description`), L3 (`StoreIdentityBlock`, `HomeHeader`, новый `StoreDescriptionPopover`, `HomeView` — интеграция open/close), mapper/repository фикстуры.
+- **Acceptance:** `description` сохраняется и возвращается в payload; `>300` → `DESCRIPTION_TOO_LONG`; пустое описание не показывает кнопку; end-to-end (write → публичная home-проекция) проверено на бэкенде (значение восстановлено). ✔
+- **Verification:** миграция `0056` применена и записана в `schema_migrations`; `store-actions` передеплоена; `npm test` (190 файлов / 1289 тестов), `typecheck`, `lint` зелёные. ✔
+- **Осталось (L4):** ручная проверка LOCAL + TELEGRAM за владельцем.
+
 ---
 
 ## 10. Definition of Done (для каждого среза)
@@ -439,7 +449,7 @@ clean ──edit──▶ dirty ──save──▶ saving ──ok──▶ cle
 ## 11. Явно НЕ делаем в MVP
 
 - RLS и закрытие anon-доступа — отдельный hardening gate (`11 §S1`), не этот блок.
-- Редактирование `description` и `logoUrl` в настройках (колонки в БД остаются).
+- Редактирование `logoUrl` в настройках (колонка в БД остаётся). Редактирование `description` — сделано в S-11.
 - Human-readable slug магазина (только opaque `public_id`, `03 §26`).
 - Multi-shop UI (БД уже поддерживает несколько).
 - Серверная валидация/derivatives изображений (`04 §6` — future work).

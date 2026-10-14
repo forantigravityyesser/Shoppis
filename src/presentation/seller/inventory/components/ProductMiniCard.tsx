@@ -1,4 +1,5 @@
 import { ChevronRight, HelpCircle, MessageCircle, Star } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { InventoryProductItem } from '../../../../application/hooks/useInventory';
 import { currencySymbol } from '../../../../domain/constants/currencies';
 import { formatMoneyMinor } from '../../../../domain/rules/product-rules';
@@ -12,8 +13,22 @@ interface ProductMiniCardProps {
 
 /** Компактная строка товара в CategoryView: фото, название, остаток, цена, сигналы. */
 export default function ProductMiniCard({ product, onClick, attention = null }: ProductMiniCardProps) {
+  const { t } = useTranslation();
   const hidden = product.stockState === 'hidden';
   const attentionCount = attention ? attention.reviews + attention.questions : 0;
+
+  const stockLabel = (): string => {
+    switch (product.stockState) {
+      case 'out_of_stock':
+        return t('seller.inventory.stock.outOfStock');
+      case 'low_stock':
+        return t('seller.inventory.stock.low', { count: product.stockAvailable });
+      case 'hidden':
+        return t('seller.inventory.stock.hidden');
+      default:
+        return t('seller.inventory.stock.available', { count: product.stockAvailable });
+    }
+  };
   return (
     <button
       type="button"
@@ -37,7 +52,7 @@ export default function ProductMiniCard({ product, onClick, attention = null }: 
       <span className="mini-card__body">
         <span className="mini-card__title">{product.title}</span>
         <span className={`mini-card__stock mini-card__stock--${product.stockState}`}>
-          {stockLabel(product)}
+          {stockLabel()}
         </span>
         <span className="mini-card__price">
           {formatMoneyMinor(product.priceMinor, currencySymbol(product.currency))}
@@ -46,7 +61,10 @@ export default function ProductMiniCard({ product, onClick, attention = null }: 
           {attentionCount > 0 ? (
             <span
               className="mini-card__attention"
-              aria-label={`Требуют внимания: отзывов ${attention?.reviews ?? 0}, вопросов ${attention?.questions ?? 0}`}
+              aria-label={t('seller.inventory.attentionAria', {
+                reviews: attention?.reviews ?? 0,
+                questions: attention?.questions ?? 0,
+              })}
             >
               {attentionCount > 99 ? '99+' : attentionCount}
             </span>
@@ -72,17 +90,4 @@ export default function ProductMiniCard({ product, onClick, attention = null }: 
       <ChevronRight size={18} className="mini-card__chevron" />
     </button>
   );
-}
-
-function stockLabel(product: InventoryProductItem): string {
-  switch (product.stockState) {
-    case 'out_of_stock':
-      return 'Нет в наличии';
-    case 'low_stock':
-      return `⚠ ${product.stockAvailable} шт.`;
-    case 'hidden':
-      return 'Скрыт';
-    default:
-      return `${product.stockAvailable} шт.`;
-  }
 }

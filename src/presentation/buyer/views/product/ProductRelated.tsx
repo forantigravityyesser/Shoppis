@@ -1,4 +1,5 @@
 import { useOutletContext } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import type { StorefrontProductDetail } from '../../../../application/read-models/storefront-product';
 import RelatedProducts from '../../components/product/RelatedProducts';
 
@@ -7,6 +8,7 @@ import RelatedProducts from '../../components/product/RelatedProducts';
  * (explicit links, без транзитивности). Пусто → пустое состояние. docs/14 §7.
  */
 export default function ProductRelated() {
+  const { t } = useTranslation();
   const detail = useOutletContext<StorefrontProductDetail | undefined>();
   if (!detail) return null;
 
@@ -17,7 +19,7 @@ export default function ProductRelated() {
       {products.length > 0 ? (
         <RelatedProducts products={products} currencySymbol={detail.store.currencySymbol} />
       ) : (
-        <p className="pd-related__empty">Пока нет похожих товаров</p>
+        <p className="pd-related__empty">{t('buyer.product.relatedEmpty')}</p>
       )}
     </section>
   );

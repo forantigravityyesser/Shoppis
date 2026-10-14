@@ -49,14 +49,14 @@ describe('store-settings-api.updateStoreProfile', () => {
   it('маппит camelCase → snake_case и вызывает store-actions', async () => {
     invokeFunction.mockResolvedValue(ok());
 
-    await updateProfile('tok', 's1', { name: 'New', bannerUrl: 'b.png' });
+    await updateProfile('tok', 's1', { name: 'New', bannerUrl: 'b.png', description: 'О нас' });
 
     expect(invokeFunction).toHaveBeenCalledWith('store-actions', {
       token: 'tok',
       body: {
         action: 'update-profile',
         storeId: 's1',
-        patch: { name: 'New', banner_url: 'b.png' },
+        patch: { name: 'New', banner_url: 'b.png', description: 'О нас' },
       },
     });
   });
@@ -69,6 +69,7 @@ describe('store-settings-api.updateStoreProfile', () => {
     const [, opts] = invokeFunction.mock.calls[0] as [string, { body: { patch: object } }];
     expect(opts.body.patch).toEqual({ currency: 'RUB' });
     expect(opts.body.patch).not.toHaveProperty('name');
+    expect(opts.body.patch).not.toHaveProperty('description');
     expect(opts.body.patch).not.toHaveProperty('language');
     expect(opts.body.patch).not.toHaveProperty('support_handle');
   });

@@ -1,15 +1,17 @@
 import { useRef, useState } from 'react';
 import { ArrowLeft, Plus, X } from 'lucide-react';
-import { useNavigate } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import { useInventoryActions } from '../../../application/hooks/useInventoryActions';
 import { uploadCategoryCoverImage } from '../../../application/services/image-service';
 import { CATEGORY_OUTPUT_WIDTH } from '../../../utils/image';
 import ImageCropSheet from '../../shared/components/ImageCropSheet';
+import { useSmartBack } from '../../shared/hooks/useSmartBack';
 import '../inventory/inventory.css';
 
 /** Создание категории: одно фото (квадрат) + название. */
 export default function CreateCategoryView() {
-  const navigate = useNavigate();
+  const { t } = useTranslation();
+  const goBack = useSmartBack();
   const { createCategory } = useInventoryActions();
 
   const [name, setName] = useState('');
@@ -36,7 +38,7 @@ export default function CreateCategoryView() {
       setPhoto(await uploadCategoryCoverImage(cropped));
     } catch (e) {
       console.error('[inventory] category photo upload failed', e);
-      setUploadError('Не удалось загрузить фото. Попробуйте ещё раз.');
+      setUploadError(t('seller.inventory.editCategory.uploadError'));
     } finally {
       setProcessing(false);
     }
@@ -52,7 +54,7 @@ export default function CreateCategoryView() {
       await createCategory({ name, imageStorageKey: photo });
     } catch (e) {
       console.error('[inventory] createCategory failed', e);
-      setSubmitError('Не удалось создать категорию. Попробуйте ещё раз.');
+      setSubmitError(t('seller.inventory.createCategory.createError'));
     } finally {
       setSubmitting(false);
     }
@@ -64,17 +66,17 @@ export default function CreateCategoryView() {
         <button
           type="button"
           className="inv-icon-btn"
-          onClick={() => navigate(-1)}
-          aria-label="Назад"
+          onClick={() => goBack('/seller/inventory?mode=categories')}
+          aria-label={t('common.back')}
         >
           <ArrowLeft size={20} />
         </button>
-        <h1 className="form-header__title">Новая категория</h1>
+        <h1 className="form-header__title">{t('seller.inventory.createCategory.title')}</h1>
         <span className="form-header__spacer" aria-hidden />
       </div>
 
       <section className="card">
-        <div className="card__title">Фото</div>
+        <div className="card__title">{t('seller.inventory.photo')}</div>
         <div className="photo-grid photo-grid--single">
           {photo ? (
             <div className="photo-slot">
@@ -83,7 +85,7 @@ export default function CreateCategoryView() {
                 type="button"
                 className="photo-slot__remove"
                 onClick={removePhoto}
-                aria-label="Удалить фото"
+                aria-label={t('seller.inventory.editCategory.removePhoto')}
               >
                 <X size={14} />
               </button>
@@ -94,7 +96,7 @@ export default function CreateCategoryView() {
               className="photo-slot photo-slot--add"
               disabled={processing}
               onClick={() => fileInputRef.current?.click()}
-              aria-label="Добавить фото"
+              aria-label={t('seller.inventory.editCategory.addPhoto')}
             >
               {processing ? (
                 <span className="photo-slot__loading" aria-hidden />
@@ -121,12 +123,12 @@ export default function CreateCategoryView() {
 
       <section className="card">
         <label className="field">
-          <span className="field__label">Название</span>
+          <span className="field__label">{t('seller.inventory.createCategory.nameLabel')}</span>
           <input
             className="field__input"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Например, Овощи"
+            placeholder={t('seller.inventory.createCategory.namePlaceholder')}
             autoFocus
           />
         </label>
@@ -145,7 +147,9 @@ export default function CreateCategoryView() {
           disabled={!canSubmit || submitting}
           onClick={() => void submit()}
         >
-          {submitting ? 'Создание…' : 'Создать категорию'}
+          {submitting
+            ? t('seller.inventory.createCategory.creating')
+            : t('seller.inventory.createCategory.submit')}
         </button>
       </div>
 
@@ -153,7 +157,7 @@ export default function CreateCategoryView() {
         open={cropFile !== null}
         file={cropFile}
         aspect={1}
-        title="Кадрировать обложку"
+        title={t('seller.inventory.editCategory.cropCover')}
         outputWidth={CATEGORY_OUTPUT_WIDTH}
         onConfirm={(file) => void applyCrop(file)}
         onClose={() => setCropFile(null)}

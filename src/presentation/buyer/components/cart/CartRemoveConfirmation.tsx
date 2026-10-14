@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next';
+
 interface Props {
   onCancel: () => void;
   onConfirm: () => void;
@@ -9,15 +11,16 @@ interface Props {
  * только у одного товара — состояние держит `CartView` (`pendingRemoveItemKey`).
  */
 export default function CartRemoveConfirmation({ onCancel, onConfirm }: Props) {
+  const { t } = useTranslation();
   return (
-    <div className="cart-remove-confirm" role="group" aria-label="Удаление товара">
-      <p className="cart-remove-confirm__text">Удалить товар из корзины?</p>
+    <div className="cart-remove-confirm" role="group" aria-label={t('buyer.cart.remove.aria')}>
+      <p className="cart-remove-confirm__text">{t('buyer.cart.remove.text')}</p>
       <div className="cart-remove-confirm__actions">
         <button type="button" className="cart-remove-confirm__cancel" onClick={onCancel}>
-          Нет
+          {t('buyer.cart.remove.no')}
         </button>
         <button type="button" className="cart-remove-confirm__confirm" onClick={onConfirm}>
-          Да
+          {t('buyer.cart.remove.yes')}
         </button>
       </div>
     </div>

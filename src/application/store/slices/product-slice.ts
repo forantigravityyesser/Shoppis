@@ -1,4 +1,5 @@
 import type { StateCreator } from 'zustand';
+import i18n from 'i18next';
 import { validateProduct } from '../../../domain/rules/product-rules';
 import { ProductStatusError, type ProductStatusResult } from '../../contracts/product-status';
 import type {
@@ -23,7 +24,8 @@ function toStatusResult(error: unknown): ProductStatusResult {
   if (error instanceof ProductStatusError) {
     return { ok: false, code: error.code, message: error.message };
   }
-  const message = error instanceof Error ? error.message : 'Не удалось изменить статус';
+  const message =
+    error instanceof Error ? error.message : i18n.t('seller.product.overview.statusError');
   return { ok: false, code: 'UNKNOWN', message };
 }
 
@@ -114,10 +116,15 @@ export const createProductSlice: StateCreator<RootStore, [], [], ProductSlice> =
         });
         if (errors.length) throw new Error(errors.join('; '));
 
-        const previousImages = get().images.filter((i) => i.productId === id);
-        await deps().productRepository.updateProduct(id, patch, sessionToken);
+        const previousImages = await deps().productRepository.updateProduct(
+          id,
+          patch,
+          sessionToken,
+        );
 
         // Удаляем из Storage откреплённые при правке фото (full + thumb), best-effort.
+        // Источник — фото из БД (репозиторий), а не стейт: чистим даже если каталог
+        // ещё не загружен.
         if (patch.images !== undefined) {
           const keepFull = new Set(patch.images.map((i) => i.storageKey));
           const keepThumbs = new Set(
@@ -181,7 +188,8 @@ export const createProductSlice: StateCreator<RootStore, [], [], ProductSlice> =
 
   archiveProduct: async (id: string) => {
     const { storeId, sessionToken } = get();
-    if (!storeId) return { ok: false, code: 'UNKNOWN', message: 'Магазин не выбран' };
+    if (!storeId)
+      return { ok: false, code: 'UNKNOWN', message: i18n.t('common.storeNotSelected') };
     set({ catalogLoading: true, catalogError: null });
     try {
       await deps().productRepository.setProductStatus(id, 'ARCHIVED', sessionToken);
@@ -195,7 +203,8 @@ export const createProductSlice: StateCreator<RootStore, [], [], ProductSlice> =
 
   restoreProduct: async (id: string) => {
     const { storeId, sessionToken } = get();
-    if (!storeId) return { ok: false, code: 'UNKNOWN', message: 'Магазин не выбран' };
+    if (!storeId)
+      return { ok: false, code: 'UNKNOWN', message: i18n.t('common.storeNotSelected') };
     set({ catalogLoading: true, catalogError: null });
     try {
       await deps().productRepository.setProductStatus(id, 'ACTIVE', sessionToken);

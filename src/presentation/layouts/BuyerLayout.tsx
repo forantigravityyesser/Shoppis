@@ -1,7 +1,9 @@
 import { Suspense, useRef } from 'react';
 import { Outlet, useLocation } from 'react-router';
 import FloatingNavBar from '../shared/components/FloatingNavBar';
+import ScreenLoader from '../shared/components/ScreenLoader';
 import Toast from '../shared/components/Toast';
+import FlyingAnimations from '../shared/components/FlyingAnimations';
 import { useScrollToTop } from '../shared/hooks/useScrollToTop';
 
 /**
@@ -22,12 +24,13 @@ export default function BuyerLayout() {
   return (
     <div className={`app-shell app-shell--buyer${immersive ? ' app-shell--immersive' : ''}`}>
       <div className="scrollable-content" ref={scrollRef}>
-        <Suspense fallback={<div style={{ padding: 24, textAlign: 'center' }}>Загрузка…</div>}>
+        <Suspense fallback={<ScreenLoader />}>
           <Outlet />
         </Suspense>
       </div>
       {!immersive && <FloatingNavBar />}
       <Toast />
+      <FlyingAnimations />
     </div>
   );
 }

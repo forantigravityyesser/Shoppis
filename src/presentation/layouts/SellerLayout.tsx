@@ -1,6 +1,7 @@
 import { Suspense, useRef } from 'react';
 import { Outlet } from 'react-router';
 import { useStore } from '../../application/store';
+import ScreenLoader from '../shared/components/ScreenLoader';
 import SellerNavBar from '../seller/components/SellerNavBar';
 import { useScrollToTop } from '../shared/hooks/useScrollToTop';
 
@@ -18,7 +19,7 @@ export default function SellerLayout() {
   return (
     <div className="app-shell">
       <div className="scrollable-content" ref={scrollRef}>
-        <Suspense fallback={<div style={{ padding: 24, textAlign: 'center' }}>Загрузка…</div>}>
+        <Suspense fallback={<ScreenLoader />}>
           <Outlet />
         </Suspense>
       </div>

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import BottomSheet from '../../../shared/components/BottomSheet';
 
 interface ReorderCategorySheetProps {
@@ -35,13 +36,18 @@ export default function ReorderCategorySheet({
   error = null,
   nested = false,
 }: ReorderCategorySheetProps) {
+  const { t } = useTranslation();
   const handleClose = pending ? () => {} : onClose;
 
   return (
     <BottomSheet open={open} onClose={handleClose} nested={nested}>
-      <h2 className="sheet__title">Порядок в каталоге</h2>
+      <h2 className="sheet__title">{t('seller.inventory.reorder.title')}</h2>
       <p className="reorder__subtitle">{categoryName}</p>
-      <div className="reorder__grid" role="group" aria-label="Позиция в каталоге">
+      <div
+        className="reorder__grid"
+        role="group"
+        aria-label={t('seller.inventory.reorder.groupAria')}
+      >
         {Array.from({ length: total }, (_, index) => index + 1).map((position) => (
           <button
             key={position}
@@ -57,7 +63,7 @@ export default function ReorderCategorySheet({
           </button>
         ))}
       </div>
-      {pending ? <p className="reorder__status">Сохранение…</p> : null}
+      {pending ? <p className="reorder__status">{t('common.saving')}</p> : null}
       {error ? (
         <p className="reorder__error" role="alert">
           {error}

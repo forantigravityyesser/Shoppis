@@ -50,6 +50,7 @@ export function mapStore(raw: unknown): StorefrontStore | null {
     id,
     publicId,
     name: asString(raw.name),
+    description: asNullableString(raw.description),
     bannerUrl: asNullableString(raw.bannerUrl),
     status: raw.status === 'PAUSED' ? 'PAUSED' : 'ACTIVE',
     currencyCode: asString(raw.currencyCode) as StorefrontStore['currencyCode'],

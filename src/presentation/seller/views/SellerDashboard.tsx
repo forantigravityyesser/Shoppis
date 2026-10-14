@@ -1,48 +1,74 @@
 import { useNavigate } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import { useStore } from '../../../application/store';
+import { useSellerDashboard } from '../../../application/hooks/useSellerDashboard';
+import { currencySymbol } from '../../../domain/constants/currencies';
+import DashboardSalesBlock from '../dashboard/components/DashboardSalesBlock';
+import DashboardOrdersBlock from '../dashboard/components/DashboardOrdersBlock';
+import DashboardInventoryBlock from '../dashboard/components/DashboardInventoryBlock';
+import DashboardSkeleton from '../dashboard/components/DashboardSkeleton';
+import DashboardError from '../dashboard/components/DashboardError';
+import DashboardEmpty from '../dashboard/components/DashboardEmpty';
+import AttentionBlock from '../dashboard/components/AttentionBlock';
+import '../dashboard/dashboard.css';
 
 /**
- * Операционная панель продавца. Профиль и параметры магазина — в Настройках.
- * Блок «Заказы» ведёт в список заказов; остальные блоки — каркас без API.
+ * Операционная панель продавца (docs/25). Один серверный read (`useSellerDashboard`)
+ * + состояния. Блоки Продажи/Заказы/Инвентарь (SDB-06…08); «Требует внимания» —
+ * плейсхолдер.
  */
 export default function SellerDashboard() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const currentStore = useStore((s) => s.currentStore);
+  const { summary, loading, error, disabledReason, refetch } = useSellerDashboard();
 
-  return (
-    <div className="screen">
-      <div className="screen__header">
-        <h1 className="screen__title">Главная</h1>
-        {currentStore ? <p className="screen__subtitle">{currentStore.name}</p> : null}
-      </div>
+  const symbol = currentStore
+    ? currentStore.currencySymbol || currencySymbol(currentStore.currencyCode)
+    : '';
 
-      <Block title="Продажи" hint="Выручка и динамика — следующий этап" />
-      <Block
-        title="Заказы"
-        hint="Новые и активные заказы"
-        onClick={() => navigate('/seller/orders')}
-      />
-      <Block title="Инвентарь" hint="Остатки и позиции к пополнению — следующий этап" />
-      <Block title="Требует внимания" hint="Здесь появятся задачи, требующие действия" />
-    </div>
-  );
-}
-
-function Block({ title, hint, onClick }: { title: string; hint: string; onClick?: () => void }) {
-  const content = (
+  const body = error ? (
+    <DashboardError onRetry={refetch} />
+  ) : loading ? (
+    <DashboardSkeleton />
+  ) : disabledReason ? (
+    <DashboardEmpty
+      title={t('seller.dashboard.empty.noStoreTitle')}
+      text={t('seller.dashboard.empty.noStoreText')}
+    />
+  ) : !summary ? (
+    <DashboardEmpty
+      title={t('seller.dashboard.empty.noSummaryTitle')}
+      text={t('seller.dashboard.empty.noSummaryText')}
+    />
+  ) : (
     <>
-      <div className="card__title">{title}</div>
-      <div className="card__muted">{hint}</div>
+      <DashboardSalesBlock
+        sales={summary.sales}
+        currencySymbol={symbol}
+        onOpen={() => navigate('/seller/sales')}
+      />
+      <DashboardOrdersBlock
+        counts={summary.orders}
+        onOpenAll={() => navigate('/seller/orders')}
+        onOpenStatus={(filter) => navigate(`/seller/orders?status=${filter}`)}
+      />
+      <DashboardInventoryBlock
+        inventory={summary.inventory}
+        onOpenProducts={() => navigate('/seller/inventory')}
+        onOpenCategories={() => navigate('/seller/inventory?mode=categories')}
+      />
+      <AttentionBlock />
     </>
   );
 
-  if (onClick) {
-    return (
-      <button type="button" className="card" onClick={onClick}>
-        {content}
-      </button>
-    );
-  }
-
-  return <section className="card">{content}</section>;
+  return (
+    <div className="screen dash">
+      <div className="screen__header">
+        <h1 className="screen__title">{t('seller.dashboard.title')}</h1>
+        {currentStore ? <p className="screen__subtitle">{currentStore.name}</p> : null}
+      </div>
+      {body}
+    </div>
+  );
 }

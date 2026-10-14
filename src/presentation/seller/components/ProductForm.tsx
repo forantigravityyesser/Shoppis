@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react';
-import { Plus, X } from 'lucide-react';
+import { ImagePlus, ListTree, Plus, ShoppingBag, Type, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { InventoryCategoryItem } from '../../../application/hooks/useInventory';
+import ProductCategoryPicker from './ProductCategoryPicker';
 import { uploadCatalogImages } from '../../../application/services/image-service';
 import type { Characteristic, ProductFormValues } from './product-form-values';
 import type {
@@ -32,6 +34,11 @@ interface ProductFormProps {
   value: ProductFormValues;
   onChange: (value: ProductFormValues) => void;
   onSubmit: (payload: ProductFormPayload) => Promise<void> | void;
+  /**
+   * Снятие фото пользователем. Вызывающий решает, нужно ли удалять файл из Storage:
+   * загрузки этой сессии чистятся сразу, фото из БД — только после успешного сохранения.
+   */
+  onImageRemove?: (image: InventoryImageItem) => void;
   /** Ошибка последней операции сохранения этой карточки (из сессии черновиков). */
   submissionError?: string | null;
   /** Сохранение карточки в полёте (из сессии черновиков) — блокирует повторную отправку. */
@@ -50,9 +57,11 @@ export default function ProductForm({
   value,
   onChange,
   onSubmit,
+  onImageRemove,
   submissionError = null,
   savePending = false,
 }: ProductFormProps) {
+  const { t } = useTranslation();
   const [processing, setProcessing] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -89,13 +98,14 @@ export default function ProductForm({
       patch({ images: [...photos, ...uploaded].slice(0, MAX_IMAGES) });
     } catch (e) {
       console.error('[inventory] photo upload failed', e);
-      setUploadError('Не удалось загрузить фото. Попробуйте ещё раз.');
+      setUploadError(t('seller.inventory.editCategory.uploadError'));
     } finally {
       setProcessing(false);
     }
   };
 
   const removePhoto = (target: InventoryImageItem) => {
+    onImageRemove?.(target);
     patch({ images: photos.filter((p) => p !== target) });
   };
 
@@ -171,9 +181,7 @@ export default function ProductForm({
       await onSubmit(buildPayload(status));
     } catch (e) {
       setSubmitError(
-        e instanceof Error && e.message
-          ? e.message
-          : 'Не удалось сохранить товар. Попробуйте ещё раз.',
+        e instanceof Error && e.message ? e.message : t('seller.product.form.saveError'),
       );
     } finally {
       submittingRef.current = false;
@@ -185,21 +193,35 @@ export default function ProductForm({
   return (
     <>
       <section className="card">
-        <div className="card__title">Фото</div>
+        <div className="card__title card__title--row">
+          <span className="card__title-icon" aria-hidden>
+            <ImagePlus size={16} />
+          </span>
+          {t('seller.product.form.photoTitle')}
+          <span className="card__title-badge">
+            {photos.length}/{MAX_IMAGES}
+          </span>
+        </div>
         <div className="photo-grid">
-          {photos.map((photo) => (
-            <div className="photo-slot" key={photo.url}>
+          {photos.map((photo, index) => (
+            <div
+              className={`photo-slot${index === 0 ? ' photo-slot--cover' : ''}`}
+              key={photo.url}
+            >
               <img
                 className="photo-slot__img"
                 src={photo.thumbUrl ?? photo.url}
                 alt=""
                 decoding="async"
               />
+              {index === 0 ? (
+                <span className="photo-slot__cover-tag">{t('seller.product.form.coverTag')}</span>
+              ) : null}
               <button
                 type="button"
                 className="photo-slot__remove"
                 onClick={() => removePhoto(photo)}
-                aria-label="Удалить фото"
+                aria-label={t('seller.inventory.editCategory.removePhoto')}
               >
                 <X size={14} />
               </button>
@@ -211,21 +233,28 @@ export default function ProductForm({
               className="photo-slot photo-slot--add"
               disabled={processing}
               onClick={() => fileInputRef.current?.click()}
-              aria-label="Добавить фото"
+              aria-label={t('seller.inventory.editCategory.addPhoto')}
             >
               {processing ? (
                 <span className="photo-slot__loading" aria-hidden />
               ) : (
-                <Plus size={22} />
+                <>
+                  <ImagePlus size={22} strokeWidth={1.8} />
+                  <span className="photo-slot__add-label">
+                    {t('seller.product.form.addPhotoShort')}
+                  </span>
+                </>
               )}
             </button>
           ) : null}
         </div>
         <div className="card__muted">
-          До {MAX_IMAGES} фото — Shoppis сам подготовит их для каталога.
+          {t('seller.product.form.photoHint', { max: MAX_IMAGES })}
         </div>
         {uploadError ? (
-          <div style={{ marginTop: 8, color: '#FF3B30', fontSize: 13 }}>{uploadError}</div>
+          <div className="photo-upload-error" role="alert">
+            {uploadError}
+          </div>
         ) : null}
         <input
           ref={fileInputRef}
@@ -241,62 +270,67 @@ export default function ProductForm({
       </section>
 
       <section className="card">
+        <div className="card__title card__title--row">
+          <span className="card__title-icon" aria-hidden>
+            <Type size={16} />
+          </span>
+          {t('seller.product.form.sectionMain')}
+        </div>
         <label className="field">
-          <span className="field__label">Название</span>
+          <span className="field__label">{t('seller.product.form.nameLabel')}</span>
           <input
             className="field__input"
             value={title}
             onChange={(e) => patch({ title: e.target.value })}
-            placeholder="Например, Морковь"
+            placeholder={t('seller.product.form.namePlaceholder')}
           />
         </label>
         <label className="field">
-          <span className="field__label">Описание</span>
+          <span className="field__label">{t('seller.product.form.descriptionLabel')}</span>
           <textarea
             className="field__input field__input--area"
             value={description}
             onChange={(e) => patch({ description: e.target.value })}
-            placeholder="Необязательно"
+            placeholder={t('seller.product.form.descriptionPlaceholder')}
             rows={3}
           />
         </label>
-        <label className="field">
-          <span className="field__label">Категория</span>
-          <select
-            className="field__input"
+        <div className="field">
+          <span className="field__label">{t('seller.product.form.categoryLabel')}</span>
+          <ProductCategoryPicker
+            categories={categories}
             value={categoryId}
-            onChange={(e) => patch({ categoryId: e.target.value })}
-          >
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </label>
+            onChange={(id) => patch({ categoryId: id })}
+          />
+        </div>
       </section>
 
       <section className="card">
-        <div className="card__title">Характеристики</div>
+        <div className="card__title card__title--row">
+          <span className="card__title-icon" aria-hidden>
+            <ListTree size={16} />
+          </span>
+          {t('seller.product.form.featuresTitle')}
+        </div>
         {characteristics.map((c, index) => (
           <div className="char-row" key={index}>
             <input
               className="field__input"
               value={c.name}
               onChange={(e) => updateCharacteristic(index, { name: e.target.value })}
-              placeholder="Материал"
+              placeholder={t('seller.product.form.featureNamePlaceholder')}
             />
             <input
               className="field__input"
               value={c.value}
               onChange={(e) => updateCharacteristic(index, { value: e.target.value })}
-              placeholder="Кожа"
+              placeholder={t('seller.product.form.featureValuePlaceholder')}
             />
             <button
               type="button"
               className="char-remove"
               onClick={() => removeCharacteristic(index)}
-              aria-label="Удалить характеристику"
+              aria-label={t('seller.product.form.removeFeature')}
             >
               <X size={16} />
             </button>
@@ -304,12 +338,17 @@ export default function ProductForm({
         ))}
         <button type="button" className="char-add" onClick={addCharacteristic}>
           <Plus size={16} strokeWidth={2.5} />
-          <span>Добавить характеристику</span>
+          <span>{t('seller.product.form.addFeature')}</span>
         </button>
       </section>
 
       <section className="card">
-        <div className="card__title">Варианты покупки</div>
+        <div className="card__title card__title--row">
+          <span className="card__title-icon" aria-hidden>
+            <ShoppingBag size={16} />
+          </span>
+          {t('seller.product.form.variantsTitle')}
+        </div>
         {variants.map((v, index) => {
           const expanded = index === expandedVariant;
           return (
@@ -324,7 +363,9 @@ export default function ProductForm({
                   onClick={() => setExpandedVariant(index)}
                   aria-expanded={expanded}
                 >
-                  <span className="variant-block__title">Вариант {index + 1}</span>
+                  <span className="variant-block__title">
+                    {t('seller.product.form.variantN', { number: index + 1 })}
+                  </span>
                   {!expanded && (v.value.trim() || v.price.trim()) ? (
                     <span className="variant-block__summary">
                       {[v.value.trim(), v.price.trim()].filter(Boolean).join(' · ')}
@@ -336,7 +377,7 @@ export default function ProductForm({
                     type="button"
                     className="char-remove"
                     onClick={() => removeVariant(index)}
-                    aria-label="Удалить вариант"
+                    aria-label={t('seller.product.form.removeVariant')}
                   >
                     <X size={16} />
                   </button>
@@ -347,26 +388,28 @@ export default function ProductForm({
                 <>
                   <div className="field__row">
                     <label className="field">
-                      <span className="field__label">Размерность</span>
+                      <span className="field__label">
+                        {t('seller.product.form.dimensionLabel')}
+                      </span>
                       <input
                         className="field__input"
                         value={v.name}
                         onChange={(e) => setNameAt(index, e.target.value)}
-                        placeholder="размер / объём / память"
+                        placeholder={t('seller.product.form.dimensionPlaceholder')}
                       />
                     </label>
                     <label className="field">
-                      <span className="field__label">Значение</span>
+                      <span className="field__label">{t('seller.product.form.valueLabel')}</span>
                       <input
                         className="field__input"
                         value={v.value}
                         onChange={(e) => setValueAt(index, e.target.value)}
-                        placeholder="42 / XL / 500 мл / 128 GB"
+                        placeholder={t('seller.product.form.valuePlaceholder')}
                       />
                     </label>
                   </div>
                   <label className="field">
-                    <span className="field__label">Остаток</span>
+                    <span className="field__label">{t('seller.product.form.quantityLabel')}</span>
                     <input
                       className="field__input"
                       type="number"
@@ -377,7 +420,7 @@ export default function ProductForm({
                   </label>
                   <div className="field__row">
                     <label className="field">
-                      <span className="field__label">Цена</span>
+                      <span className="field__label">{t('seller.product.form.priceLabel')}</span>
                       <input
                         className="field__input"
                         inputMode="decimal"
@@ -387,7 +430,7 @@ export default function ProductForm({
                       />
                     </label>
                     <label className="field">
-                      <span className="field__label">Скидка %</span>
+                      <span className="field__label">{t('seller.product.form.discountLabel')}</span>
                       <input
                         className="field__input"
                         inputMode="numeric"
@@ -401,7 +444,7 @@ export default function ProductForm({
                     <div className="variant-block__custom">
                       {v.priceMode === 'CUSTOM' || v.discountMode === 'CUSTOM' ? (
                         <>
-                          <span>Свои значения для этого варианта</span>
+                          <span>{t('seller.product.form.customValues')}</span>
                           <div className="variant-block__inherit">
                             {v.priceMode === 'CUSTOM' ? (
                               <button
@@ -409,7 +452,7 @@ export default function ProductForm({
                                 className="variant-inherit"
                                 onClick={() => inheritPrice(index)}
                               >
-                                Цена как у товара
+                                {t('seller.product.form.priceLikeProduct')}
                               </button>
                             ) : null}
                             {v.discountMode === 'CUSTOM' ? (
@@ -418,13 +461,13 @@ export default function ProductForm({
                                 className="variant-inherit"
                                 onClick={() => inheritDiscount(index)}
                               >
-                                Скидка как у товара
+                                {t('seller.product.form.discountLikeProduct')}
                               </button>
                             ) : null}
                           </div>
                         </>
                       ) : (
-                        <span>Наследует цену и скидку варианта 1</span>
+                        <span>{t('seller.product.form.inheritsBase')}</span>
                       )}
                     </div>
                   ) : null}
@@ -437,12 +480,11 @@ export default function ProductForm({
         {variants.length < MAX_VARIANTS ? (
           <button type="button" className="char-add" onClick={addVariant}>
             <Plus size={16} strokeWidth={2.5} />
-            <span>Добавить вариант</span>
+            <span>{t('seller.product.stock.addVariant')}</span>
           </button>
         ) : null}
         <div className="card__muted">
-          До {MAX_VARIANTS} вариантов. Без варианта товар нельзя выставить на витрину — только в
-          архив.
+          {t('seller.product.form.variantsHint', { max: MAX_VARIANTS })}
         </div>
       </section>
 
@@ -453,7 +495,9 @@ export default function ProductForm({
           disabled={!canArchive || submitting || savePending}
           onClick={() => void submit('ARCHIVED')}
         >
-          {pendingStatus === 'ARCHIVED' ? 'Сохранение…' : 'В архив'}
+          {pendingStatus === 'ARCHIVED'
+            ? t('common.saving')
+            : t('seller.product.form.archive')}
         </button>
         <button
           type="button"
@@ -461,7 +505,9 @@ export default function ProductForm({
           disabled={!canPublish || submitting || savePending}
           onClick={() => void submit('ACTIVE')}
         >
-          {pendingStatus === 'ACTIVE' ? 'Публикация…' : 'На витрину'}
+          {pendingStatus === 'ACTIVE'
+            ? t('seller.product.form.publishing')
+            : t('seller.product.form.publish')}
         </button>
       </div>
       {submitError ?? submissionError ? (

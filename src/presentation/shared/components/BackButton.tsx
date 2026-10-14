@@ -1,7 +1,7 @@
 import { ArrowLeft } from 'lucide-react';
-import { useNavigate } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import { useHaptic } from '../../../application/hooks/useHaptic';
-import { canGoBack } from '../can-go-back';
+import { useSmartBack } from '../hooks/useSmartBack';
 
 interface BackButtonProps {
   /**
@@ -20,32 +20,30 @@ interface BackButtonProps {
 }
 
 /**
- * Умный «назад» как в мобильных приложениях: возвращает по истории роутера,
- * а при её отсутствии ведёт на безопасный fallback-маршрут вместо выхода из приложения.
+ * Умный «назад» как в мобильных приложениях: шаг назад по истории роутера,
+ * а при её отсутствии — безопасный fallback-маршрут вместо выхода из приложения.
  */
-export default function BackButton({ fallback, label = 'Назад', onClick, className }: BackButtonProps) {
-  const navigate = useNavigate();
+export default function BackButton({ fallback, label, onClick, className }: BackButtonProps) {
+  const { t } = useTranslation();
   const { selectTick } = useHaptic();
+  const goBack = useSmartBack();
+  const resolvedLabel = label ?? t('common.back');
 
-  const goBack = () => {
+  const handleClick = () => {
     selectTick();
     if (onClick) {
       onClick();
       return;
     }
-    if (canGoBack()) {
-      navigate(-1);
-    } else {
-      navigate(fallback, { replace: true });
-    }
+    goBack(fallback);
   };
 
   return (
     <button
       type="button"
       className={`back-btn${className ? ` ${className}` : ''}`}
-      onClick={goBack}
-      aria-label={label}
+      onClick={handleClick}
+      aria-label={resolvedLabel}
     >
       <ArrowLeft size={20} />
     </button>

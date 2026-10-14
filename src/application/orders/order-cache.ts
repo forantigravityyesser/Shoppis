@@ -1,5 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query';
-import type { OrderScope, OrderStatusFilter } from '../read-models/order';
+import type { OrderScope, OrderStatusFilter, SalesGroup } from '../read-models/order';
 
 /**
  * React Query keys заказов (docs/22 §4.3, docs/24 §3.4, ORD-HARDEN-04).
@@ -10,6 +10,10 @@ import type { OrderScope, OrderStatusFilter } from '../read-models/order';
  *
  *   list   — `['orders', userId, scope, storeRef, filter]`
  *   detail — `['order', userId, scope, orderId]`
+ *   sales  — `['orders', userId, 'seller', storeRef, 'sales', group]`
+ *
+ * `sales` живёт под тем же корнем `['orders', …]`: realtime/refresh/actions,
+ * инвалидирующие `orderKeys.listRoot`, обновляют и списки продаж (docs/25 §3.4).
  */
 const ORDER_LIST_QUERY_ROOT = 'orders' as const;
 const ORDER_DETAIL_QUERY_ROOT = 'order' as const;
@@ -26,6 +30,8 @@ export const orderKeys = {
     storeRef: string | null,
     filter: OrderStatusFilter,
   ) => [ORDER_LIST_QUERY_ROOT, userId, scope, storeRef, filter] as const,
+  sales: (userId: string | null, storeRef: string | null, group: SalesGroup) =>
+    [ORDER_LIST_QUERY_ROOT, userId, 'seller', storeRef, 'sales', group] as const,
   detail: (userId: string | null, scope: OrderScope, orderId: string | null) =>
     [ORDER_DETAIL_QUERY_ROOT, userId, scope, orderId] as const,
 };

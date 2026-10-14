@@ -23,16 +23,6 @@
 import { json, methodNotAllowed, preflight, readJson } from './_shared/http.js';
 import { pickToken, storeReplyMarkup } from './_shared/telegram.js';
 
-// Готовые тексты, чтобы process-checkout / фронт не дублировали вёрстку.
-export const templates = {
-  orderCreated: (orderId, total, symbol = '') =>
-    `🧾 <b>Заказ принят!</b>\n\nНомер: <code>${orderId.slice(0, 8)}</code>\nСумма: <b>${total} ${symbol}</b>\nСтатус: Подготовка\n\nМы пришлём сюда смену статуса.`,
-  statusChanged: (orderId, statusRu) =>
-    `📦 <b>Статус заказа изменился</b>\n\nНомер: <code>${String(orderId).slice(0, 8)}</code>\nНовый статус: <b>${statusRu}</b>`,
-  newOrderForSeller: (orderId, total, symbol = '') =>
-    `🔔 <b>Новый заказ!</b>\n\nНомер: <code>${String(orderId).slice(0, 8)}</code>\nСумма: <b>${total} ${symbol}</b>\n\nОткройте панель продавца для обработки.`,
-};
-
 export default {
   async fetch(request) {
     if (request.method === 'OPTIONS') return preflight();

@@ -229,6 +229,24 @@ function normalize(value: string): string {
   return value.trim().toLowerCase();
 }
 
+/**
+ * Ключи фото товара (full + thumb) как они лежат в БД. Читаем ДО апдейта/удаления,
+ * чтобы вызывающий слой мог почистить Storage независимо от того, загружен ли
+ * каталог в Zustand-стейт.
+ */
+async function fetchProductImageKeys(
+  productId: string,
+): Promise<Array<{ storageKey: string; thumbStorageKey: string | null }>> {
+  const { data, error } = await insforge.database
+    .from('product_images')
+    .select('storage_key, thumb_storage_key')
+    .eq('product_id', productId);
+  if (error) throw error;
+  return ((data ?? []) as Array<{ storage_key: string; thumb_storage_key: string | null }>).map(
+    (row) => ({ storageKey: row.storage_key, thumbStorageKey: row.thumb_storage_key }),
+  );
+}
+
 async function insertVariants(productId: string, variants: NewVariantInput[]): Promise<void> {
   if (!variants.length) return;
   const { data: variantRows, error } = await insforge.database
@@ -318,14 +336,21 @@ export async function addProduct(input: NewProductInput, token: string | null): 
   return row.id;
 }
 
+/**
+ * Обновляет товар и возвращает прежние фото (full+thumb), чтобы вызывающий слой
+ * удалил из Storage откреплённые файлы. Прежние фото читаются из БД ДО апдейта —
+ * не зависит от того, загружен ли каталог в Zustand-стейт.
+ */
 export async function updateProduct(
   id: string,
   patch: UpdateProductPatch,
   token: string | null,
-): Promise<void> {
+): Promise<Array<{ storageKey: string; thumbStorageKey: string | null }>> {
+  const previousImages = patch.images === undefined ? [] : await fetchProductImageKeys(id);
+
   if (token) {
     await updateProductViaApi(token, id, patch);
-    return;
+    return previousImages;
   }
   const values: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (patch.title !== undefined) values.title = patch.title;
@@ -401,6 +426,8 @@ export async function updateProduct(
     if (delError) throw delError;
     await insertVariants(id, patch.variants);
   }
+
+  return previousImages;
 }
 
 /**

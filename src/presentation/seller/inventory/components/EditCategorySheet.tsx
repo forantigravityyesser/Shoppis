@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { Plus, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import BottomSheet from '../../../shared/components/BottomSheet';
 import type { InventoryCategoryItem } from '../../../../application/hooks/useInventory';
 import { useInventoryActions } from '../../../../application/hooks/useInventoryActions';
@@ -31,6 +32,7 @@ export default function EditCategorySheet({
   onClose,
   onDeleted,
 }: EditCategorySheetProps) {
+  const { t } = useTranslation();
   const { updateCategory, deleteCategory } = useInventoryActions();
   const {
     pending: reorderPending,
@@ -70,7 +72,7 @@ export default function EditCategorySheet({
       setPhoto(await uploadCategoryCoverImage(cropped));
     } catch (e) {
       console.error('[inventory] category photo upload failed', e);
-      setUploadError('Не удалось загрузить фото. Попробуйте ещё раз.');
+      setUploadError(t('seller.inventory.editCategory.uploadError'));
     } finally {
       setProcessing(false);
     }
@@ -91,7 +93,7 @@ export default function EditCategorySheet({
       onClose();
     } catch (e) {
       console.error('[inventory] updateCategory failed', e);
-      setSaveError('Не удалось сохранить категорию. Попробуйте ещё раз.');
+      setSaveError(t('seller.inventory.editCategory.saveError'));
     } finally {
       setSaving(false);
     }
@@ -104,7 +106,7 @@ export default function EditCategorySheet({
       await deleteCategory(category.id);
     } catch {
       setDeleting(false);
-      setDeleteError('Не удалось удалить категорию. Попробуйте ещё раз.');
+      setDeleteError(t('seller.inventory.editCategory.deleteError'));
       return;
     }
     onDeleted?.();
@@ -113,9 +115,9 @@ export default function EditCategorySheet({
 
   return (
     <BottomSheet open={open} onClose={onClose}>
-      <h2 className="sheet__title">Редактировать категорию</h2>
+      <h2 className="sheet__title">{t('seller.inventory.editCategory.title')}</h2>
 
-      <div className="card__title">Фото</div>
+      <div className="card__title">{t('seller.inventory.photo')}</div>
       <div className="photo-grid photo-grid--single">
         {photo ? (
           <div className="photo-slot">
@@ -124,7 +126,7 @@ export default function EditCategorySheet({
               type="button"
               className="photo-slot__remove"
               onClick={removePhoto}
-              aria-label="Удалить фото"
+              aria-label={t('seller.inventory.editCategory.removePhoto')}
             >
               <X size={14} />
             </button>
@@ -135,7 +137,7 @@ export default function EditCategorySheet({
             className="photo-slot photo-slot--add"
             disabled={processing}
             onClick={() => fileInputRef.current?.click()}
-            aria-label="Добавить фото"
+            aria-label={t('seller.inventory.editCategory.addPhoto')}
           >
             {processing ? <span className="photo-slot__loading" aria-hidden /> : <Plus size={22} />}
           </button>
@@ -156,27 +158,30 @@ export default function EditCategorySheet({
       ) : null}
 
       <label className="field">
-        <span className="field__label">Название</span>
+        <span className="field__label">{t('seller.inventory.editCategory.nameLabel')}</span>
         <input className="field__input" value={name} onChange={(e) => setName(e.target.value)} />
       </label>
       <label className="field">
-        <span className="field__label">Уведомлять об окончании</span>
+        <span className="field__label">{t('seller.inventory.editCategory.thresholdLabel')}</span>
         <input
           className="field__input"
           type="number"
           inputMode="numeric"
           value={threshold}
           onChange={(e) => setThreshold(e.target.value)}
-          placeholder="По умолчанию"
+          placeholder={t('seller.inventory.editCategory.thresholdPlaceholder')}
         />
       </label>
 
       {orderPosition != null ? (
         <div className="field">
-          <span className="field__label">Порядок на витрине</span>
+          <span className="field__label">{t('seller.inventory.editCategory.orderLabel')}</span>
           <div className="cat-order">
             <span className="cat-order__value">
-              {orderPosition} из {orderTotal || orderPosition}
+              {t('seller.inventory.editCategory.orderValue', {
+                position: orderPosition,
+                total: orderTotal || orderPosition,
+              })}
             </span>
             <button
               type="button"
@@ -186,7 +191,7 @@ export default function EditCategorySheet({
                 setReorderOpen(true);
               }}
             >
-              Изменить порядок
+              {t('seller.inventory.editCategory.changeOrder')}
             </button>
           </div>
         </div>
@@ -205,7 +210,7 @@ export default function EditCategorySheet({
           disabled={!canSave || saving}
           onClick={() => void save()}
         >
-          {saving ? 'Сохранение…' : 'Сохранить'}
+          {saving ? t('common.saving') : t('common.save')}
         </button>
       </div>
 
@@ -213,7 +218,7 @@ export default function EditCategorySheet({
         confirmDelete ? (
           <div className="sheet-danger">
             <p className="sheet-danger__text">
-              Удалить категорию? Товары перейдут в «Без категории», обложка удалится из хранилища.
+              {t('seller.inventory.editCategory.deleteConfirm')}
             </p>
             {deleteError ? (
               <div style={{ marginBottom: 8, color: '#FF3B30', fontSize: 13 }}>{deleteError}</div>
@@ -225,7 +230,7 @@ export default function EditCategorySheet({
                 disabled={deleting}
                 onClick={() => setConfirmDelete(false)}
               >
-                Отмена
+                {t('common.cancel')}
               </button>
               <button
                 type="button"
@@ -233,7 +238,7 @@ export default function EditCategorySheet({
                 disabled={deleting}
                 onClick={remove}
               >
-                {deleting ? 'Удаление…' : 'Удалить'}
+                {deleting ? t('seller.inventory.editCategory.deleting') : t('common.delete')}
               </button>
             </div>
           </div>
@@ -243,7 +248,7 @@ export default function EditCategorySheet({
             className="sheet-danger__link"
             onClick={() => setConfirmDelete(true)}
           >
-            Удалить категорию
+            {t('seller.inventory.editCategory.deleteLink')}
           </button>
         )
       ) : null}
@@ -277,7 +282,7 @@ export default function EditCategorySheet({
         file={cropFile}
         nested
         aspect={1}
-        title="Кадрировать обложку"
+        title={t('seller.inventory.editCategory.cropCover')}
         outputWidth={CATEGORY_OUTPUT_WIDTH}
         onConfirm={(file) => void applyCrop(file)}
         onClose={() => setCropFile(null)}

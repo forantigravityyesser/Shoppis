@@ -1,4 +1,5 @@
 import { X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   categoryName: string | null;
@@ -18,16 +19,21 @@ export default function CatalogAppliedFilters({
   onRemoveCategory,
   onRemovePrice,
 }: Props) {
+  const { t } = useTranslation();
   if (!categoryName && !priceLabel) return null;
 
   return (
-    <div className="catalog-applied" role="group" aria-label="Применённые фильтры">
+    <div
+      className="catalog-applied"
+      role="group"
+      aria-label={t('buyer.catalog.filter.appliedAria')}
+    >
       {categoryName ? (
         <button
           type="button"
           className="catalog-applied__chip"
           onClick={onRemoveCategory}
-          aria-label={`Убрать фильтр «${categoryName}»`}
+          aria-label={t('buyer.catalog.filter.removeCategory', { name: categoryName })}
         >
           <span className="catalog-applied__text">{categoryName}</span>
           <X size={13} strokeWidth={2.8} aria-hidden />
@@ -38,7 +44,7 @@ export default function CatalogAppliedFilters({
           type="button"
           className="catalog-applied__chip"
           onClick={onRemovePrice}
-          aria-label={`Убрать фильтр цены ${priceLabel}`}
+          aria-label={t('buyer.catalog.filter.removePrice', { price: priceLabel })}
         >
           <span className="catalog-applied__text">{priceLabel}</span>
           <X size={13} strokeWidth={2.8} aria-hidden />

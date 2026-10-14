@@ -11,6 +11,7 @@ const baseStore = {
   id: 'store-1',
   publicId: 'pub-1',
   name: 'Nike Shop',
+  description: 'Официальный магазин',
   bannerUrl: 'https://cdn/banner.jpg',
   status: 'ACTIVE',
   currencyCode: 'USD',
@@ -42,6 +43,7 @@ describe('mapStorefrontHome', () => {
         id: 'store-1',
         publicId: 'pub-1',
         name: 'Nike Shop',
+        description: 'Официальный магазин',
         bannerUrl: 'https://cdn/banner.jpg',
         status: 'ACTIVE',
         currencyCode: 'USD',
@@ -66,6 +68,9 @@ describe('mapStorefrontHome', () => {
 
   it('пустой bannerUrl → null; неизвестный статус → ACTIVE, PAUSED сохраняется', () => {
     expect(mapStorefrontHome({ store: { ...baseStore, bannerUrl: '' } })?.store.bannerUrl).toBeNull();
+    expect(
+      mapStorefrontHome({ store: { ...baseStore, description: '' } })?.store.description,
+    ).toBeNull();
     expect(mapStorefrontHome({ store: { ...baseStore, status: 'WHATEVER' } })?.store.status).toBe(
       'ACTIVE',
     );

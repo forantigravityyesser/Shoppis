@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { getInitial } from '../../../../domain/rules/initial';
 import StarInput from './StarInput';
 
@@ -14,6 +15,7 @@ interface Props {
  * раскрывается поле комментария (необязательно) и «Отправить». docs/14 §8.
  */
 export default function ReviewComposer({ authorName, onSubmit, pending, error }: Props) {
+  const { t } = useTranslation();
   const [rating, setRating] = useState(0);
   const [text, setText] = useState('');
 
@@ -29,7 +31,7 @@ export default function ReviewComposer({ authorName, onSubmit, pending, error }:
           {getInitial(authorName)}
         </span>
         <div className="pd-compose__who">
-          <span className="pd-compose__hint">Поставьте оценку</span>
+          <span className="pd-compose__hint">{t('buyer.product.composerHint')}</span>
           <StarInput value={rating} onChange={setRating} />
         </div>
       </div>
@@ -38,7 +40,7 @@ export default function ReviewComposer({ authorName, onSubmit, pending, error }:
         <div className="pd-compose__body">
           <textarea
             className="pd-compose__input"
-            placeholder="Комментарий (необязательно)"
+            placeholder={t('buyer.product.composerPlaceholder')}
             value={text}
             maxLength={2000}
             rows={3}
@@ -47,7 +49,7 @@ export default function ReviewComposer({ authorName, onSubmit, pending, error }:
           <div className="pd-compose__actions">
             {error ? <span className="pd-compose__error">{error}</span> : null}
             <button type="button" className="pd-compose__submit" disabled={pending} onClick={submit}>
-              {pending ? 'Отправка…' : 'Отправить'}
+              {pending ? t('buyer.product.sending') : t('buyer.product.send')}
             </button>
           </div>
         </div>

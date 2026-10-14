@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import type {
   StorefrontProductRating,
   StorefrontReviewDistribution,
@@ -9,19 +10,12 @@ interface Props {
   summary: StorefrontProductRating;
 }
 
-function reviewsWord(n: number): string {
-  const mod10 = n % 10;
-  const mod100 = n % 100;
-  if (mod10 === 1 && mod100 !== 11) return 'отзыв';
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return 'отзыва';
-  return 'отзывов';
-}
-
 /**
  * Гистограмма оценок: 5 горизонтальных столбцов (5★ → 1★) + счётчики,
  * сверху средняя оценка и общее число. Показывается всегда, даже при нулях.
  */
 export default function ReviewsHistogram({ distribution, summary }: Props) {
+  const { t } = useTranslation();
   const max = Math.max(1, ...distribution.map((d) => d.count));
 
   return (
@@ -30,7 +24,7 @@ export default function ReviewsHistogram({ distribution, summary }: Props) {
         <span className="pd-hist__avg">{summary.average.toFixed(1)}</span>
         <RatingStars value={summary.average} size={16} />
         <span className="pd-hist__count">
-          {summary.count} {reviewsWord(summary.count)}
+          {t('productSocial.reviews', { count: summary.count })}
         </span>
       </div>
 

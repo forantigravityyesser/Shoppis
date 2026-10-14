@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import type { StorefrontRelatedProduct } from '../../../../application/read-models/storefront-product';
 import { getInitial } from '../../../../domain/rules/initial';
 import { formatMoneyMinor } from '../../../../domain/rules/product-rules';
@@ -16,12 +17,13 @@ interface Props {
  * Тап → карточка товара. Битые/пустые фото → плейсхолдер-буква (`SafeImage`). docs/14 §7.
  */
 export default function RelatedProducts({ products, currencySymbol }: Props) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { selectTick } = useHaptic();
 
   const open = (id: string) => {
     selectTick();
-    navigate(`/product/${id}`);
+    navigate(`/product/${id}`, { replace: true });
   };
 
   return (
@@ -44,7 +46,7 @@ export default function RelatedProducts({ products, currencySymbol }: Props) {
               }
             />
             {!product.available ? (
-              <span className="pd-related-card__badge">Нет в наличии</span>
+              <span className="pd-related-card__badge">{t('buyer.product.outOfStock')}</span>
             ) : null}
           </span>
 

@@ -6,13 +6,12 @@ import type { RecipientInfo } from '../../domain/models/customer';
 const h = vi.hoisted(() => {
   const state = {
     defaultRecipient: { name: '', phone: '', address: '' } as RecipientInfo,
-    serverUser: null as null | { firstName: string; photoUrl: string },
+    serverUser: null as null | { firstName: string; photoUrl: string; notificationsEnabled: boolean },
     lastOrder: null as unknown,
-    userSettings: { language: 'ru', notifications: false, notificationsPrompted: false },
     placeOrder: vi.fn(),
     requestNotifications: vi.fn(),
     setDefaultRecipient: vi.fn(),
-    setUserSettings: vi.fn(),
+    setNotificationsEnabled: vi.fn(),
     resetCheckout: vi.fn(),
   };
   return { state };
@@ -41,18 +40,17 @@ beforeEach(() => {
   h.state.defaultRecipient = { name: '', phone: '', address: '' };
   h.state.serverUser = null;
   h.state.lastOrder = null;
-  h.state.userSettings = { language: 'ru', notifications: false, notificationsPrompted: false };
   h.state.placeOrder.mockReset();
   h.state.requestNotifications.mockReset();
   h.state.setDefaultRecipient.mockReset();
-  h.state.setUserSettings.mockReset();
+  h.state.setNotificationsEnabled.mockReset();
   h.state.resetCheckout.mockReset();
   query.invalidateQueries.mockReset();
 });
 
 describe('useCheckout', () => {
   it('prefill: сохранённый получатель, иначе имя из Telegram', () => {
-    h.state.serverUser = { firstName: 'Иван', photoUrl: '' };
+    h.state.serverUser = { firstName: 'Иван', photoUrl: '', notificationsEnabled: false };
     const { result } = renderHook(() => useCheckout());
     expect(result.current.recipient.name).toBe('Иван');
 
@@ -121,6 +119,16 @@ describe('useCheckout', () => {
     expect(result.current.lastOrder?.orderNumber).toBe('SH-1');
   });
 
+  it('notificationsGranted берётся из серверного факта сессии (не из persist)', () => {
+    h.state.serverUser = { firstName: 'Иван', photoUrl: '', notificationsEnabled: true };
+    const enabled = renderHook(() => useCheckout());
+    expect(enabled.result.current.notificationsGranted).toBe(true);
+
+    h.state.serverUser = { firstName: 'Иван', photoUrl: '', notificationsEnabled: false };
+    const disabled = renderHook(() => useCheckout());
+    expect(disabled.result.current.notificationsGranted).toBe(false);
+  });
+
   it('enableNotifications: согласие → granted + фиксация + orderId для досыла', async () => {
     h.state.requestNotifications.mockResolvedValue(true);
     const { result } = renderHook(() => useCheckout());
@@ -132,10 +140,7 @@ describe('useCheckout', () => {
     expect(h.state.requestNotifications).toHaveBeenCalledWith('order-1');
     expect(result.current.notificationsGranted).toBe(true);
     expect(result.current.notificationsPending).toBe(false);
-    expect(h.state.setUserSettings).toHaveBeenCalledWith({
-      notifications: true,
-      notificationsPrompted: true,
-    });
+    expect(h.state.setNotificationsEnabled).toHaveBeenCalledWith(true);
   });
 
   it('enableNotifications: отказ → не granted, без записи настроек', async () => {
@@ -147,7 +152,7 @@ describe('useCheckout', () => {
     });
 
     expect(result.current.notificationsGranted).toBe(false);
-    expect(h.state.setUserSettings).not.toHaveBeenCalled();
+    expect(h.state.setNotificationsEnabled).not.toHaveBeenCalled();
   });
 
   it('enableNotifications: сбой запроса не бросает и не включает granted', async () => {

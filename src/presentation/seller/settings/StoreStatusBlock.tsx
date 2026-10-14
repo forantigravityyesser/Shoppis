@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Store, StoreStatus } from '../../../domain/models/store';
 import BlockSaveButton from './components/BlockSaveButton';
 
@@ -12,6 +13,7 @@ interface Props {
  * Переход в PAUSED требует явного подтверждения (магазин закрывается для покупателей). 12 §5.
  */
 export default function StoreStatusBlock({ store, onSaveStatus }: Props) {
+  const { t } = useTranslation();
   const [status, setStatus] = useState<StoreStatus>(store.status);
   const [confirming, setConfirming] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -46,22 +48,24 @@ export default function StoreStatusBlock({ store, onSaveStatus }: Props) {
 
   return (
     <section className="card">
-      <div className="card__title">Статус магазина</div>
+      <div className="card__title">{t('seller.settings.status.title')}</div>
 
       <div style={styles.row}>
         <div style={styles.textCol}>
-          <span style={styles.state}>{active ? 'Магазин активен' : 'Магазин приостановлен'}</span>
+          <span style={styles.state}>
+            {active ? t('seller.settings.status.active') : t('seller.settings.status.paused')}
+          </span>
           <span style={styles.hint}>
             {active
-              ? 'Покупатели видят витрину и могут оформлять заказы.'
-              : 'Покупатели видят экран «Магазин временно закрыт». Управление доступно.'}
+              ? t('seller.settings.status.activeHint')
+              : t('seller.settings.status.pausedHint')}
           </span>
         </div>
         <button
           type="button"
           role="switch"
           aria-checked={active}
-          aria-label="Магазин активен"
+          aria-label={t('seller.settings.status.switchAria')}
           disabled={saving}
           onClick={() => {
             setStatus(active ? 'PAUSED' : 'ACTIVE');
@@ -82,9 +86,7 @@ export default function StoreStatusBlock({ store, onSaveStatus }: Props) {
 
       {confirming ? (
         <div style={styles.confirm}>
-          <span style={styles.confirmText}>
-            Магазин временно закроется для покупателей. Продолжить?
-          </span>
+          <span style={styles.confirmText}>{t('seller.settings.status.confirmText')}</span>
           <div style={styles.confirmActions}>
             <button
               type="button"
@@ -92,7 +94,7 @@ export default function StoreStatusBlock({ store, onSaveStatus }: Props) {
               style={styles.cancelBtn}
               disabled={saving}
             >
-              Отмена
+              {t('common.cancel')}
             </button>
             <button
               type="button"
@@ -100,7 +102,7 @@ export default function StoreStatusBlock({ store, onSaveStatus }: Props) {
               style={styles.dangerBtn}
               disabled={saving}
             >
-              {saving ? 'Приостановка…' : 'Приостановить'}
+              {saving ? t('seller.settings.status.pausing') : t('seller.settings.status.pause')}
             </button>
           </div>
         </div>

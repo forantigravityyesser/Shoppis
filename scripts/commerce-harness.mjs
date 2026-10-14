@@ -34,6 +34,10 @@
 //   Test 28 refusal reason enum-safety: только контролируемые коды, иначе INVALID_REFUSAL_REASON (ORD-HARDEN-06)
 //   Test 29 command authz isolation: чужой buyer/не-владелец seller не действуют; повтор → ORDER_TERMINAL (ORD-HARDEN-11)
 //   Test 30 transition matrix: только NEW→IN_TRANSIT→DELIVERED; терминал/повтор/неверный actor отвергнуты (ORD-HARDEN-11)
+//   Test 31 Seller Dashboard authz/grants: сводка/продажи только владельцу; чужой/неизвестный → null/пусто; RPC закрыты (docs/25 SDB-04)
+//   Test 32 Seller Dashboard counters: бакеты зеркалят табы (DELIVERED включает RECEIVED; history = REFUSED+CANCELLED)
+//   Test 33 Seller Dashboard sales sums: received = RECEIVED; frozen = NEW + IN_TRANSIT + DELIVERED-без-исхода; текущая валюта
+//   Test 34 Seller sales list: earned/potential (potential = NEW/IN_TRANSIT/DELIVERED-без-исхода) + totalMinor, keyset-пагинация, отсутствие пересечений (docs/25 SDB-04)
 //
 // Admin raw-SQL маскирует RAISE-сообщения в INTERNAL_ERROR, поэтому вызовы RPC
 // идут через временный `public._harness_try(text)`, который ловит SQL-исключение
@@ -1095,6 +1099,296 @@ async function run() {
       'Test 30: actorType=admin → INVALID_ACTOR',
       !badActor?.ok && /INVALID_ACTOR/.test(String(badActor.error)),
       badActor?.error,
+    );
+  }
+
+  // Test 31 — Seller Dashboard authz и границы (docs/25 SDB-04): сводка и список
+  // продаж доступны только владельцу магазина; чужой/несуществующий/пустой актор →
+  // безопасный null/пусто; RPC закрыты для anon/authenticated, project_admin — ок.
+  {
+    const foreignSummary = await json(
+      `select public.seller_dashboard_read(${q(buyerB)}, ${q(storePublic)})`,
+    );
+    check('Test 31: сводка чужому продавцу → null', foreignSummary === null, String(foreignSummary));
+
+    const unknownStore = await json(
+      `select public.seller_dashboard_read(${q(owner)}, ${q(`nope_${S}`)})`,
+    );
+    check('Test 31: сводка по неизвестному магазину → null', unknownStore === null, String(unknownStore));
+
+    const nullActor = await json(`select public.seller_dashboard_read(null, ${q(storePublic)})`);
+    check('Test 31: сводка без актора → null', nullActor === null, String(nullActor));
+
+    const okSummary = await json(`select public.seller_dashboard_read(${q(owner)}, ${q(storePublic)})`);
+    check(
+      'Test 31: сводка владельцу → объект orders/sales/inventory',
+      !!okSummary && !!okSummary.orders && !!okSummary.sales && !!okSummary.inventory,
+    );
+
+    const foreignSales = await json(
+      `select public.seller_sales_list_read(${q(buyerB)}, ${q(storePublic)}, 'earned')`,
+    );
+    check(
+      'Test 31: список продаж чужому → пусто',
+      Array.isArray(foreignSales?.orders) && foreignSales.orders.length === 0,
+      JSON.stringify(foreignSales),
+    );
+
+    const badGroup = await json(
+      `select public.seller_sales_list_read(${q(owner)}, ${q(storePublic)}, 'weird')`,
+    );
+    check(
+      'Test 31: неизвестная группа → пусто',
+      Array.isArray(badGroup?.orders) && badGroup.orders.length === 0,
+      JSON.stringify(badGroup),
+    );
+
+    const protectedFns = ['seller_dashboard_read', 'seller_sales_list_read'];
+    const fnList = protectedFns.map((fn) => `'${fn}'`).join(', ');
+    const grants = await rows(
+      `select p.proname,
+              bool_or(has_function_privilege('anon', p.oid, 'EXECUTE')) as anon_exec,
+              bool_or(has_function_privilege('authenticated', p.oid, 'EXECUTE')) as auth_exec,
+              bool_or(has_function_privilege('project_admin', p.oid, 'EXECUTE')) as admin_exec
+       from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+       where n.nspname = 'public' and p.proname in (${fnList})
+       group by p.proname`,
+    );
+    check('Test 31: обе dashboard-RPC найдены', grants.length === protectedFns.length, `n=${grants.length}`);
+    check(
+      'Test 31: anon/authenticated не могут вызывать dashboard-RPC',
+      grants.every((g) => g.anon_exec === false && g.auth_exec === false),
+      grants.filter((g) => g.anon_exec || g.auth_exec).map((g) => g.proname).join(','),
+    );
+    check(
+      'Test 31: project_admin сохраняет доступ',
+      grants.every((g) => g.admin_exec === true),
+      grants.filter((g) => g.admin_exec !== true).map((g) => g.proname).join(','),
+    );
+  }
+
+  // Test 32 — счётчики заказов зеркалят табы (docs/25 §1.1): бакет = число заказов
+  // статуса в БД; DELIVERED включает RECEIVED; history = REFUSED + CANCELLED.
+  {
+    const base = (await json(`select public.seller_dashboard_read(${q(owner)}, ${q(storePublic)})`))
+      .orders;
+    let seq = 0;
+    const mk = async () => {
+      const t = await seedProduct({ available: 5, price: 1000 });
+      const o = await callFn(
+        'create_order_atomic',
+        checkoutArgs(buyerA, `t32_${S}_${(seq += 1)}`, [{ variantId: t.variant, quantity: 1 }]),
+      );
+      return o.result.orderId;
+    };
+
+    await mk(); // NEW
+    const idTransit = await mk();
+    await callFn('order_transition', `${q(idTransit)}, ${q(owner)}, 'IN_TRANSIT'`);
+    const idDelivered = await mk();
+    await callFn('order_transition', `${q(idDelivered)}, ${q(owner)}, 'IN_TRANSIT'`);
+    await callFn('order_transition', `${q(idDelivered)}, ${q(owner)}, 'DELIVERED'`);
+    const idReceived = await mk();
+    await callFn('order_transition', `${q(idReceived)}, ${q(owner)}, 'IN_TRANSIT'`);
+    await callFn('order_transition', `${q(idReceived)}, ${q(owner)}, 'DELIVERED'`);
+    await callFn('order_delivery_outcome', `${q(idReceived)}, ${q(owner)}, 'RECEIVED'`);
+    const idRefused = await mk();
+    await callFn('order_transition', `${q(idRefused)}, ${q(owner)}, 'IN_TRANSIT'`);
+    await callFn('order_transition', `${q(idRefused)}, ${q(owner)}, 'DELIVERED'`);
+    await callFn('order_delivery_outcome', `${q(idRefused)}, ${q(owner)}, 'REFUSED', 'OTHER'`);
+    const idCancelled = await mk();
+    await callFn('order_cancel', `${q(idCancelled)}, ${q(owner)}, 'seller'`);
+
+    const after = (await json(`select public.seller_dashboard_read(${q(owner)}, ${q(storePublic)})`))
+      .orders;
+    check('Test 32: NEW +1', num(after.new) - num(base.new) === 1, `${base.new}→${after.new}`);
+    check(
+      'Test 32: IN_TRANSIT +1',
+      num(after.inTransit) - num(base.inTransit) === 1,
+      `${base.inTransit}→${after.inTransit}`,
+    );
+    check(
+      'Test 32: DELIVERED +2 (включая RECEIVED)',
+      num(after.delivered) - num(base.delivered) === 2,
+      `${base.delivered}→${after.delivered}`,
+    );
+    check(
+      'Test 32: history +2 (REFUSED+CANCELLED)',
+      num(after.history) - num(base.history) === 2,
+      `${base.history}→${after.history}`,
+    );
+
+    const sqlCount = async (where) =>
+      num(await scalar(`select count(*) from public.orders where store_id = ${q(store)} and ${where}`));
+    check('Test 32: new = count(NEW)', num(after.new) === (await sqlCount(`status = 'NEW'`)));
+    check(
+      'Test 32: inTransit = count(IN_TRANSIT)',
+      num(after.inTransit) === (await sqlCount(`status = 'IN_TRANSIT'`)),
+    );
+    check(
+      'Test 32: delivered = count(DELIVERED)',
+      num(after.delivered) === (await sqlCount(`status = 'DELIVERED'`)),
+    );
+    check(
+      'Test 32: history = count(REFUSED,CANCELLED)',
+      num(after.history) === (await sqlCount(`status in ('REFUSED','CANCELLED')`)),
+    );
+
+    const listDelivered = await json(
+      `select public.order_list_read(${q(owner)}, 'seller', ${q(storePublic)}, 'DELIVERED', null, 50)`,
+    );
+    check(
+      'Test 32: зеркало таба — список DELIVERED = counters.delivered',
+      listDelivered.orders.length === num(after.delivered),
+      `${listDelivered.orders.length} vs ${after.delivered}`,
+    );
+  }
+
+  // Test 33 — суммы продаж (docs/25 §1.2/§3.5, 0055): received = RECEIVED; frozen =
+  // NEW + IN_TRANSIT + DELIVERED-без-исхода; REFUSED/CANCELLED не входят; учитывается
+  // только текущая валюта магазина (смена валюты исключает прошлые суммы).
+  {
+    const baseSales = (
+      await json(`select public.seller_dashboard_read(${q(owner)}, ${q(storePublic)})`)
+    ).sales;
+    let seq = 0;
+    const mkAt = async (status) => {
+      const t = await seedProduct({ available: 5, price: 1000 });
+      const o = await callFn(
+        'create_order_atomic',
+        checkoutArgs(buyerA, `t33_${S}_${(seq += 1)}`, [{ variantId: t.variant, quantity: 1 }]),
+      );
+      const id = o.result.orderId;
+      if (['transit', 'delivered', 'received', 'refused'].includes(status)) {
+        await callFn('order_transition', `${q(id)}, ${q(owner)}, 'IN_TRANSIT'`);
+      }
+      if (['delivered', 'received', 'refused'].includes(status)) {
+        await callFn('order_transition', `${q(id)}, ${q(owner)}, 'DELIVERED'`);
+      }
+      if (status === 'received') {
+        await callFn('order_delivery_outcome', `${q(id)}, ${q(owner)}, 'RECEIVED'`);
+      }
+      if (status === 'refused') {
+        await callFn('order_delivery_outcome', `${q(id)}, ${q(owner)}, 'REFUSED', 'OTHER'`);
+      }
+      if (status === 'cancelled') {
+        await callFn('order_cancel', `${q(id)}, ${q(owner)}, 'seller'`);
+      }
+      return id;
+    };
+
+    await mkAt('new');
+    await mkAt('transit');
+    await mkAt('delivered');
+    await mkAt('received');
+    await mkAt('refused');
+    await mkAt('cancelled');
+
+    const afterSales = (
+      await json(`select public.seller_dashboard_read(${q(owner)}, ${q(storePublic)})`)
+    ).sales;
+    check(
+      'Test 33: received +1000 (только RECEIVED)',
+      num(afterSales.receivedMinor) - num(baseSales.receivedMinor) === 1000,
+      `${baseSales.receivedMinor}→${afterSales.receivedMinor}`,
+    );
+    check(
+      'Test 33: frozen +3000 (NEW + IN_TRANSIT + DELIVERED-без-исхода)',
+      num(afterSales.frozenMinor) - num(baseSales.frozenMinor) === 3000,
+      `${baseSales.frozenMinor}→${afterSales.frozenMinor}`,
+    );
+
+    const sqlSum = async (where) =>
+      num(
+        await scalar(
+          `select coalesce(sum(total_minor),0) from public.orders where store_id = ${q(store)} and currency_code = 'USD' and ${where}`,
+        ),
+      );
+    check(
+      'Test 33: received = SQL sum(RECEIVED)',
+      num(afterSales.receivedMinor) === (await sqlSum(`delivery_outcome = 'RECEIVED'`)),
+    );
+    check(
+      'Test 33: frozen = SQL sum(NEW | IN_TRANSIT | DELIVERED без исхода)',
+      num(afterSales.frozenMinor) ===
+        (await sqlSum(
+          `status in ('NEW', 'IN_TRANSIT') or (status = 'DELIVERED' and delivery_outcome is null)`,
+        )),
+    );
+
+    // Текущая валюта: сменили магазин на RUB → USD-продажи исключены.
+    await raw(`update public.stores set currency = 'RUB', currency_symbol = '₽' where id = ${q(store)}`);
+    const rubSales = (
+      await json(`select public.seller_dashboard_read(${q(owner)}, ${q(storePublic)})`)
+    ).sales;
+    check('Test 33: другая валюта → received=0', num(rubSales.receivedMinor) === 0, String(rubSales.receivedMinor));
+    check('Test 33: другая валюта → frozen=0', num(rubSales.frozenMinor) === 0, String(rubSales.frozenMinor));
+    await raw(`update public.stores set currency = 'USD', currency_symbol = '$' where id = ${q(store)}`);
+  }
+
+  // Test 34 — список продаж и сумма группы (docs/25 §1.5/§3.2): earned/potential
+  // содержат только нужные заказы, totalMinor зеркалит сводку, keyset-пагинация.
+  {
+    const summary = await json(`select public.seller_dashboard_read(${q(owner)}, ${q(storePublic)})`);
+    const earned = await json(
+      `select public.seller_sales_list_read(${q(owner)}, ${q(storePublic)}, 'earned', null, 50)`,
+    );
+    const potential = await json(
+      `select public.seller_sales_list_read(${q(owner)}, ${q(storePublic)}, 'potential', null, 50)`,
+    );
+
+    check(
+      'Test 34: earned.totalMinor = сводка.received',
+      num(earned.totalMinor) === num(summary.sales.receivedMinor),
+      `${earned.totalMinor} vs ${summary.sales.receivedMinor}`,
+    );
+    check(
+      'Test 34: potential.totalMinor = сводка.frozen',
+      num(potential.totalMinor) === num(summary.sales.frozenMinor),
+      `${potential.totalMinor} vs ${summary.sales.frozenMinor}`,
+    );
+
+    const earnedIds = earned.orders.map((o) => o.id);
+    const potentialIds = potential.orders.map((o) => o.id);
+    const inList = (ids) => (ids.length ? `array[${ids.map(q).join(',')}]::uuid[]` : `array[null::uuid]`);
+
+    check(
+      'Test 34: все earned заказы RECEIVED',
+      num(
+        await scalar(
+          `select count(*) from public.orders where id = any(${inList(earnedIds)}) and delivery_outcome is distinct from 'RECEIVED'`,
+        ),
+      ) === 0,
+    );
+    check(
+      'Test 34: все potential NEW/IN_TRANSIT/DELIVERED без исхода',
+      num(
+        await scalar(
+          `select count(*) from public.orders where id = any(${inList(potentialIds)}) and not (status in ('NEW', 'IN_TRANSIT') or (status = 'DELIVERED' and delivery_outcome is null))`,
+        ),
+      ) === 0,
+    );
+    check(
+      'Test 34: earned и potential не пересекаются',
+      earnedIds.filter((id) => potentialIds.includes(id)).length === 0,
+    );
+    check('Test 34: earned непуст (есть RECEIVED-продажи)', earnedIds.length >= 1, `n=${earnedIds.length}`);
+
+    const firstPage = await json(
+      `select public.seller_sales_list_read(${q(owner)}, ${q(storePublic)}, 'earned', null, 1)`,
+    );
+    check(
+      'Test 34: limit=1 → nextCursor задан',
+      typeof firstPage.nextCursor === 'string' && firstPage.nextCursor.length > 0,
+      String(firstPage.nextCursor),
+    );
+    const secondPage = await json(
+      `select public.seller_sales_list_read(${q(owner)}, ${q(storePublic)}, 'earned', ${q(firstPage.nextCursor)}, 1)`,
+    );
+    check(
+      'Test 34: вторая страница не дублирует первую',
+      secondPage.orders.length > 0 && secondPage.orders[0].id !== firstPage.orders[0].id,
+      `${secondPage.orders[0]?.id} vs ${firstPage.orders[0]?.id}`,
     );
   }
 }

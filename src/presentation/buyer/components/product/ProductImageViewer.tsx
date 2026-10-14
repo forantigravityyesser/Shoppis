@@ -1,6 +1,7 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
 import type { StorefrontProductImage } from '../../../../application/read-models/storefront-product';
 import { useImageViewerGestures } from './useImageViewerGestures';
@@ -27,8 +28,13 @@ export default function ProductImageViewer({
   onClose,
   onSelect,
 }: Props) {
+  const { t } = useTranslation();
   const current = images[activeIndex] ?? images[0] ?? null;
   const mediaRef = useRef<HTMLDivElement>(null);
+  // Мгновенный фолбэк: миниатюра под full, пока full грузится (см. галерею).
+  const [loadedSrc, setLoadedSrc] = useState<string | null>(null);
+  const placeholder = current?.thumbUrl ?? null;
+  const loaded = current?.url != null && loadedSrc === current.url;
   // Смена фото (индекс/URL) сбрасывает зум/позицию внутри хука.
   const { scale, position, onPointerDown, onPointerMove, onPointerUp, resetGesture } =
     useImageViewerGestures(mediaRef, `${activeIndex}:${current?.url ?? ''}`);
@@ -54,7 +60,12 @@ export default function ProductImageViewer({
       transition={{ duration: 0.2, ease: 'easeOut' }}
       onClick={onClose}
     >
-      <button type="button" className="pd-viewer__close" aria-label="Закрыть" onClick={onClose}>
+      <button
+        type="button"
+        className="pd-viewer__close"
+        aria-label={t('common.close')}
+        onClick={onClose}
+      >
         <X size={22} />
       </button>
 
@@ -66,13 +77,25 @@ export default function ProductImageViewer({
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
       >
+        {placeholder && !loaded ? (
+          <img
+            className="pd-viewer__placeholder"
+            src={placeholder}
+            alt=""
+            aria-hidden
+            draggable={false}
+            onClick={(event) => event.stopPropagation()}
+          />
+        ) : null}
         <img
           className="pd-viewer__img"
           src={current.url}
           alt={title}
           draggable={false}
+          onLoad={() => setLoadedSrc(current.url)}
           style={{
             transform: `translate3d(${position.x}px, ${position.y}px, 0) scale(${scale})`,
+            opacity: loaded ? 1 : 0,
           }}
           onClick={(event) => event.stopPropagation()}
         />
@@ -87,7 +110,7 @@ export default function ProductImageViewer({
               className={`pd-viewer__thumb${
                 index === activeIndex ? ' pd-viewer__thumb--active' : ''
               }`}
-              aria-label={`Фото ${index + 1}`}
+              aria-label={t('buyer.product.photoAria', { number: index + 1 })}
               onClick={() => {
                 resetGesture();
                 onSelect(index);

@@ -36,6 +36,19 @@ export interface OrderListPage {
   nextCursor: string | null;
 }
 
+/**
+ * Группа вкладки «Продажи» (docs/25 §1.5): `earned` — полученные заказы
+ * (`delivery_outcome = RECEIVED`), `potential` — `IN_TRANSIT` или `DELIVERED`
+ * без зафиксированного исхода. Не является таб-фильтром заказов.
+ */
+export type SalesGroup = 'earned' | 'potential';
+
+/** Страница продаж: тот же список, что и у заказов, плюс сумма всей группы. */
+export interface SalesListPage extends OrderListPage {
+  /** Сумма `total_minor` по всей группе (не по странице), в текущей валюте. */
+  totalMinor: number;
+}
+
 /** Full item snapshot inside the detail projection — historical values only. */
 export interface OrderItemView {
   productTitleSnapshot: string;

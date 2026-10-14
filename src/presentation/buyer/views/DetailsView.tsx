@@ -1,9 +1,11 @@
-import { useRef } from 'react';
+import { Suspense, useEffect, useRef } from 'react';
 import { Share2, Star } from 'lucide-react';
-import { NavLink, Outlet, useLocation, useParams } from 'react-router';
+import { useTranslation } from 'react-i18next';
+import { NavLink, Outlet, useLocation, useNavigate, useParams } from 'react-router';
 import { useStore } from '../../../application/store';
 import { useStorefrontProduct } from '../../../application/hooks/useStorefrontProduct';
 import BackButton from '../../shared/components/BackButton';
+import ScreenLoader from '../../shared/components/ScreenLoader';
 import { useStuck } from '../../shared/hooks/useStuck';
 import StoreStatusView from '../components/StoreStatusView';
 import ProductGallery from '../components/product/ProductGallery';
@@ -15,13 +17,6 @@ import { useProductSelection } from '../hooks/useProductSelection';
 import { useProductActions } from '../hooks/useProductActions';
 import '../product-detail.css';
 
-const TABS = [
-  { to: '.', label: 'О товаре', key: 'about' },
-  { to: 'reviews', label: 'Отзывы', key: 'reviews' },
-  { to: 'questions', label: 'Вопросы', key: 'questions' },
-  { to: 'related', label: 'Похожее', key: 'related' },
-] as const;
-
 /**
  * Product Detail shell (layout). Загружает публичную карточку
  * (`storefront_product_detail_read`) и рендерит каркас: фото (полэкрана) с
@@ -31,10 +26,14 @@ const TABS = [
  * (избранное/корзина/share) — docs/18 PD-H-15. docs/14 §2-3, §5, §15.
  */
 export default function DetailsView() {
+  const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const { pathname } = useLocation();
   const viewedStore = useStore((s) => s.viewedStore);
   const authLoading = useStore((s) => s.authLoading);
+  const previewReturnPath = useStore((s) => s.previewReturnPath);
+  const exitStorePreview = useStore((s) => s.exitStorePreview);
+  const navigate = useNavigate();
 
   const publicId = viewedStore?.publicId ?? null;
   const { detail, loading, error, notFound, refresh } = useStorefrontProduct(publicId, id ?? null);
@@ -42,9 +41,36 @@ export default function DetailsView() {
   const selection = useProductSelection(detail);
   const actions = useProductActions(detail, selection.selectedVariant);
 
+  const tabs = [
+    { to: '.', label: t('buyer.product.tabs.about'), key: 'about' },
+    { to: 'reviews', label: t('buyer.product.tabs.reviews'), key: 'reviews' },
+    { to: 'questions', label: t('buyer.product.tabs.questions'), key: 'questions' },
+    { to: 'related', label: t('buyer.product.tabs.related'), key: 'related' },
+  ] as const;
+
   // «Назад» и «Поделиться» залипают в углах при скролле (визуал как на прочих экранах).
   const headerRef = useRef<HTMLElement>(null);
   const stuck = useStuck(headerRef);
+
+  // Предпросмотр из seller-карточки (`previewReturnPath`): «назад» возвращает
+  // в деталь товара продавца, а не на витрину. Вне предпросмотра — обычный
+  // умный «назад» с fallback на витрину (`/`).
+  const inPreview = previewReturnPath !== null;
+  const leavePreview = () => {
+    const returnPath = previewReturnPath;
+    exitStorePreview();
+    navigate(returnPath ?? '/', { replace: true });
+  };
+  const backProps = inPreview
+    ? { fallback: previewReturnPath ?? '/', onClick: leavePreview }
+    : { fallback: '/' };
+
+  // Предзагрузка слоёв карточки: переходы Отзывы/Вопросы/Похожее без «затупа».
+  useEffect(() => {
+    void import('./product/ProductReviewsView').catch(() => undefined);
+    void import('./product/ProductQuestionsView').catch(() => undefined);
+    void import('./product/ProductRelated').catch(() => undefined);
+  }, []);
 
   if (authLoading || loading) {
     return <ProductDetailSkeleton />;
@@ -57,10 +83,11 @@ export default function DetailsView() {
           <div className="pd-state__icon" aria-hidden>
             😕
           </div>
-          <h1 className="pd-state__title">Не удалось загрузить товар</h1>
+          <h1 className="pd-state__title">{t('buyer.product.loadError')}</h1>
           <button type="button" className="pd-retry" onClick={refresh}>
-            Повторить
+            {t('common.retry')}
           </button>
+          <BackButton {...backProps} />
         </div>
       </div>
     );
@@ -73,9 +100,9 @@ export default function DetailsView() {
           <div className="pd-state__icon" aria-hidden>
             🔍
           </div>
-          <h1 className="pd-state__title">Товар не найден</h1>
-          <p className="pd-state__text">Возможно, товар снят с продажи или ссылка устарела.</p>
-          <BackButton fallback="/" />
+          <h1 className="pd-state__title">{t('buyer.product.notFound')}</h1>
+          <p className="pd-state__text">{t('buyer.product.notFoundText')}</p>
+          <BackButton {...backProps} />
         </div>
       </div>
     );
@@ -106,11 +133,11 @@ export default function DetailsView() {
       <div className="pd" data-testid="product-detail-shell" data-product-id={id}>
         {stuck ? (
           <div className="sticky-rail sticky-rail--between buyer-header-rail">
-            <BackButton fallback="/" className="back-btn--floating" />
+            <BackButton {...backProps} className="back-btn--floating" />
             <button
               type="button"
               className="pd-icon-btn pd-icon-btn--floating"
-              aria-label="Поделиться"
+              aria-label={t('buyer.product.shareAria')}
               onClick={actions.share}
             >
               <Share2 size={20} />
@@ -119,11 +146,11 @@ export default function DetailsView() {
         ) : null}
         <div className="pd__media">
           <header className="pd__header" ref={headerRef}>
-            <BackButton fallback="/" />
+            <BackButton {...backProps} />
             <button
               type="button"
               className="pd-icon-btn"
-              aria-label="Поделиться"
+              aria-label={t('buyer.product.shareAria')}
               onClick={actions.share}
             >
               <Share2 size={20} />
@@ -166,11 +193,12 @@ export default function DetailsView() {
 
         <div className="pd__panel">
           <nav className="pd__tabs">
-            {TABS.map((tab) => (
+            {tabs.map((tab) => (
               <NavLink
                 key={tab.key}
                 to={tab.to}
                 end
+                replace
                 className={({ isActive }) => (isActive ? 'pd__tab pd__tab--active' : 'pd__tab')}
               >
                 {tab.label}
@@ -179,11 +207,21 @@ export default function DetailsView() {
           </nav>
 
           <div className="pd__content">
-            {isLayer ? <ProductAbout detail={detail} /> : <Outlet context={detail} />}
+            {isLayer ? (
+              <ProductAbout detail={detail} />
+            ) : (
+              <Suspense fallback={<ScreenLoader compact />}>
+                <Outlet context={detail} />
+              </Suspense>
+            )}
           </div>
 
           {/* Слой Отзывов/Вопросов — оверлей (портал); «О товаре» остаётся под ним. */}
-          {isLayer ? <Outlet context={detail} /> : null}
+          {isLayer ? (
+            <Suspense fallback={<ScreenLoader compact />}>
+              <Outlet context={detail} />
+            </Suspense>
+          ) : null}
         </div>
 
         {showCta ? (

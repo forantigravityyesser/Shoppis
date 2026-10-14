@@ -1,6 +1,825 @@
 {
-  "common": {},
-  "welcome": {},
-  "buyer": {},
-  "seller": {}
+  "common": {
+    "cancel": "Отмена",
+    "save": "Сохранить",
+    "back": "Назад",
+    "retry": "Повторить",
+    "loading": "Загрузка…",
+    "close": "Закрыть",
+    "delete": "Удалить",
+    "edit": "Изменить",
+    "confirm": "Подтвердить",
+    "apply": "Применить",
+    "done": "Готово",
+    "create": "Создать",
+    "add": "Добавить",
+    "search": "Поиск",
+    "reset": "Сбросить",
+    "error": "Ошибка",
+    "notSpecified": "Не указан",
+    "comingSoon": "Раздел появится на следующем этапе",
+    "copy": "Копировать",
+    "copied": "Скопировано",
+    "preview": "Предпросмотр",
+    "saving": "Сохранение…",
+    "storeNotSelected": "Магазин не выбран",
+    "clear": "Очистить",
+    "close": "Закрыть"
+  },
+  "language": {
+    "label": "Язык интерфейса",
+    "ru": "Русский",
+    "en": "English"
+  },
+  "nav": {
+    "primary": "Основная навигация",
+    "buyer": {
+      "home": "Главная",
+      "catalog": "Каталог",
+      "favorites": "Избранное",
+      "orders": "Заказы",
+      "cart": "Корзина"
+    },
+    "seller": {
+      "dashboard": "Главная",
+      "inventory": "Инвентарь",
+      "orders": "Заказы",
+      "settings": "Настройки"
+    }
+  },
+  "domain": {
+    "orderStatus": {
+      "NEW": "Новый",
+      "IN_TRANSIT": "В пути",
+      "DELIVERED": "Доставлено",
+      "REFUSED": "Отказ",
+      "CANCELLED": "Отменён",
+      "unknown": "Неизвестный статус"
+    },
+    "refusalReason": {
+      "BUYER_CHANGED_MIND": "Покупатель передумал",
+      "COULD_NOT_CONTACT_BUYER": "Не удалось связаться с покупателем",
+      "DELIVERY_TERMS": "Условия доставки",
+      "PRODUCT_NOT_MATCHED_EXPECTATIONS": "Товар не соответствует ожиданиям",
+      "OTHER": "Другое",
+      "unknown": "Причина не указана"
+    }
+  },
+  "errors": {
+    "orderAction": {
+      "notFound": "Заказ не найден.",
+      "terminal": "Заказ уже завершён — действие недоступно.",
+      "cancelNotAllowed": "Этот заказ уже нельзя отменить.",
+      "transitionNotAllowed": "Это действие сейчас недоступно.",
+      "notDelivered": "Заказ ещё не доставлен.",
+      "outcomeAlreadyRecorded": "Результат доставки уже зафиксирован.",
+      "invalidOutcome": "Некорректный результат доставки.",
+      "reasonRequired": "Укажите причину.",
+      "invalidRefusalReason": "Некорректная причина отказа.",
+      "invalidQuantity": "Некорректное количество.",
+      "forbidden": "Недостаточно прав для этого действия.",
+      "unauthorized": "Сессия истекла. Откройте приложение заново.",
+      "network": "Проверьте соединение и попробуйте снова.",
+      "fallback": "Не удалось выполнить действие. Попробуйте ещё раз."
+    },
+    "checkout": {
+      "STORE_PAUSED": "Магазин временно недоступен для оформления заказов.",
+      "STORE_NOT_FOUND": "Магазин не найден. Обновите страницу.",
+      "INSUFFICIENT_STOCK": "Недостаточно товара. Проверьте количество.",
+      "PRODUCT_NOT_ACTIVE": "Товар больше недоступен. Обновите корзину.",
+      "VARIANT_NOT_FOUND": "Товар изменился. Обновите корзину.",
+      "FOREIGN_VARIANT": "Товар изменился. Обновите корзину.",
+      "INVENTORY_NOT_FOUND": "Товар больше недоступен. Обновите корзину.",
+      "INVALID_QUANTITY": "Проверьте количество товаров.",
+      "EMPTY_CART": "Корзина пуста.",
+      "VARIANT_DUPLICATE": "В корзине есть повторяющиеся позиции. Обновите корзину.",
+      "INVALID_CART_ITEM": "Корзина повреждена. Обновите её.",
+      "IDEMPOTENCY_KEY_REQUIRED": "Не удалось оформить заказ. Попробуйте ещё раз.",
+      "UNAUTHORIZED": "Сессия истекла. Откройте приложение заново.",
+      "NETWORK": "Не удалось оформить заказ. Проверьте соединение.",
+      "UNKNOWN": "Не удалось оформить заказ. Попробуйте ещё раз."
+    },
+    "question": {
+      "UNAUTHORIZED": "Войдите через Telegram, чтобы задать вопрос.",
+      "ALREADY_ASKED": "Вы уже задавали вопрос по этому товару.",
+      "DUPLICATE_ANSWER": "На этот вопрос уже дан ответ.",
+      "TEXT_REQUIRED": "Введите текст.",
+      "TEXT_TOO_LONG": "Текст слишком длинный.",
+      "STORE_PAUSED": "Магазин временно закрыт.",
+      "QUESTION_NOT_FOUND": "Вопрос больше недоступен.",
+      "PRODUCT_NOT_FOUND": "Товар больше недоступен.",
+      "FORBIDDEN": "Недостаточно прав.",
+      "fallback": "Не удалось выполнить действие. Попробуйте ещё раз."
+    },
+    "review": {
+      "UNAUTHORIZED": "Войдите через Telegram, чтобы оставить отзыв.",
+      "ALREADY_REVIEWED": "Вы уже оставляли отзыв по этому товару.",
+      "DUPLICATE_REPLY": "Вы уже отвечали на этот отзыв.",
+      "CANNOT_REPLY_OWN": "Нельзя отвечать на свой отзыв.",
+      "INVALID_RATING": "Поставьте оценку от 1 до 5.",
+      "TEXT_REQUIRED": "Введите текст ответа.",
+      "TEXT_TOO_LONG": "Текст слишком длинный.",
+      "STORE_PAUSED": "Магазин временно закрыт.",
+      "REVIEW_NOT_FOUND": "Отзыв больше недоступен.",
+      "FORBIDDEN": "Недостаточно прав.",
+      "fallback": "Не удалось выполнить действие. Попробуйте ещё раз."
+    }
+  },
+  "imageCrop": {
+    "processing": "Обработка…",
+    "preparing": "Подготовка фото…",
+    "noImage": "Нет изображения",
+    "zoom": "Масштаб",
+    "prepareFailed": "Не удалось обработать фото. Попробуйте другое.",
+    "cropFailed": "Не удалось обработать фото. Попробуйте ещё раз."
+  },
+  "orders": {
+    "refreshLabel": "Обновить заказы",
+    "total": "Итого",
+    "confirmAria": "Подтверждение действия",
+    "itemQtyAria": "Количество {{count}}",
+    "delivery": {
+      "recipient": "Получатель",
+      "phone": "Телефон",
+      "address": "Адрес"
+    },
+    "skeleton": {
+      "list": "Загрузка заказов…",
+      "detail": "Загрузка заказа…"
+    },
+    "loadingAria": "Загрузка заказов",
+    "filterAria": "Фильтр заказов",
+    "tabs": {
+      "all": "Все",
+      "NEW": "Новые",
+      "IN_TRANSIT": "В пути",
+      "DELIVERED": "Доставлено",
+      "history": "История"
+    },
+    "empty": {
+      "all": "Заказов пока нет",
+      "NEW": "Новых заказов нет",
+      "IN_TRANSIT": "Заказов в пути нет",
+      "DELIVERED": "Доставленных заказов пока нет",
+      "history": "История заказов пуста"
+    },
+    "error": {
+      "title": "Не удалось загрузить заказы",
+      "text": "Проверьте соединение и попробуйте снова."
+    },
+    "contact": {
+      "label": "Связаться",
+      "empty": "Контакт не указан.",
+      "openFailed": "Не удалось открыть контакт."
+    },
+    "card": {
+      "amountLabel": "Сумма заказа",
+      "details": "Подробнее",
+      "detailsAria": "Подробнее о заказе {{number}}",
+      "moreItems": "{{first}} и ещё {{count}}"
+    },
+    "detail": {
+      "statusLabel": "Статус заказа",
+      "createdAt": "Оформлен {{date}}",
+      "updatedAt": "Обновлён {{date}}",
+      "received": "Покупатель забрал заказ",
+      "refusalPrefix": "Причина отказа: {{reason}}",
+      "items": "Товары",
+      "delivery": "Доставка",
+      "contact": "Контакт"
+    },
+    "refusal": {
+      "aria": "Причина отказа",
+      "title": "Укажите причину отказа",
+      "confirm": "Подтвердить отказ"
+    }
+  },
+  "productSocial": {
+    "ratingAria": "Оценка {{value}} из 5",
+    "reviews_one": "{{count}} отзыв",
+    "reviews_few": "{{count}} отзыва",
+    "reviews_many": "{{count}} отзывов",
+    "reviews_other": "{{count}} отзывов",
+    "yourReview": "Ваш отзыв",
+    "yourQuestion": "Ваш вопрос",
+    "you": "Вы",
+    "seller": "Продавец",
+    "answered": "Отвечен",
+    "unanswered": "Без ответа"
+  },
+  "seller": {
+    "dashboard": {
+      "title": "Главная",
+      "empty": {
+        "noStoreTitle": "Нет данных магазина",
+        "noStoreText": "Откройте магазин, чтобы увидеть сводку.",
+        "noSummaryTitle": "Сводка недоступна",
+        "noSummaryText": "Попробуйте обновить позже."
+      },
+      "error": {
+        "title": "Не удалось загрузить сводку",
+        "text": "Проверьте соединение и попробуйте снова."
+      },
+      "skeletonAria": "Загрузка сводки",
+      "sales": {
+        "earned": "Заработано",
+        "potential": "Потенциально"
+      },
+      "orders": {
+        "title": "Заказы",
+        "aria": "{{label}}: {{value}}",
+        "stats": {
+          "new": "Новые",
+          "inTransit": "В пути",
+          "delivered": "Доставлено",
+          "history": "История"
+        }
+      },
+      "inventory": {
+        "title": "Товары",
+        "categories": "Категории",
+        "onShelf": "На витрине",
+        "archived": "В архиве",
+        "active": "Активных",
+        "onShelfAria": "На витрине: {{value}}",
+        "archivedAria": "В архиве: {{value}}",
+        "activeAria": "Активных категорий: {{value}}"
+      },
+      "attention": {
+        "title": "Требует внимания",
+        "text": "Здесь появятся задачи, требующие действия. В будущих обновлениях: товары без остатка и заканчивающиеся позиции, новые вопросы и отзывы покупателей, напоминания о заказах."
+      }
+    },
+    "inventory": {
+      "title": "Инвентарь",
+      "switcherAria": "Разделы инвентаря",
+      "mode": {
+        "products": "Товары",
+        "categories": "Категории"
+      },
+      "add": "Добавить",
+      "addProduct": "Добавить товар",
+      "noProducts": "Пока нет товаров",
+      "archived": "в архиве",
+      "archivedCount": "{{count}} в архиве",
+      "positionAria": "Позиция {{position}} в каталоге. Изменить",
+      "productCount_one": "{{count}} товар",
+      "productCount_few": "{{count}} товара",
+      "productCount_many": "{{count}} товаров",
+      "productCount_other": "{{count}} товаров",
+      "noResults": "Ничего не найдено",
+      "loadError": "Не удалось загрузить каталог",
+      "loadErrorHint": "Проверьте соединение и попробуйте снова.",
+      "categoryPicker": {
+        "triggerAria": "Категория",
+        "uncategorized": "Без категории",
+        "chooseFromList": "Выбрать из списка",
+        "sheetTitle": "Категория товара",
+        "listAria": "Категория товара",
+        "newCategory": "Новая категория",
+        "search": "Найти категорию",
+        "clear": "Очистить"
+      },
+      "categoryView": {
+        "title": "Категория",
+        "loading": "Загрузка…",
+        "notFound": "Категория не найдена.",
+        "editAria": "Редактировать категорию",
+        "searchProduct": "Найти товар",
+        "emptyTitle": "В этой категории пока нет товаров",
+        "noResultsHint": "Попробуйте изменить запрос"
+      },
+      "photo": "Фото",
+      "addSheet": {
+        "title": "Добавить в «{{name}}»",
+        "newProduct": "Новый товар",
+        "newProductHint": "Создать с нуля",
+        "productFromStore": "Товар из магазина",
+        "productFromStoreHint": "Выбрать из каталога",
+        "storeProducts": "Товары магазина",
+        "storeEmpty": "В магазине пока нет товаров",
+        "listAria": "Товары магазина",
+        "alreadyHere": "уже здесь",
+        "assignError": "Не удалось добавить товары. Попробуйте ещё раз.",
+        "adding": "Добавление…",
+        "addCount": "Добавить ({{count}})",
+        "selectProducts": "Выберите товары"
+      },
+      "editCategory": {
+        "title": "Редактировать категорию",
+        "removePhoto": "Удалить фото",
+        "addPhoto": "Добавить фото",
+        "nameLabel": "Название",
+        "thresholdLabel": "Уведомлять об окончании",
+        "thresholdPlaceholder": "По умолчанию",
+        "orderLabel": "Порядок на витрине",
+        "orderValue": "{{position}} из {{total}}",
+        "changeOrder": "Изменить порядок",
+        "uploadError": "Не удалось загрузить фото. Попробуйте ещё раз.",
+        "saveError": "Не удалось сохранить категорию. Попробуйте ещё раз.",
+        "deleteError": "Не удалось удалить категорию. Попробуйте ещё раз.",
+        "deleteConfirm": "Удалить категорию? Товары перейдут в «Без категории», обложка удалится из хранилища.",
+        "deleting": "Удаление…",
+        "deleteLink": "Удалить категорию",
+        "cropCover": "Кадрировать обложку"
+      },
+      "createCategory": {
+        "title": "Новая категория",
+        "nameLabel": "Название",
+        "namePlaceholder": "Например, Овощи",
+        "createError": "Не удалось создать категорию. Попробуйте ещё раз.",
+        "creating": "Создание…",
+        "submit": "Создать категорию"
+      },
+      "reorder": {
+        "title": "Порядок в каталоге",
+        "groupAria": "Позиция в каталоге"
+      },
+      "linkSheet": {
+        "title": "Связи",
+        "hint": "Выберите товары — они появятся друг у друга в разделе «Похожее».",
+        "searchPlaceholder": "Поиск товара",
+        "remove": "Убрать",
+        "link": "Связать"
+      },
+      "stock": {
+        "outOfStock": "Нет в наличии",
+        "low": "⚠ {{count}} шт.",
+        "hidden": "Скрыт",
+        "available": "{{count}} шт."
+      },
+      "preview": {
+        "prev": "Предыдущие товары",
+        "next": "Следующие товары"
+      },
+      "thumbnailArchived": "{{title}} (в архиве)",
+      "attentionAria": "Требуют внимания: отзывов {{reviews}}, вопросов {{questions}}",
+      "products": {
+        "title": "Товары",
+        "empty": "Нет товаров"
+      }
+    },
+    "product": {
+      "createTitle": "Новый товар",
+      "editTitle": "Редактировать товар",
+      "title": "Товар",
+      "notFound": "Товар не найден.",
+      "statusActive": "На витрине",
+      "statusArchived": "В архиве",
+      "photoAria": "Фото {{number}}",
+      "previewAsBuyer": "Смотреть как покупатель",
+      "newBadge": "{{count}} новых",
+      "tabs": {
+        "card": "Карточка",
+        "reviews": "Отзывы",
+        "questions": "Вопросы",
+        "storefront": "Витрина"
+      },
+      "preview": {
+        "loadError": "Не удалось загрузить каталог.",
+        "links": "Связи",
+        "linksEmpty": "Пока нет связанных товаров. Добавьте — они появятся в разделе «Похожее» у покупателя.",
+        "removeLink": "Убрать «{{title}}» из связей",
+        "addLink": "Добавить связь"
+      },
+      "overview": {
+        "inStock": "В наличии",
+        "held": "В ожидании",
+        "stockControl": "Контроль остатков",
+        "variants": "Варианты",
+        "noVariants": "Нет вариантов",
+        "availableCount": "{{count}} шт.",
+        "heldCount": "{{count}} в ожидании",
+        "features": "Характеристики",
+        "statusError": "Не удалось изменить статус. Попробуйте ещё раз.",
+        "publishing": "Публикация…",
+        "publish": "Вернуть на витрину",
+        "archiving": "В архив…",
+        "archive": "В архив",
+        "edit": "Редактировать",
+        "deleteFromArchive": "Удалить из архива",
+        "deleteError": "Не удалось удалить товар. Попробуйте ещё раз.",
+        "publishHint": "Добавьте хотя бы один вариант выбора при заказе (размер/объём), чтобы выставить товар на витрину."
+      },
+      "stock": {
+        "title": "Контроль остатков",
+        "noVariants": "Нет вариантов для управления остатками.",
+        "inStockShort": "в наличии",
+        "heldShort": "в ожидании",
+        "availableLabel": "В наличии",
+        "heldLabel": "В ожидании",
+        "moving": "Переносим…",
+        "moveAll": "Всё в наличии",
+        "addVariant": "Добавить вариант",
+        "saveError": "Не удалось сохранить остатки. Попробуйте ещё раз.",
+        "reservedError": "Часть остатков зарезервирована активными заказами. Освободить их можно только после отмены или отказа заказа.",
+        "moveError": "Не удалось перенести остатки. Попробуйте ещё раз."
+      },
+      "variant": {
+        "title": "Новый вариант",
+        "nameLabel": "Размерность",
+        "nameDefault": "Объём",
+        "namePlaceholder": "Размер / Объём",
+        "valueLabel": "Значение",
+        "valuePlaceholder": "1 кг",
+        "quantityLabel": "Остаток",
+        "priceLabel": "Цена",
+        "discountLabel": "Скидка %",
+        "saveError": "Не удалось добавить вариант. Попробуйте ещё раз."
+      },
+      "form": {
+        "photoTitle": "Фото товара",
+        "coverTag": "Обложка",
+        "addPhotoShort": "Добавить",
+        "photoHint": "До {{max}} фото — Shoppis сам подготовит их для каталога.",
+        "sectionMain": "Основное",
+        "nameLabel": "Название",
+        "namePlaceholder": "Например, Морковь",
+        "descriptionLabel": "Описание",
+        "descriptionPlaceholder": "Необязательно",
+        "categoryLabel": "Категория",
+        "featuresTitle": "Характеристики",
+        "featureNamePlaceholder": "Материал",
+        "featureValuePlaceholder": "Кожа",
+        "removeFeature": "Удалить характеристику",
+        "addFeature": "Добавить характеристику",
+        "variantsTitle": "Варианты покупки",
+        "variantN": "Вариант {{number}}",
+        "removeVariant": "Удалить вариант",
+        "dimensionLabel": "Размерность",
+        "dimensionPlaceholder": "размер / объём / память",
+        "valueLabel": "Значение",
+        "valuePlaceholder": "42 / XL / 500 мл / 128 GB",
+        "quantityLabel": "Остаток",
+        "priceLabel": "Цена",
+        "discountLabel": "Скидка %",
+        "customValues": "Свои значения для этого варианта",
+        "priceLikeProduct": "Цена как у товара",
+        "discountLikeProduct": "Скидка как у товара",
+        "inheritsBase": "Наследует цену и скидку варианта 1",
+        "variantsHint": "До {{max}} вариантов. Без варианта товар нельзя выставить на витрину — только в архив.",
+        "archive": "В архив",
+        "publish": "На витрину",
+        "publishing": "Публикация…",
+        "saveError": "Не удалось сохранить товар. Попробуйте ещё раз."
+      },
+      "draft": {
+        "statusDraft": "Черновик",
+        "statusChanged": "Есть изменения",
+        "statusSaved": "Сохранена",
+        "statusError": "Ошибка сохранения",
+        "createCopy": "Создать копию",
+        "copyLimit": "Достигнут лимит: 6 карточек",
+        "unsavedText": "Есть несохранённые изменения. Выйти без сохранения?",
+        "stay": "Остаться",
+        "exit": "Выйти",
+        "removeDraftConfirm": "Удалить черновик без сохранения?",
+        "removeDraftAria": "Удалить черновик {{number}}",
+        "draftsAria": "Черновики товара",
+        "original": "Исходная",
+        "copyN": "Копия {{number}}",
+        "limitText": "Достигнут лимит: 6 карточек в одной сессии"
+      }
+    },
+    "onboarding": {
+      "title": "Ваш магазин начинается здесь 🛍️",
+      "subtitle": "Пара простых шагов — и у вас появится собственная витрина для товаров. Начнём с основ!",
+      "banner": "Баннер",
+      "bannerAlt": "Баннер магазина",
+      "removeBanner": "Убрать баннер",
+      "replace": "Заменить",
+      "addBanner": "Добавить баннер",
+      "addBannerHint": "Нажмите, чтобы выбрать фото",
+      "storeName": "Название магазина",
+      "storeNamePlaceholder": "Напр. Apple Hub",
+      "currency": "Валюта",
+      "language": "Язык магазина",
+      "nameRequired": "Введите название магазина",
+      "uploadingBanner": "Загрузка баннера…",
+      "creating": "Создаём…",
+      "create": "Создать магазин"
+    },
+    "orders": {
+      "title": "Заказы",
+      "loadError": "Не удалось загрузить заказ",
+      "notFound": "Заказ не найден",
+      "toOrders": "К заказам",
+      "orderNumber": "Заказ № {{number}}",
+      "order": "Заказ",
+      "writeBuyer": "Написать покупателю",
+      "phone": "Телефон: {{phone}}",
+      "phoneNotSpecified": "не указан",
+      "received": "Покупатель забрал",
+      "refuse": "Отказ",
+      "advance": "Продвинуть заказ",
+      "advanceInTransit": "Передать в доставку",
+      "advanceDelivered": "Отметить доставленным",
+      "cancel": "Отменить",
+      "cancelTextInTransit": "Отменить заказ? Остаток не вернётся автоматически — потребуется ручная сверка остатков.",
+      "cancelText": "Отменить этот заказ?",
+      "cancelOrder": "Отменить заказ",
+      "transition": {
+        "inTransit": "Передано в доставку",
+        "delivered": "Заказ доставлен",
+        "received": "Заказ получен",
+        "cancelled": "Заказ отменён",
+        "refused": "Отказ оформлен"
+      }
+    },
+    "sales": {
+      "title": "Продажи",
+      "switcherAria": "Разделы продаж",
+      "groupEarned": "Заработано",
+      "groupPotential": "Потенциальные",
+      "disabledNoSession": "Войдите, чтобы увидеть продажи.",
+      "disabledNoStore": "Откройте магазин, чтобы увидеть продажи.",
+      "emptyEarned": "Полученных продаж пока нет",
+      "emptyPotential": "Потенциальных продаж нет"
+    },
+    "reviews": {
+      "loadError": "Не удалось загрузить отзывы.",
+      "delete": "Удалить отзыв",
+      "replyPlaceholder": "Ответ от магазина",
+      "reply": "Ответить",
+      "empty": "Пока нет отзывов"
+    },
+    "questions": {
+      "loadError": "Не удалось загрузить вопросы.",
+      "delete": "Удалить вопрос",
+      "answerPlaceholder": "Ответ покупателю",
+      "answer": "Ответить",
+      "empty": "Пока нет вопросов"
+    },
+    "settings": {
+      "title": "Настройки",
+      "loading": "Загрузка магазина…",
+      "notFound": "Магазин не найден",
+      "groupStore": "Магазин",
+      "groupBuyers": "Для покупателей",
+      "groupInterface": "Интерфейс",
+      "rowProfile": "Профиль магазина",
+      "rowLocalization": "Язык и валюта",
+      "rowContacts": "Контакты",
+      "rowShare": "Поделиться магазином",
+      "rowPreview": "Предпросмотр",
+      "valueNotSpecified": "Не указан",
+      "profileTitle": "Профиль магазина",
+      "contactTitle": "Контакты",
+      "localizationTitle": "Язык и валюта",
+      "shareTitle": "Поделиться магазином",
+      "localization": {
+        "cardTitle": "Локализация",
+        "currency": "Валюта",
+        "language": "Язык"
+      },
+      "identity": {
+        "title": "Магазин",
+        "storeName": "Название магазина",
+        "nameRequired": "Название магазина обязательно",
+        "descriptionLabel": "Описание магазина",
+        "descriptionPlaceholder": "Расскажите покупателям о вашем магазине",
+        "descriptionHint": "До {{max}} символов",
+        "descriptionTooLong": "Описание не длиннее {{max}} символов",
+        "cropBanner": "Кадрировать баннер"
+      },
+      "communication": {
+        "title": "Связь с покупателями",
+        "hint": "Контакт для связи: продавец, менеджер или бот. Покупатель откроет диалог по кнопке.",
+        "invalid": "Введите username, @username или ссылку t.me/…",
+        "inputAria": "Контакт для связи",
+        "placeholder": "@username или t.me/username",
+        "clearAria": "Очистить контакт",
+        "prefillWith": "Подставить мой @{{username}}",
+        "prefillGeneric": "Подставить мой @username",
+        "linkLabel": "Ссылка для покупателей:",
+        "openAria": "Открыть контакт в Telegram",
+        "copyAria": "Копировать контакт"
+      },
+      "status": {
+        "title": "Статус магазина",
+        "active": "Магазин активен",
+        "paused": "Магазин приостановлен",
+        "activeHint": "Покупатели видят витрину и могут оформлять заказы.",
+        "pausedHint": "Покупатели видят экран «Магазин временно закрыт». Управление доступно.",
+        "switchAria": "Магазин активен",
+        "confirmText": "Магазин временно закроется для покупателей. Продолжить?",
+        "pausing": "Приостановка…",
+        "pause": "Приостановить"
+      },
+      "share": {
+        "title": "Поделиться",
+        "hint": "Ссылка на витрину для покупателей.",
+        "openAria": "Открыть витрину",
+        "copyAria": "Копировать ссылку",
+        "previewAria": "Предпросмотр магазина",
+        "note": "Предпросмотр станет доступен после запуска витрины."
+      },
+      "banner": {
+        "alt": "Баннер магазина",
+        "replaceAria": "Заменить баннер",
+        "removeAria": "Убрать баннер",
+        "add": "Добавить баннер магазина",
+        "addAria": "Добавить баннер"
+      }
+    }
+  },
+  "buyer": {
+    "catalog": {
+      "title": "Каталог",
+      "profileAria": "Профиль",
+      "allCategories": "Все категории",
+      "searchPlaceholder": "Найти товар",
+      "searchAria": "Поиск по названию",
+      "priceFromAria": "Цена от",
+      "priceToAria": "Цена до",
+      "loadError": "Не удалось загрузить каталог",
+      "loadErrorHint": "Проверьте соединение и попробуйте снова.",
+      "categoryFallback": "Категория",
+      "filtersAria": "Фильтры",
+      "updatingAria": "Обновление каталога",
+      "streamError": "Не удалось загрузить ещё товары",
+      "loadingAria": "Загрузка товаров",
+      "emptySearchTitle": "Ничего не нашлось",
+      "emptySearchText": "По запросу «{{query}}» товаров нет. Попробуйте изменить запрос.",
+      "emptyPriceTitle": "Нет товаров в этом диапазоне",
+      "emptyPriceText": "Попробуйте изменить фильтр по цене.",
+      "emptyCategoryTitle": "В этой категории пока нет товаров",
+      "emptyCategoryText": "Загляните в другие категории.",
+      "emptyTitle": "Товаров пока нет",
+      "emptyText": "В этом магазине пока нечего показать.",
+      "priceFrom": "от {{price}}",
+      "priceTo": "до {{price}}",
+      "priceRange": "{{min}} – {{max}}",
+      "filter": {
+        "title": "Фильтры",
+        "loading": "Загрузка фильтра…",
+        "loadError": "Не удалось загрузить фильтр цены",
+        "price": "Цена",
+        "empty": "Пока нет доступных цен для фильтра.",
+        "reset": "Сбросить",
+        "apply": "Показать товары",
+        "appliedAria": "Применённые фильтры",
+        "removeCategory": "Убрать фильтр «{{name}}»",
+        "removePrice": "Убрать фильтр цены {{price}}"
+      }
+    },
+    "storeStatus": {
+      "notFoundTitle": "Магазин не найден",
+      "notFoundText": "Проверьте ссылку или попросите новую у продавца.",
+      "pausedTitle": "Магазин временно закрыт",
+      "pausedText": "Сейчас заказы в этом магазине недоступны. Попробуйте зайти позже.",
+      "contact": "Связаться с продавцом"
+    },
+    "home": {
+      "searchAria": "Поиск",
+      "profileAria": "Профиль",
+      "descriptionAria": "Описание магазина",
+      "descriptionTitle": "О магазине",
+      "loadError": "Не удалось загрузить магазин.",
+      "streamError": "Не удалось загрузить ещё товары",
+      "loadingAria": "Загрузка товаров",
+      "sectionProducts": "Товары",
+      "sectionCategories": "Категории",
+      "viewAllProducts": "Смотреть все →",
+      "viewAllCategories": "Все →"
+    },
+    "product": {
+      "outOfStock": "Нет в наличии",
+      "loadError": "Не удалось загрузить товар",
+      "notFound": "Товар не найден",
+      "notFoundText": "Возможно, товар снят с продажи или ссылка устарела.",
+      "shareAria": "Поделиться",
+      "more": "… Подробнее",
+      "collapse": "Свернуть",
+      "features": "Характеристики",
+      "addToCart": "Добавить в корзину",
+      "added": "Добавлено",
+      "total": "Итого",
+      "variantFallback": "Вариант",
+      "variantsCountAria": "Доступно вариантов: {{count}}",
+      "ratingAria": "Оценка",
+      "starAria": "{{value}} из 5",
+      "you": "Вы",
+      "composerHint": "Поставьте оценку",
+      "composerPlaceholder": "Комментарий (необязательно)",
+      "sending": "Отправка…",
+      "send": "Отправить",
+      "askQuestion": "Задать вопрос",
+      "questionPlaceholder": "Ваш вопрос",
+      "reviewsLoadError": "Не удалось загрузить отзывы.",
+      "reviewsNotice": "Вы уже оставляли отзыв. Изменить или оставить новый нельзя.",
+      "reviewsDelete": "Удалить отзыв",
+      "replyPlaceholder": "Ваш ответ",
+      "reply": "Ответить",
+      "reviewsEmpty": "Пока нет отзывов",
+      "questionsLoadError": "Не удалось загрузить вопросы.",
+      "questionsNotice": "Вы уже задавали вопрос. Изменить или задать новый нельзя.",
+      "questionsDelete": "Удалить вопрос",
+      "questionsEmpty": "Пока нет вопросов",
+      "relatedEmpty": "Пока нет похожих товаров",
+      "addedToCart": "Добавлено в корзину",
+      "openPhotoAria": "Открыть фото",
+      "photoAria": "Фото {{number}}",
+      "tabs": {
+        "about": "О товаре",
+        "reviews": "Отзывы",
+        "questions": "Вопросы",
+        "related": "Похожее"
+      }
+    },
+    "favorites": {
+      "title": "Избранное",
+      "loadError": "Не удалось загрузить избранное",
+      "emptyTitle": "В избранном пока пусто",
+      "emptyText": "Нажмите на ♥ у товара, чтобы сохранить его здесь.",
+      "addAria": "В избранное",
+      "removeAria": "Убрать из избранного"
+    },
+    "account": {
+      "title": "Профиль",
+      "hint": "Профиль появится на следующем этапе"
+    },
+    "settings": {
+      "title": "Настройки",
+      "hint": "Раздел настроек будет доступен после авторизации"
+    },
+    "cart": {
+      "title": "Корзина",
+      "loadError": "Не удалось загрузить корзину",
+      "inlineError": "Не удалось обновить корзину.",
+      "checkout": "Оформить заказ · {{total}}",
+      "item": {
+        "selectOn": "Убрать из оформления",
+        "selectOff": "Включить в оформление",
+        "openAria": "Открыть «{{title}}»",
+        "availableOnly": "Доступно только {{count}} шт.",
+        "fix": "Уменьшить до {{count}}",
+        "removeAria": "Удалить «{{title}}» из корзины"
+      },
+      "empty": {
+        "title": "Корзина пуста",
+        "text": "Добавьте товары из каталога, чтобы оформить заказ.",
+        "cta": "Перейти в каталог"
+      },
+      "selection": {
+        "selected": "Выбрано {{count}}",
+        "selectAll": "Выбрать все",
+        "clearAll": "Снять всё",
+        "updatingAria": "Обновление корзины"
+      },
+      "quantity": {
+        "aria": "Количество",
+        "decrease": "Уменьшить количество",
+        "increase": "Увеличить количество"
+      },
+      "remove": {
+        "aria": "Удаление товара",
+        "text": "Удалить товар из корзины?",
+        "no": "Нет",
+        "yes": "Да"
+      }
+    },
+    "checkout": {
+      "title": "Оформление заказа",
+      "close": "Закрыть",
+      "nameLabel": "ФИО",
+      "namePlaceholder": "Иван Петров",
+      "nameError": "Укажите имя и фамилию",
+      "phoneLabel": "Телефон",
+      "phonePlaceholder": "+7 900 000-00-00",
+      "phoneError": "Введите номер телефона",
+      "addressLabel": "Адрес доставки",
+      "addressPlaceholder": "Город, улица, адрес почты",
+      "addressError": "Укажите адрес доставки",
+      "submitting": "Оформляем…",
+      "submit": "Оформить заказ",
+      "contactNotSpecified": "Продавец не указал контакт для связи.",
+      "contactOpenFailed": "Не удалось открыть контакт продавца.",
+      "contactHintNoStore": "Есть вопросы по оформлению?",
+      "contactHintWithStore": "Есть вопросы по оформлению в «{{store}}»?",
+      "contactCta": "Связаться с продавцом",
+      "successTitle": "Заказ принят!",
+      "successNumberLabel": "Номер заказа:",
+      "successTotalLabel": "Сумма:",
+      "notifyOn": "Уведомления включены — «Заказ принят» и статусы доставки придут в Telegram.",
+      "notifyOff": "Включите уведомления, чтобы не пропустить «Заказ принят» и статусы доставки в Telegram.",
+      "allowPending": "Запрашиваем…",
+      "allow": "Разрешить уведомления",
+      "toOrders": "Перейти к заказам"
+    },
+    "orders": {
+      "title": "Заказы",
+      "disabledNoStore": "Откройте магазин, чтобы посмотреть заказы",
+      "disabledNoSession": "Войдите, чтобы посмотреть заказы",
+      "disabled": "Заказы сейчас недоступны",
+      "loadError": "Не удалось загрузить заказ",
+      "notFound": "Заказ не найден",
+      "toOrders": "К заказам",
+      "orderNumber": "Заказ № {{number}}",
+      "order": "Заказ",
+      "writeSeller": "Написать продавцу",
+      "cancelText": "Отменить этот заказ?",
+      "cancelOrder": "Отменить заказ"
+    }
+  }
 }

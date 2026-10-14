@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { OrderDetails } from '../../../application/read-models/order';
-import { refusalReasonLabel } from '../../../domain/constants/order-statuses';
+import { refusalReasonLabelKey } from '../../../domain/constants/order-statuses';
 import OrderStatusBadge from './OrderStatusBadge';
 import OrderItemRow from './OrderItemRow';
 import OrderDeliveryDetails from './OrderDeliveryDetails';
@@ -24,32 +25,37 @@ interface Props {
  * tax/payment/tracking/ETA. Immutable snapshots; никакой actor-логики.
  */
 export default function OrderDetailsContent({ order, contact, actions }: Props) {
+  const { t } = useTranslation();
   const received = order.deliveryOutcome === 'RECEIVED';
   // Safe-getter (docs/24 §2.4): неизвестный код причины не роняет рендер.
-  const reason = order.refusalReasonCode ? refusalReasonLabel(order.refusalReasonCode) : null;
+  const reason = order.refusalReasonCode ? t(refusalReasonLabelKey(order.refusalReasonCode)) : null;
 
   return (
     <div className="order-detail" data-testid="order-detail">
       <section className="order-detail__section order-detail__status">
         <div className="order-detail__status-head">
-          <span className="order-detail__meta">Статус заказа</span>
+          <span className="order-detail__meta">{t('orders.detail.statusLabel')}</span>
           <OrderStatusBadge status={order.status} />
         </div>
-        <span className="order-detail__meta">Оформлен {formatOrderDateTime(order.createdAt)}</span>
         <span className="order-detail__meta">
-          Обновлён {formatOrderDateTime(order.updatedAt)}
+          {t('orders.detail.createdAt', { date: formatOrderDateTime(order.createdAt) })}
         </span>
-        {received ? <span className="order-detail__note">Покупатель забрал заказ</span> : null}
+        <span className="order-detail__meta">
+          {t('orders.detail.updatedAt', { date: formatOrderDateTime(order.updatedAt) })}
+        </span>
+        {received ? (
+          <span className="order-detail__note">{t('orders.detail.received')}</span>
+        ) : null}
         {order.status === 'REFUSED' && reason ? (
           <span className="order-detail__note order-detail__note--danger">
-            Причина отказа: {reason}
+            {t('orders.detail.refusalPrefix', { reason })}
           </span>
         ) : null}
       </section>
 
       <section className="order-detail__section">
         <div className="order-detail__section-head">
-          <h2 className="order-detail__section-title">Товары</h2>
+          <h2 className="order-detail__section-title">{t('orders.detail.items')}</h2>
           <span className="order-detail__section-count">{order.items.length}</span>
         </div>
         <div className="order-items">
@@ -65,13 +71,13 @@ export default function OrderDetailsContent({ order, contact, actions }: Props) 
       </section>
 
       <section className="order-detail__section">
-        <h2 className="order-detail__section-title">Доставка</h2>
+        <h2 className="order-detail__section-title">{t('orders.detail.delivery')}</h2>
         <OrderDeliveryDetails delivery={order.delivery} />
       </section>
 
       {contact ? (
         <section className="order-detail__section">
-          <h2 className="order-detail__section-title">Контакт</h2>
+          <h2 className="order-detail__section-title">{t('orders.detail.contact')}</h2>
           {contact}
         </section>
       ) : null}

@@ -1,4 +1,5 @@
 import { Send } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { getInitial } from '../../../domain/rules/initial';
 import SafeImage from '../../shared/components/SafeImage';
 
@@ -23,14 +24,15 @@ export default function StoreStatusView({
   logoUrl,
   supportHandle,
 }: Props) {
+  const { t } = useTranslation();
   if (variant === 'notFound') {
     return (
       <div className="store-status">
         <div className="store-status__icon" aria-hidden>
           🔍
         </div>
-        <h1 className="store-status__title">Магазин не найден</h1>
-        <p className="store-status__text">Проверьте ссылку или попросите новую у продавца.</p>
+        <h1 className="store-status__title">{t('buyer.storeStatus.notFoundTitle')}</h1>
+        <p className="store-status__text">{t('buyer.storeStatus.notFoundText')}</p>
       </div>
     );
   }
@@ -56,26 +58,25 @@ export default function StoreStatusView({
       <div className="store-status__icon" aria-hidden>
         ⏸️
       </div>
-      <h1 className="store-status__title">Магазин временно закрыт</h1>
-      <p className="store-status__text">
-        Сейчас заказы в этом магазине недоступны. Попробуйте зайти позже.
-      </p>
+      <h1 className="store-status__title">{t('buyer.storeStatus.pausedTitle')}</h1>
+      <p className="store-status__text">{t('buyer.storeStatus.pausedText')}</p>
       {supportHandle ? <ContactButton handle={supportHandle} /> : null}
     </div>
   );
 }
 
 function ContactButton({ handle }: { handle: string }) {
+  const { t } = useTranslation();
   return (
     <a
       className="store-status__contact"
       href={`https://t.me/${handle}`}
       target="_blank"
       rel="noopener noreferrer"
-      aria-label="Связаться с продавцом"
+      aria-label={t('buyer.storeStatus.contact')}
     >
       <Send size={16} />
-      Связаться с продавцом
+      {t('buyer.storeStatus.contact')}
     </a>
   );
 }

@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { resetNavigationDepth, setNavigationDepth } from '../can-go-back';
 
 const { navigate, selectTick } = vi.hoisted(() => ({
   navigate: vi.fn(),
@@ -16,15 +17,12 @@ import BackButton from './BackButton';
 beforeEach(() => {
   navigate.mockReset();
   selectTick.mockReset();
-});
-
-afterEach(() => {
-  window.history.replaceState(null, '');
+  resetNavigationDepth();
 });
 
 describe('BackButton', () => {
   it('есть история → navigate(-1) + haptic', async () => {
-    window.history.replaceState({ idx: 2 }, '');
+    setNavigationDepth(2);
     render(<BackButton fallback="/" />);
 
     await userEvent.click(screen.getByRole('button', { name: 'Назад' }));
@@ -34,7 +32,7 @@ describe('BackButton', () => {
   });
 
   it('нет истории → fallback с replace', async () => {
-    window.history.replaceState({ idx: 0 }, '');
+    resetNavigationDepth();
     render(<BackButton fallback="/catalog" />);
 
     await userEvent.click(screen.getByRole('button', { name: 'Назад' }));
@@ -43,7 +41,7 @@ describe('BackButton', () => {
   });
 
   it('onClick перехватывает навигацию (haptic сохраняется)', async () => {
-    window.history.replaceState({ idx: 2 }, '');
+    setNavigationDepth(2);
     const onClick = vi.fn();
     render(<BackButton fallback="/" onClick={onClick} />);
 

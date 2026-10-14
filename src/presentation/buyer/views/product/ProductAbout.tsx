@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useOutletContext } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import type { StorefrontProductDetail } from '../../../../application/read-models/storefront-product';
 
 /**
@@ -23,6 +24,7 @@ interface Props {
  * заданы — блока нет). Данные — prop либо `<Outlet context={detail}>` из shell.
  */
 export default function ProductAbout({ detail: detailProp }: Props = {}) {
+  const { t } = useTranslation();
   const contextDetail = useOutletContext<StorefrontProductDetail | undefined>();
   const detail = detailProp ?? contextDetail;
   const [expanded, setExpanded] = useState(false);
@@ -40,7 +42,7 @@ export default function ProductAbout({ detail: detailProp }: Props = {}) {
           <p className={`pd-about__text${clamp ? ' pd-about__text--clamp' : ''}`}>{description}</p>
           {truncatable && !expanded ? (
             <button type="button" className="pd-about__more" onClick={() => setExpanded(true)}>
-              … Подробнее
+              {t('buyer.product.more')}
             </button>
           ) : null}
         </div>
@@ -48,13 +50,13 @@ export default function ProductAbout({ detail: detailProp }: Props = {}) {
 
       {truncatable && expanded ? (
         <button type="button" className="pd-about__toggle" onClick={() => setExpanded(false)}>
-          Свернуть
+          {t('buyer.product.collapse')}
         </button>
       ) : null}
 
       {detail.attributes.length > 0 ? (
         <section className="pd-about__section">
-          <h2 className="pd-about__heading">Характеристики</h2>
+          <h2 className="pd-about__heading">{t('buyer.product.features')}</h2>
           <dl className="pd-about__attrs">
             {detail.attributes.map((attr, index) => (
               <div className="pd-about__attr" key={`${attr.name}-${index}`}>

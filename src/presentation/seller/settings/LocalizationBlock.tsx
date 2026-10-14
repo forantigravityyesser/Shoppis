@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { currencySymbol } from '../../../domain/constants/currencies';
 import { STORE_CURRENCIES, STORE_LANGUAGES } from '../../../domain/rules/store-settings-rules';
 import type { Store, StoreCurrency, StoreLanguage } from '../../../domain/models/store';
@@ -16,15 +17,15 @@ const CURRENCY_OPTIONS = STORE_CURRENCIES.map((code) => ({
   label: `${code} (${currencySymbol(code)})`,
 }));
 
-const LANGUAGE_OPTIONS: Array<{ value: StoreLanguage; label: string }> = STORE_LANGUAGES.map(
-  (code) => ({ value: code, label: code === 'ru' ? 'Русский' : 'English' }),
-);
-
 /**
  * Блок локализации: валюта и язык. Draft локально; в БД уходят только изменённые
  * поля этого блока. 12 §7.
  */
 export default function LocalizationBlock({ store, onSave }: Props) {
+  const { t } = useTranslation();
+  const languageOptions: Array<{ value: StoreLanguage; label: string }> = STORE_LANGUAGES.map(
+    (code) => ({ value: code, label: t(`language.${code}`) }),
+  );
   const [currency, setCurrency] = useState<StoreCurrency>(store.currencyCode);
   const [language, setLanguage] = useState<StoreLanguage>(store.language);
   const [saving, setSaving] = useState(false);
@@ -53,14 +54,14 @@ export default function LocalizationBlock({ store, onSave }: Props) {
 
   return (
     <section className="card">
-      <div className="card__title">Локализация</div>
+      <div className="card__title">{t('seller.settings.localization.cardTitle')}</div>
 
       <div style={styles.field}>
-        <span style={styles.label}>Валюта</span>
+        <span style={styles.label}>{t('seller.settings.localization.currency')}</span>
         <SegmentedControl
           options={CURRENCY_OPTIONS}
           value={currency}
-          ariaLabel="Валюта"
+          ariaLabel={t('seller.settings.localization.currency')}
           onChange={(value) => {
             setCurrency(value);
             setError(null);
@@ -69,11 +70,11 @@ export default function LocalizationBlock({ store, onSave }: Props) {
       </div>
 
       <div style={styles.field}>
-        <span style={styles.label}>Язык</span>
+        <span style={styles.label}>{t('seller.settings.localization.language')}</span>
         <SegmentedControl
-          options={LANGUAGE_OPTIONS}
+          options={languageOptions}
           value={language}
-          ariaLabel="Язык"
+          ariaLabel={t('seller.settings.localization.language')}
           onChange={(value) => {
             setLanguage(value);
             setError(null);

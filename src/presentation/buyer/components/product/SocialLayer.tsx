@@ -4,7 +4,6 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { useNavigate } from 'react-router';
 import BackButton from '../../../shared/components/BackButton';
 import { useStuck } from '../../../shared/hooks/useStuck';
-import { canGoBack } from '../../../shared/can-go-back';
 
 interface Props {
   title: string;
@@ -35,11 +34,7 @@ export default function SocialLayer({ title, backTo, children }: Props) {
   const scrolled = useStuck(scrollSentinelRef);
 
   const navigateBack = () => {
-    if (canGoBack()) {
-      navigate(-1);
-    } else {
-      navigate(backTo, { replace: true });
-    }
+    navigate(backTo, { replace: true });
   };
 
   const requestClose = () => {

@@ -9,47 +9,45 @@
 // первый заказ создаётся до получения согласия, поэтому уведомление о нём нужно
 // отправить уже ПОСЛЕ согласия (best-effort, вне транзакции заказа).
 //
-// Env: INSFORGE_BASE_URL, ANON_KEY, SESSION_SECRET,
+// Env: INSFORGE_BASE_URL, API_KEY (admin), SESSION_SECRET,
 //      BUYER_BOT_TOKEN / SELLER_BOT_TOKEN (fallback BOT_TOKEN), APP_URL?
 
-import { createClient } from 'npm:@insforge/sdk';
 import { env } from './_shared/env.js';
+import { adminClient } from './_shared/clients.js';
 import { bearerToken, json, methodNotAllowed, preflight, readJson } from './_shared/http.js';
 import { verifySession } from './_shared/auth.js';
-import { notify } from './_shared/telegram.js';
+import { notify, storeReplyMarkup } from './_shared/telegram.js';
+import { formatOrderNotification } from './_shared/order-notify.js';
+import { deliveryFromOrder, loadOrderNotificationData } from './_shared/order-context.js';
 
-/** Досыл «Заказ принят» покупателю для уже созданного заказа (ownership-check). */
+/** Досыл «Заказ оформлен» покупателю для уже созданного заказа (ownership-check). */
 async function notifyOrderCreated(client, orderId, session) {
-  const { data: order } = await client.database
-    .from('orders')
-    .select('public_order_number, total_minor, store_id, buyer_user_id')
-    .eq('id', orderId)
-    .maybeSingle();
+  const { order, store, items } = await loadOrderNotificationData(client, orderId);
+  // Ownership-check: чужой заказ не досылаем.
   if (!order || order.buyer_user_id !== session.uid) return;
 
-  let publicId = '';
-  let symbol = '';
-  if (order.store_id) {
-    const { data: store } = await client.database
-      .from('stores')
-      .select('public_id, currency_symbol')
-      .eq('id', order.store_id)
-      .maybeSingle();
-    publicId = store?.public_id ?? '';
-    symbol = store?.currency_symbol ?? '';
-  }
+  const publicId = store?.public_id ?? '';
+  const supportHandle = store?.support_handle ?? '';
+  const symbol = order.currency_symbol_snapshot || store?.currency_symbol || '';
 
-  const orderNumber = String(order.public_order_number || orderId).slice(0, 12);
+  const message = formatOrderNotification({
+    event: 'ORDER_CREATED',
+    recipient: 'buyer',
+    orderNumber: order.public_order_number || orderId,
+    totalMinor: order.total_minor,
+    currencySymbol: symbol,
+    contactHandle: supportHandle,
+    items,
+    delivery: deliveryFromOrder(order),
+  });
+  if (!message) return;
+
   await notify({
     bot: 'buyer',
     chatId: session.tg,
-    publicId,
+    replyMarkup: storeReplyMarkup('buyer', publicId, message.contact),
     logPrefix: 'notifications-actions',
-    text:
-      `🧾 <b>Заказ принят!</b>\n\n` +
-      `Номер: <code>${orderNumber}</code>\n` +
-      `Сумма: <b>${order.total_minor} ${symbol}</b>\n` +
-      `Статус: Новый`,
+    text: message.text,
   });
 }
 
@@ -58,9 +56,9 @@ export default async function (request) {
   if (request.method !== 'POST') return methodNotAllowed();
 
   const baseUrl = env('INSFORGE_BASE_URL');
-  const anonKey = env('ANON_KEY');
+  const apiKey = env('API_KEY');
   const sessionSecret = env('SESSION_SECRET');
-  if (!baseUrl || !anonKey || !sessionSecret) {
+  if (!baseUrl || !apiKey || !sessionSecret) {
     return json({ success: false, error: 'Backend is not configured' }, 500);
   }
 
@@ -74,7 +72,7 @@ export default async function (request) {
   if (action !== 'enable') return json({ success: false, error: 'UNKNOWN_ACTION' }, 400);
   const orderId = String(body?.orderId || '').trim() || null;
 
-  const client = createClient({ baseUrl, anonKey });
+  const client = adminClient(baseUrl);
 
   // Было ли согласие раньше: если да, `process-checkout` уже отправил «Заказ принят»
   // и повторный досыл здесь был бы дублем.

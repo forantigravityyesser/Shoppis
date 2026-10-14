@@ -1,20 +1,35 @@
 import type { DeliveryOutcome, OrderStatus, RefusalReasonCode } from '../models/order';
 
-export const ORDER_STATUS_META: Record<OrderStatus, { labelRu: string }> = {
-  NEW: { labelRu: 'Новый' },
-  IN_TRANSIT: { labelRu: 'В пути' },
-  DELIVERED: { labelRu: 'Доставлено' },
-  REFUSED: { labelRu: 'Отказ' },
-  CANCELLED: { labelRu: 'Отменён' },
-};
+/**
+ * Метаданные статуса заказа: только i18n-ключ подписи (без локализованного
+ * текста — домен остаётся свободным от i18n). Резолвинг ключа делает presentation
+ * через `t()`.
+ */
+export const ORDER_STATUS_META = {
+  NEW: { labelKey: 'domain.orderStatus.NEW' },
+  IN_TRANSIT: { labelKey: 'domain.orderStatus.IN_TRANSIT' },
+  DELIVERED: { labelKey: 'domain.orderStatus.DELIVERED' },
+  REFUSED: { labelKey: 'domain.orderStatus.REFUSED' },
+  CANCELLED: { labelKey: 'domain.orderStatus.CANCELLED' },
+} as const satisfies Record<OrderStatus, { labelKey: string }>;
 
-export const REFUSAL_REASON_META: Record<RefusalReasonCode, { labelRu: string }> = {
-  BUYER_CHANGED_MIND: { labelRu: 'Покупатель передумал' },
-  COULD_NOT_CONTACT_BUYER: { labelRu: 'Не удалось связаться с покупателем' },
-  DELIVERY_TERMS: { labelRu: 'Условия доставки' },
-  PRODUCT_NOT_MATCHED_EXPECTATIONS: { labelRu: 'Товар не соответствует ожиданиям' },
-  OTHER: { labelRu: 'Другое' },
-};
+export const REFUSAL_REASON_META = {
+  BUYER_CHANGED_MIND: { labelKey: 'domain.refusalReason.BUYER_CHANGED_MIND' },
+  COULD_NOT_CONTACT_BUYER: { labelKey: 'domain.refusalReason.COULD_NOT_CONTACT_BUYER' },
+  DELIVERY_TERMS: { labelKey: 'domain.refusalReason.DELIVERY_TERMS' },
+  PRODUCT_NOT_MATCHED_EXPECTATIONS: {
+    labelKey: 'domain.refusalReason.PRODUCT_NOT_MATCHED_EXPECTATIONS',
+  },
+  OTHER: { labelKey: 'domain.refusalReason.OTHER' },
+} as const satisfies Record<RefusalReasonCode, { labelKey: string }>;
+
+export type OrderStatusLabelKey =
+  | (typeof ORDER_STATUS_META)[OrderStatus]['labelKey']
+  | 'domain.orderStatus.unknown';
+
+export type RefusalReasonLabelKey =
+  | (typeof REFUSAL_REASON_META)[RefusalReasonCode]['labelKey']
+  | 'domain.refusalReason.unknown';
 
 /** Контролируемые enum-значения статуса заказа (docs/24 §2.4, ORD-HARDEN-06). */
 export const ORDER_STATUSES = [
@@ -52,13 +67,18 @@ export function isDeliveryOutcome(value: unknown): value is DeliveryOutcome {
 /**
  * Safe-getters (docs/24 §2.4): неизвестное значение enum не должно ломать рендер.
  * Принимают `string`, т.к. значение приходит из внешних данных до валидации.
+ * Возвращают i18n-ключ для резолвинга через `t()`.
  */
-export function orderStatusLabel(status: string | null | undefined): string {
-  if (status && status in ORDER_STATUS_META) return ORDER_STATUS_META[status as OrderStatus].labelRu;
-  return 'Неизвестный статус';
+export function orderStatusLabelKey(status: string | null | undefined): OrderStatusLabelKey {
+  if (status && status in ORDER_STATUS_META) {
+    return ORDER_STATUS_META[status as OrderStatus].labelKey;
+  }
+  return 'domain.orderStatus.unknown';
 }
 
-export function refusalReasonLabel(code: string | null | undefined): string {
-  if (code && code in REFUSAL_REASON_META) return REFUSAL_REASON_META[code as RefusalReasonCode].labelRu;
-  return 'Причина не указана';
+export function refusalReasonLabelKey(code: string | null | undefined): RefusalReasonLabelKey {
+  if (code && code in REFUSAL_REASON_META) {
+    return REFUSAL_REASON_META[code as RefusalReasonCode].labelKey;
+  }
+  return 'domain.refusalReason.unknown';
 }

@@ -6,9 +6,18 @@ import userEvent from '@testing-library/user-event';
 const { useFavorites } = vi.hoisted(() => ({ useFavorites: vi.fn() }));
 vi.mock('../../../application/hooks/useFavorites', () => ({ useFavorites }));
 
+const { pushAnimation } = vi.hoisted(() => ({ pushAnimation: vi.fn() }));
+vi.mock('../../../application/store', () => ({
+  useStore: (selector: (state: { pushAnimation: typeof pushAnimation }) => unknown) =>
+    selector({ pushAnimation }),
+}));
+
 import FavoriteButton from './FavoriteButton';
 
-beforeEach(() => useFavorites.mockReset());
+beforeEach(() => {
+  useFavorites.mockReset();
+  pushAnimation.mockReset();
+});
 
 describe('FavoriteButton', () => {
   it('не активен: aria-pressed=false, клик вызывает toggleFavorite', async () => {
@@ -44,5 +53,25 @@ describe('FavoriteButton', () => {
 
     await userEvent.click(screen.getByRole('button'));
     expect(onParent).not.toHaveBeenCalled();
+  });
+
+  it('добавление в избранное запускает «летящую» карточку к табу избранного', async () => {
+    useFavorites.mockReturnValue({ isFavorite: () => false, toggleFavorite: vi.fn() });
+    render(<FavoriteButton productId="p1" imageUrl="thumb.jpg" />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'В избранное' }));
+
+    expect(pushAnimation).toHaveBeenCalledWith(
+      expect.objectContaining({ imageUrl: 'thumb.jpg', target: 'favorites' }),
+    );
+  });
+
+  it('снятие из избранного не запускает анимацию', async () => {
+    useFavorites.mockReturnValue({ isFavorite: () => true, toggleFavorite: vi.fn() });
+    render(<FavoriteButton productId="p1" imageUrl="thumb.jpg" />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Убрать из избранного' }));
+
+    expect(pushAnimation).not.toHaveBeenCalled();
   });
 });

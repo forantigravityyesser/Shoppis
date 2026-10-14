@@ -64,6 +64,7 @@ const HOME: StorefrontHome = {
     id: 's1',
     publicId: 'pub1',
     name: 'Nike Shop',
+    description: null,
     bannerUrl: null,
     status: 'ACTIVE',
     currencyCode: 'USD',
@@ -161,22 +162,20 @@ describe('CatalogView', () => {
     expect(screen.queryByLabelText('Поиск по названию')).toBeNull();
   });
 
-  it('loading товарного потока → skeleton', () => {
-    useStorefrontCatalog.mockReturnValue(catalogState({ loading: true }));
+  it('loading товарного потока → skeleton товаров, поле поиска уже доступно', () => {
+    useStorefrontCatalog.mockReturnValue(catalogState({ loading: true, products: [] }));
     const { container } = render(<CatalogView />);
     expect(container.querySelector('.skel--card')).toBeTruthy();
+    expect(screen.getByLabelText('Поиск по названию')).toBeInTheDocument();
   });
 
-  it('CAT-13: focus=1 фокусирует поиск даже после скелетона и убирает параметр', async () => {
+  it('CAT-13: focus=1 фокусирует поиск с Home сразу (поле есть и во время загрузки)', async () => {
     searchParamsRef.value = new URLSearchParams('focus=1');
     useStorefrontCatalog.mockReturnValue(catalogState({ loading: true }));
-    const { rerender } = render(<CatalogView />);
-    // Пока скелетон — поля нет, фокус не «сгорает» и параметр ещё в URL.
-    expect(screen.queryByLabelText('Поиск по названию')).toBeNull();
+    render(<CatalogView />);
 
-    useStorefrontCatalog.mockReturnValue(catalogState());
-    rerender(<CatalogView />);
-
+    // Поле поиска отрисовано сразу, даже пока грузятся товары, — синхронный
+    // автофокус из Home не «сгорает» (открывается клавиатура).
     const input = screen.getByLabelText('Поиск по названию');
     await waitFor(() => expect(input).toHaveFocus());
     expect(lastParams().has('focus')).toBe(false);

@@ -1256,6 +1256,13 @@
   gap: 6px;
 }
 
+.prod-hero__price-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-3);
+}
+
 .prod-hero__price {
   display: flex;
   align-items: center;
@@ -1263,6 +1270,27 @@
   font-size: var(--font-size-xl);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
+}
+
+.prod-hero__preview {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--color-input-bg);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.prod-hero__preview:active {
+  color: var(--color-text-primary);
+  opacity: 0.75;
 }
 
 .prod-hero__discount {
@@ -2202,4 +2230,243 @@
   margin: var(--spacing-4) 0;
   text-align: center;
   color: var(--color-text-secondary);
+}
+
+/* ============================================================
+   ProductForm — заголовки секций, обложка фото, выбор категории
+   ============================================================ */
+.card__title--row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: var(--spacing-3);
+}
+
+.card__title--row .card__title-icon {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  background: rgba(108, 92, 231, 0.12);
+  color: var(--color-accent);
+}
+
+.card__title-badge {
+  margin-left: auto;
+  padding: 2px 9px;
+  border-radius: var(--radius-full);
+  background: var(--color-input-bg);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* --- Фото: обложка + плитка «добавить» --- */
+.photo-slot--cover {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 0;
+}
+
+.photo-slot__cover-tag {
+  position: absolute;
+  left: 6px;
+  bottom: 6px;
+  padding: 1px 7px;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  color: var(--color-text-on-accent);
+  font-size: 10px;
+  font-weight: var(--font-weight-semibold);
+}
+
+.photo-slot--add {
+  flex-direction: column;
+  gap: 4px;
+}
+
+.photo-slot__add-label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.photo-upload-error {
+  margin-top: 8px;
+  font-size: var(--font-size-sm);
+  color: var(--color-danger);
+}
+
+/* --- ProductCategoryPicker: строка-триггер --- */
+.cat-select {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-3);
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--color-input-border);
+  border-radius: var(--radius-md);
+  background: var(--color-input-bg);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    transform 0.12s;
+}
+
+.cat-select:active {
+  transform: scale(0.99);
+}
+
+.cat-select:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.cat-select__thumb {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: var(--color-bg-card);
+  overflow: hidden;
+}
+
+.cat-select__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cat-select__emoji {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.cat-select__body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.cat-select__name {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cat-select__meta {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.cat-select__chevron {
+  flex: 0 0 auto;
+  color: var(--color-text-secondary);
+}
+
+/* --- Грид плиток категорий в шите --- */
+.cat-picker {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--spacing-2);
+  max-height: 52vh;
+  overflow-y: auto;
+  padding-bottom: var(--spacing-2);
+}
+
+.cat-picker__tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 6px;
+  border: 1.5px solid transparent;
+  border-radius: var(--radius-lg);
+  background: var(--color-input-bg);
+  font-family: inherit;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background 0.15s,
+    transform 0.12s;
+}
+
+.cat-picker__tile:active {
+  transform: scale(0.96);
+}
+
+.cat-picker__tile--active {
+  border-color: var(--color-accent);
+  background: rgba(108, 92, 231, 0.1);
+}
+
+.cat-picker__thumb {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  background: var(--color-bg-card);
+  overflow: hidden;
+}
+
+.cat-picker__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cat-picker__emoji {
+  font-size: 30px;
+  line-height: 1;
+}
+
+.cat-picker__check {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  color: var(--color-text-on-accent);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+
+.cat-picker__name {
+  max-width: 100%;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cat-picker__tile--active .cat-picker__name {
+  color: var(--color-accent);
+}
+
+.cat-picker__empty {
+  margin: var(--spacing-4) 0;
+  text-align: center;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
 }

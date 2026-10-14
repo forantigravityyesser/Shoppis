@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Copy, Eye } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   /** Публичная ссылка на витрину (построена по `public_id`). */
@@ -24,6 +25,7 @@ export default function SharePreviewBlock({
   onPreview,
   showPreview = true,
 }: Props) {
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
   const copyTimer = useRef<number | null>(null);
 
@@ -47,14 +49,14 @@ export default function SharePreviewBlock({
 
   return (
     <section className="card">
-      <div className="card__title">Поделиться</div>
-      <p style={styles.hint}>Ссылка на витрину для покупателей.</p>
+      <div className="card__title">{t('seller.settings.share.title')}</div>
+      <p style={styles.hint}>{t('seller.settings.share.hint')}</p>
 
       <a
         href={url}
         target="_blank"
         rel="noopener noreferrer"
-        aria-label="Открыть витрину"
+        aria-label={t('seller.settings.share.openAria')}
         style={styles.link}
       >
         {url}
@@ -64,11 +66,11 @@ export default function SharePreviewBlock({
         <button
           type="button"
           onClick={() => void copy()}
-          aria-label="Копировать ссылку"
+          aria-label={t('seller.settings.share.copyAria')}
           style={{ ...styles.button, ...styles.copyButton }}
         >
           <Copy size={16} />
-          {copied ? 'Скопировано' : 'Копировать'}
+          {copied ? t('common.copied') : t('common.copy')}
         </button>
 
         {showPreview ? (
@@ -76,7 +78,7 @@ export default function SharePreviewBlock({
             type="button"
             onClick={onPreview}
             disabled={!previewEnabled}
-            aria-label="Предпросмотр магазина"
+            aria-label={t('seller.settings.share.previewAria')}
             style={{
               ...styles.button,
               ...styles.previewButton,
@@ -84,13 +86,13 @@ export default function SharePreviewBlock({
             }}
           >
             <Eye size={16} />
-            Предпросмотр
+            {t('common.preview')}
           </button>
         ) : null}
       </div>
 
       {showPreview && !previewEnabled ? (
-        <div style={styles.note}>Предпросмотр станет доступен после запуска витрины.</div>
+        <div style={styles.note}>{t('seller.settings.share.note')}</div>
       ) : null}
     </section>
   );

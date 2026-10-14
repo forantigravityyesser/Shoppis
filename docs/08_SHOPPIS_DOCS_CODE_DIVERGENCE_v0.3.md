@@ -125,7 +125,7 @@ Severity: **S1** критично · **S2** высоко · **S3** средне.
 - **Док:** `04 §19`, `12 S-08/S-08.1`.
 - **Было:** боты и серверные уведомления генерировали `t.me/<bot>/<app>?startapp=store_<internalId>` (внутренний id).
 - **Стало:** везде Direct Mini App ссылка `t.me/<bot>/<app>?startapp=shop_<public_id>` (клиент — domain-правило `storefront-link`; сервер — `_shared/telegram`, `process-checkout`, `order-actions`, `telegram-notify`, боты). Старый `store_<id>` читается как legacy (резолв по внутреннему id) и будет удалён после миграции внешних ссылок.
-- **Остаток:** боты `telegram-bot-buyer/-seller` исторически опираются на удалённую таблицу `customers` (привязки покупателя) — graceful-деградация; «Мои магазины» нужно перевести на актуальную модель (отдельная задача).
+- **Остаток:** ✅ закрыто: боты переписаны на актуальную модель — резолв юзера по `telegram_identities`, магазин по `owner_user_id`, «Мои магазины» покупателя на `buyer_store_visits` (пишет edge `store-visit` из Mini App; backfill из заказов — миграция `0054`). Оба бота + `store-visit` + `telegram-bot-admin` задеплоены, вебхуки/команды/меню-кнопки настроены.
 
 ### [x] 2.13 Разрешение на уведомления — opt-in после checkout
 - **Док:** `04 §11`, `12 S-08.1`.

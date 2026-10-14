@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
+import i18n from 'i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import type { RecipientInfo } from '../../domain/models/customer';
 import type { ServerUser } from '../contracts/auth';
@@ -49,29 +50,30 @@ export interface CheckoutState {
   reset: () => void;
 }
 
-const CHECKOUT_ERROR_MESSAGES: Record<string, string> = {
-  STORE_PAUSED: 'Магазин временно недоступен для оформления заказов.',
-  STORE_NOT_FOUND: 'Магазин не найден. Обновите страницу.',
-  INSUFFICIENT_STOCK: 'Недостаточно товара. Проверьте количество.',
-  PRODUCT_NOT_ACTIVE: 'Товар больше недоступен. Обновите корзину.',
-  VARIANT_NOT_FOUND: 'Товар изменился. Обновите корзину.',
-  FOREIGN_VARIANT: 'Товар изменился. Обновите корзину.',
-  INVENTORY_NOT_FOUND: 'Товар больше недоступен. Обновите корзину.',
-  INVALID_QUANTITY: 'Проверьте количество товаров.',
-  EMPTY_CART: 'Корзина пуста.',
-  VARIANT_DUPLICATE: 'В корзине есть повторяющиеся позиции. Обновите корзину.',
-  INVALID_CART_ITEM: 'Корзина повреждена. Обновите её.',
-  IDEMPOTENCY_KEY_REQUIRED: 'Не удалось оформить заказ. Попробуйте ещё раз.',
-  UNAUTHORIZED: 'Сессия истекла. Откройте приложение заново.',
-  NETWORK: 'Не удалось оформить заказ. Проверьте соединение.',
-  UNKNOWN: 'Не удалось оформить заказ. Попробуйте ещё раз.',
-};
+/** i18n-ключи ошибок checkout по машинному коду (docs/18 §32). */
+const CHECKOUT_ERROR_KEYS = {
+  STORE_PAUSED: 'errors.checkout.STORE_PAUSED',
+  STORE_NOT_FOUND: 'errors.checkout.STORE_NOT_FOUND',
+  INSUFFICIENT_STOCK: 'errors.checkout.INSUFFICIENT_STOCK',
+  PRODUCT_NOT_ACTIVE: 'errors.checkout.PRODUCT_NOT_ACTIVE',
+  VARIANT_NOT_FOUND: 'errors.checkout.VARIANT_NOT_FOUND',
+  FOREIGN_VARIANT: 'errors.checkout.FOREIGN_VARIANT',
+  INVENTORY_NOT_FOUND: 'errors.checkout.INVENTORY_NOT_FOUND',
+  INVALID_QUANTITY: 'errors.checkout.INVALID_QUANTITY',
+  EMPTY_CART: 'errors.checkout.EMPTY_CART',
+  VARIANT_DUPLICATE: 'errors.checkout.VARIANT_DUPLICATE',
+  INVALID_CART_ITEM: 'errors.checkout.INVALID_CART_ITEM',
+  IDEMPOTENCY_KEY_REQUIRED: 'errors.checkout.IDEMPOTENCY_KEY_REQUIRED',
+  UNAUTHORIZED: 'errors.checkout.UNAUTHORIZED',
+  NETWORK: 'errors.checkout.NETWORK',
+  UNKNOWN: 'errors.checkout.UNKNOWN',
+} as const;
 
 /** Машинный код ошибки checkout из сырого сообщения (docs/18 §32), null если не распознан. */
 export function checkoutErrorCode(raw: string): string | null {
   const message = String(raw ?? '');
   return (
-    Object.keys(CHECKOUT_ERROR_MESSAGES).find(
+    Object.keys(CHECKOUT_ERROR_KEYS).find(
       (key) => key !== 'NETWORK' && key !== 'UNKNOWN' && message.includes(key),
     ) ?? null
   );
@@ -91,9 +93,9 @@ const RECONCILE_ERROR_CODES = new Set([
 export function mapCheckoutError(raw: string): string {
   const message = String(raw ?? '');
   const code = checkoutErrorCode(message);
-  if (code) return CHECKOUT_ERROR_MESSAGES[code];
-  if (/network|fetch|timeout|offline/i.test(message)) return CHECKOUT_ERROR_MESSAGES.NETWORK;
-  return CHECKOUT_ERROR_MESSAGES.UNKNOWN;
+  if (code) return i18n.t(CHECKOUT_ERROR_KEYS[code as keyof typeof CHECKOUT_ERROR_KEYS]);
+  if (/network|fetch|timeout|offline/i.test(message)) return i18n.t(CHECKOUT_ERROR_KEYS.NETWORK);
+  return i18n.t(CHECKOUT_ERROR_KEYS.UNKNOWN);
 }
 
 /** Стартовое заполнение: сохранённый получатель + имя из Telegram. */
@@ -112,17 +114,18 @@ export function useCheckout(): CheckoutState {
   const placeOrder = useStore((s) => s.placeOrder);
   const requestNotifications = useStore((s) => s.requestNotifications);
   const setDefaultRecipient = useStore((s) => s.setDefaultRecipient);
-  const userSettings = useStore((s) => s.userSettings);
-  const setUserSettings = useStore((s) => s.setUserSettings);
+  const setNotificationsEnabled = useStore((s) => s.setNotificationsEnabled);
   const lastOrder = useStore((s) => s.lastOrder);
-  const { notifications: notificationsEnabled } = userSettings;
+  // Согласие на уведомления — серверный факт из сессии, а НЕ локальный persist:
+  // иначе сброс флага в БД не виден клиенту и кнопка «Разрешить» исчезает навсегда.
+  const serverNotificationsEnabled = serverUser?.notificationsEnabled ?? false;
 
   const [recipient, setRecipient] = useState<RecipientInfo>(() =>
     initialRecipient(defaultRecipient, serverUser),
   );
   const [status, setStatus] = useState<CheckoutStatus>('idle');
   const [error, setError] = useState<string | null>(null);
-  const [notificationsGranted, setNotificationsGranted] = useState(notificationsEnabled);
+  const [notificationsGranted, setNotificationsGranted] = useState(serverNotificationsEnabled);
   const [notificationsPending, setNotificationsPending] = useState(false);
   // Idempotency текущей checkout-попытки (docs/21 §3.1): генерируется лениво при
   // первом submit и переиспользуется при повторе, чтобы потерянный ответ/ретрай
@@ -189,7 +192,8 @@ export function useCheckout(): CheckoutState {
         const granted = await requestNotifications(orderId);
         setNotificationsGranted(granted);
         if (granted) {
-          setUserSettings({ notifications: true, notificationsPrompted: true });
+          // Согласие записано на сервере (`notifications-actions`) — отражаем в сессии.
+          setNotificationsEnabled(true);
         }
       } catch {
         // write-access — best-effort, на заказ не влияет.
@@ -197,17 +201,17 @@ export function useCheckout(): CheckoutState {
         setNotificationsPending(false);
       }
     },
-    [notificationsPending, requestNotifications, setUserSettings],
+    [notificationsPending, requestNotifications, setNotificationsEnabled],
   );
 
   const reset = useCallback(() => {
     setStatus('idle');
     setError(null);
-    setNotificationsGranted(notificationsEnabled);
+    setNotificationsGranted(serverNotificationsEnabled);
     setRecipient(initialRecipient(defaultRecipient, serverUser));
     idempotencyKeyRef.current = null;
     useStore.getState().resetCheckout();
-  }, [defaultRecipient, serverUser, notificationsEnabled]);
+  }, [defaultRecipient, serverUser, serverNotificationsEnabled]);
 
   return {
     recipient,

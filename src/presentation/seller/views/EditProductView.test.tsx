@@ -1,13 +1,22 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { InventoryProductDetail } from '../../../application/hooks/useProduct';
 
-const { navigate, createProduct, updateProduct, detailState } = vi.hoisted(() => ({
+const {
+  navigate,
+  createProduct,
+  updateProduct,
+  uploadCatalogImages,
+  removeCatalogImages,
+  detailState,
+} = vi.hoisted(() => ({
   navigate: vi.fn(),
   createProduct: vi.fn(),
   updateProduct: vi.fn(),
+  uploadCatalogImages: vi.fn(),
+  removeCatalogImages: vi.fn(),
   detailState: { current: {} as Record<string, unknown> },
 }));
 
@@ -33,11 +42,32 @@ vi.mock('../../../application/hooks/useProduct', () => ({
   }),
 }));
 
+vi.mock('../../../application/services/image-service', () => ({
+  uploadCatalogImages,
+  removeCatalogImages,
+}));
+
 import EditProductView from './EditProductView';
 
 const TITLE_PLACEHOLDER = 'Например, Морковь';
 
-function makeDetail(): InventoryProductDetail {
+const DB_PHOTO = { url: 'https://cdn/db-full.jpg', thumbUrl: 'https://cdn/db-thumb.jpg' };
+const FRESH_PHOTO = { url: 'https://cdn/up-1.jpg', thumbUrl: 'https://cdn/up-1-thumb.jpg' };
+
+/** Имитирует выбор файла в скрытом input формы и ждёт появления нового слота фото. */
+async function uploadPhoto(container: HTMLElement): Promise<void> {
+  uploadCatalogImages.mockResolvedValue([FRESH_PHOTO]);
+  const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+  const before = screen.queryAllByRole('button', { name: 'Удалить фото' }).length;
+  fireEvent.change(input, {
+    target: { files: [new File(['x'], 'photo.jpg', { type: 'image/jpeg' })] },
+  });
+  await waitFor(() =>
+    expect(screen.getAllByRole('button', { name: 'Удалить фото' })).toHaveLength(before + 1),
+  );
+}
+
+function makeDetail(images: InventoryProductDetail['images'] = []): InventoryProductDetail {
   return {
     id: 'p1',
     categoryId: null,
@@ -45,7 +75,7 @@ function makeDetail(): InventoryProductDetail {
     title: 'Футболка',
     description: '',
     status: 'ACTIVE',
-    images: [],
+    images,
     emoji: '📦',
     originalAmountMinor: 190000,
     discountPercent: 0,
@@ -80,6 +110,8 @@ beforeEach(() => {
   navigate.mockReset();
   createProduct.mockReset().mockResolvedValue('new-1');
   updateProduct.mockReset().mockResolvedValue(undefined);
+  uploadCatalogImages.mockReset().mockResolvedValue([FRESH_PHOTO]);
+  removeCatalogImages.mockReset().mockResolvedValue(undefined);
   detailState.current = makeDetail() as unknown as Record<string, unknown>;
 });
 
@@ -196,5 +228,52 @@ describe('EditProductView — независимое сохранение (docs/
 
     resolveCreate('new-3');
     await waitFor(() => expect(screen.queryByText('Копия 1')).not.toBeInTheDocument());
+  });
+});
+
+describe('EditProductView — очистка Storage для несохранённых фото (docs/23 §6)', () => {
+  it('фото из БД не удаляется ни при снятии, ни при уходе без сохранения', async () => {
+    detailState.current = makeDetail([DB_PHOTO]) as unknown as Record<string, unknown>;
+    render(<EditProductView />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Удалить фото' }));
+    expect(removeCatalogImages).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Назад' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Выйти' }));
+    expect(removeCatalogImages).not.toHaveBeenCalled();
+  });
+
+  it('снятие нового фото удаляет только его, фото из БД остаётся', async () => {
+    detailState.current = makeDetail([DB_PHOTO]) as unknown as Record<string, unknown>;
+    const { container } = render(<EditProductView />);
+    await uploadPhoto(container);
+
+    const removeButtons = screen.getAllByRole('button', { name: 'Удалить фото' });
+    expect(removeButtons).toHaveLength(2);
+    await userEvent.click(removeButtons[1]);
+
+    expect(removeCatalogImages).toHaveBeenCalledWith([FRESH_PHOTO]);
+  });
+
+  it('уход без сохранения удаляет новое фото, не трогая фото из БД', async () => {
+    detailState.current = makeDetail([DB_PHOTO]) as unknown as Record<string, unknown>;
+    const { container } = render(<EditProductView />);
+    await uploadPhoto(container);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Назад' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Выйти' }));
+
+    expect(removeCatalogImages).toHaveBeenCalledTimes(1);
+    expect(removeCatalogImages).toHaveBeenCalledWith([FRESH_PHOTO]);
+  });
+
+  it('сохранение карточки оставляет новое фото в Storage', async () => {
+    const { container } = render(<EditProductView />);
+    await uploadPhoto(container);
+
+    await userEvent.click(screen.getByRole('button', { name: 'На витрину' }));
+    await waitFor(() => expect(updateProduct).toHaveBeenCalledTimes(1));
+    expect(removeCatalogImages).not.toHaveBeenCalled();
   });
 });

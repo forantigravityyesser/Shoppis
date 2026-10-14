@@ -21,7 +21,9 @@ import { env } from './_shared/env.js';
 import { adminClient, anonClient } from './_shared/clients.js';
 import { bearerToken, json, methodNotAllowed, preflight, readJson } from './_shared/http.js';
 import { verifySession } from './_shared/auth.js';
-import { notify } from './_shared/telegram.js';
+import { notify, storeReplyMarkup } from './_shared/telegram.js';
+import { formatOrderNotification } from './_shared/order-notify.js';
+import { loadOrderItems } from './_shared/order-context.js';
 import { errorToResponse } from './_shared/errors.js';
 import { validateCheckoutItems } from './_shared/checkout-items.js';
 import { resolveCheckoutUsername } from './_shared/checkout-identity.js';
@@ -117,16 +119,19 @@ export default async function (request) {
     return errorToResponse(ERROR_STATUS, e?.message || e, 'Order placement failed');
   }
 
-  // Публичная кнопка «Открыть витрину» в уведомлении — по opaque public_id.
+  // Публичная кнопка «Открыть витрину» — по opaque public_id; контакт
+  // «Написать продавцу» — по публичному `support_handle` магазина.
   let storePublicId = '';
+  let storeSupportHandle = '';
   try {
     const client = anonClient(baseUrl);
     const { data: storeRow } = await client.database
       .from('stores')
-      .select('public_id')
+      .select('public_id, support_handle')
       .eq('id', storeId)
       .maybeSingle();
     storePublicId = storeRow?.public_id ?? '';
+    storeSupportHandle = storeRow?.support_handle ?? '';
   } catch (e) {
     console.error('[checkout] public_id lookup failed:', e);
   }
@@ -150,26 +155,59 @@ export default async function (request) {
   // уведомления отправлены при первом вызове — повтор не должен дублировать их.
   const idempotent = result.idempotent === true;
   if (shouldNotifyCheckout(result)) {
-    const symbol = result.currencySymbol || '';
-    const orderNumber = String(result.orderNumber || result.orderId).slice(0, 12);
+    const orderNumber = result.orderNumber || result.orderId;
+    // Состав заказа — снапшот order_items (для писем buyer и seller).
+    let items = [];
+    try {
+      items = await loadOrderItems(adminClient(baseUrl), result.orderId);
+    } catch (e) {
+      console.error('[checkout] items lookup failed:', e);
+    }
+    const delivery = { fullName: name, phone, address };
     if (buyerNotify) {
-      notify({
-        bot: 'buyer',
-        chatId: session.tg,
-        publicId: storePublicId,
-        logPrefix: 'checkout',
-        text: `🧾 <b>Заказ принят!</b>\n\nНомер: <code>${orderNumber}</code>\nСумма: <b>${result.totalMinor} ${symbol}</b>\nСтатус: Новый`,
-      }).catch((e) => console.error('[checkout] buyer notify error:', e));
+      // Покупателю — публичный контакт магазина (`support_handle`).
+      const message = formatOrderNotification({
+        event: 'ORDER_CREATED',
+        recipient: 'buyer',
+        orderNumber,
+        totalMinor: result.totalMinor,
+        currencySymbol: result.currencySymbol,
+        contactHandle: storeSupportHandle,
+        items,
+        delivery,
+      });
+      if (message) {
+        notify({
+          bot: 'buyer',
+          chatId: session.tg,
+          replyMarkup: storeReplyMarkup('buyer', storePublicId, message.contact),
+          logPrefix: 'checkout',
+          text: message.text,
+        }).catch((e) => console.error('[checkout] buyer notify error:', e));
+      }
     }
 
     if (result.sellerTelegramId) {
-      notify({
-        bot: 'seller',
-        chatId: result.sellerTelegramId,
-        publicId: storePublicId,
-        logPrefix: 'checkout',
-        text: `🔔 <b>Новый заказ!</b>\n\nНомер: <code>${orderNumber}</code>\nСумма: <b>${result.totalMinor} ${symbol}</b>`,
-      }).catch((e) => console.error('[checkout] seller notify error:', e));
+      // Продавцу — TG-снимок покупателя, если есть username (resolved выше).
+      const message = formatOrderNotification({
+        event: 'ORDER_CREATED',
+        recipient: 'seller',
+        orderNumber,
+        totalMinor: result.totalMinor,
+        currencySymbol: result.currencySymbol,
+        itemCount: result.itemCount,
+        contactHandle: telegramUsername,
+        items,
+      });
+      if (message) {
+        notify({
+          bot: 'seller',
+          chatId: result.sellerTelegramId,
+          replyMarkup: storeReplyMarkup('seller', storePublicId, message.contact),
+          logPrefix: 'checkout',
+          text: message.text,
+        }).catch((e) => console.error('[checkout] seller notify error:', e));
+      }
     }
   }
 

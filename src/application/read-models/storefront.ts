@@ -24,6 +24,8 @@ export interface StorefrontStore {
   id: string;
   publicId: string;
   name: string;
+  /** Публичное описание магазина (до 300 символов); null, если не задано. */
+  description: string | null;
   bannerUrl: string | null;
   status: StoreStatus;
   currencyCode: StoreCurrency;

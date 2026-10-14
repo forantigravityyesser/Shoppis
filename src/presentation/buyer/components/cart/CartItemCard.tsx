@@ -1,4 +1,5 @@
 import { Check, Trash2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { BuyerCartItem, CartItemView } from '../../../../application/read-models/cart';
 import { formatMoneyMinor } from '../../../../domain/rules/product-rules';
 import { getInitial } from '../../../../domain/rules/initial';
@@ -47,6 +48,7 @@ export default function CartItemCard({
   onConfirmRemove,
   onOpenProduct,
 }: Props) {
+  const { t } = useTranslation();
   const variant = variantLabel(view);
   const soldOut = view.availableQuantity === 0;
 
@@ -57,7 +59,9 @@ export default function CartItemCard({
           type="button"
           role="checkbox"
           aria-checked={item.selected}
-          aria-label={item.selected ? 'Убрать из оформления' : 'Включить в оформление'}
+          aria-label={
+            item.selected ? t('buyer.cart.item.selectOn') : t('buyer.cart.item.selectOff')
+          }
           className={`cart-item__select${item.selected ? ' cart-item__select--on' : ''}`}
           onClick={onToggleSelected}
         >
@@ -67,7 +71,7 @@ export default function CartItemCard({
         <button
           type="button"
           className="cart-item__media"
-          aria-label={`Открыть «${view.title}»`}
+          aria-label={t('buyer.cart.item.openAria', { title: view.title })}
           onClick={onOpenProduct}
         >
           <SafeImage
@@ -90,11 +94,13 @@ export default function CartItemCard({
           {!orderable ? (
             <div className="cart-item__unavailable" role="status">
               <span>
-                {soldOut ? 'Нет в наличии' : `Доступно только ${view.availableQuantity} шт.`}
+                {soldOut
+                  ? t('buyer.product.outOfStock')
+                  : t('buyer.cart.item.availableOnly', { count: view.availableQuantity })}
               </span>
               {!soldOut ? (
                 <button type="button" className="cart-item__fix" onClick={onFixQuantity}>
-                  Уменьшить до {view.availableQuantity}
+                  {t('buyer.cart.item.fix', { count: view.availableQuantity })}
                 </button>
               ) : null}
             </div>
@@ -112,7 +118,7 @@ export default function CartItemCard({
             <button
               type="button"
               className="cart-item__remove"
-              aria-label={`Удалить «${view.title}» из корзины`}
+              aria-label={t('buyer.cart.item.removeAria', { title: view.title })}
               onClick={onRequestRemove}
             >
               <Trash2 size={18} strokeWidth={2.2} aria-hidden />

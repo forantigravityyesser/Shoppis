@@ -75,7 +75,27 @@ export async function addCategory(storeId: string, input: AddCategoryInput): Pro
   return mapCategory(row);
 }
 
-export async function updateCategory(id: string, patch: UpdateCategoryPatch): Promise<void> {
+/**
+ * Обновление категории. Возвращает прежний ключ обложки, если её заменили/сняли —
+ * чтобы вызывающий слой удалил файл из Storage. Прежний ключ читается из БД,
+ * не из стейта (не зависит от загруженных категорий).
+ */
+export async function updateCategory(
+  id: string,
+  patch: UpdateCategoryPatch,
+): Promise<string | null> {
+  let previousImageKey: string | null = null;
+  if (patch.imageStorageKey !== undefined) {
+    const { data, error } = await insforge.database
+      .from('categories')
+      .select('image_storage_key')
+      .eq('id', id)
+      .maybeSingle();
+    if (error) throw error;
+    previousImageKey =
+      (data as { image_storage_key?: string | null } | null)?.image_storage_key ?? null;
+  }
+
   const values: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (patch.name !== undefined) {
     values.name = patch.name.trim();
@@ -86,6 +106,8 @@ export async function updateCategory(id: string, patch: UpdateCategoryPatch): Pr
 
   const { error } = await insforge.database.from('categories').update(values).eq('id', id);
   if (error) throw error;
+
+  return previousImageKey && previousImageKey !== patch.imageStorageKey ? previousImageKey : null;
 }
 
 /**

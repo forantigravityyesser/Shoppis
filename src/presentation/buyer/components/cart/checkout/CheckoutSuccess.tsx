@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
 import { BellRing, CircleCheckBig } from 'lucide-react';
 import type { CheckoutResult } from '../../../../../application/contracts/checkout';
 import { formatMoneyMinor } from '../../../../../domain/rules/product-rules';
@@ -42,6 +43,7 @@ export default function CheckoutSuccess({
   autoCloseMs = SUCCESS_AUTO_CLOSE_MS,
   autoClose = true,
 }: Props) {
+  const { t } = useTranslation();
   // onDismiss через ref: перерисовки родителя не перезапускают таймер.
   const onDismissRef = useRef(onDismiss);
   useEffect(() => {
@@ -60,45 +62,43 @@ export default function CheckoutSuccess({
         <span className="checkout-success__icon" aria-hidden>
           <CircleCheckBig size={56} strokeWidth={1.8} />
         </span>
-        <h2 className="checkout-success__title">Заказ принят!</h2>
+        <h2 className="checkout-success__title">{t('buyer.checkout.successTitle')}</h2>
 
         {order ? (
           <>
             <p className="checkout-success__row">
-              Номер заказа: <b>{order.orderNumber}</b>
+              {t('buyer.checkout.successNumberLabel')} <b>{order.orderNumber}</b>
             </p>
             <p className="checkout-success__row">
-              Сумма: <b>{formatMoneyMinor(order.totalMinor, currencySymbol)}</b>
+              {t('buyer.checkout.successTotalLabel')}{' '}
+              <b>{formatMoneyMinor(order.totalMinor, currencySymbol)}</b>
             </p>
           </>
         ) : null}
 
         {notificationsGranted ? (
           <p className="checkout-success__note" data-testid="checkout-notify-on">
-            Уведомления включены — «Заказ принят» и статусы доставки придут в Telegram.
+            {t('buyer.checkout.notifyOn')}
           </p>
         ) : (
           <div className="checkout-success__notify">
             <span className="checkout-success__notify-icon" aria-hidden>
               <BellRing size={22} />
             </span>
-            <p className="checkout-success__note">
-              Включите уведомления, чтобы не пропустить «Заказ принят» и статусы доставки в
-              Telegram.
-            </p>
+            <p className="checkout-success__note">{t('buyer.checkout.notifyOff')}</p>
             <button
               type="button"
               className="checkout-success__allow"
               onClick={onEnableNotifications}
               disabled={notificationsPending}
             >
-              {notificationsPending ? 'Запрашиваем…' : 'Разрешить уведомления'}
+              {notificationsPending ? t('buyer.checkout.allowPending') : t('buyer.checkout.allow')}
             </button>
           </div>
         )}
 
         <button type="button" className="checkout-success__btn" onClick={onClose}>
-          Перейти к заказам
+          {t('buyer.checkout.toOrders')}
         </button>
       </div>
     </div>,

@@ -454,7 +454,7 @@ export function openTelegramLink(url: string): boolean {
   }
 }
 
-/** startapp-параметр: 'seller' | 'store_<uuid>' | ''. Вне TG — из ?startapp= в URL. */
+/** startapp-параметр: 'seller' | 'shop_<public_id>' | 'prod_<public_id>_<product_id>' | ''. Вне TG — из ?startapp= в URL. */
 export function getStartParam(): string {
   try {
     const param = initData.startParam();

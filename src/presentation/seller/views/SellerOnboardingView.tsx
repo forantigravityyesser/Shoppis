@@ -1,28 +1,31 @@
 import { useRef, useState } from 'react';
 import { motion as Motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
+import { Coins, Globe, ImagePlus, LoaderCircle, Rocket, Store, X } from 'lucide-react';
 import type { StoreCurrency, StoreLanguage } from '../../../domain/models/store';
 import { useStore } from '../../../application/store';
 import { BANNER_ASPECT, BANNER_OUTPUT_WIDTH } from '../../../utils/image';
 import ImageCropSheet from '../../shared/components/ImageCropSheet';
+import './seller-onboarding.css';
 
-const CURRENCIES: Array<{ code: StoreCurrency; label: string }> = [
-  { code: 'USD', label: 'USD ($)' },
-  { code: 'RUB', label: 'RUB (₽)' },
-  { code: 'BYN', label: 'BYN (Br)' },
+const CURRENCIES: Array<{ code: StoreCurrency; symbol: string }> = [
+  { code: 'USD', symbol: '$' },
+  { code: 'RUB', symbol: '₽' },
+  { code: 'BYN', symbol: 'Br' },
 ];
 
-const LANGUAGES: Array<{ code: StoreLanguage; label: string }> = [
-  { code: 'ru', label: 'Русский' },
-  { code: 'en', label: 'English' },
+const LANGUAGES: Array<{ code: StoreLanguage; flag: string }> = [
+  { code: 'ru', flag: '🇷🇺' },
+  { code: 'en', flag: '🇬🇧' },
 ];
 
-/** Точная копия приветственного окна из старого проекта (SellerDashboard empty-state) + валюта/язык */
+/** Приветственное окно создания магазина (панель продавца). */
 export default function SellerOnboardingView() {
+  const { t } = useTranslation();
   const createStore = useStore((s) => s.createStore);
   const uploadStoreBanner = useStore((s) => s.uploadStoreBanner);
   const authLoading = useStore((s) => s.authLoading);
   const authError = useStore((s) => s.authError);
-  const setLanguage = useStore((s) => s.setLanguage);
 
   const [name, setName] = useState('');
   const [currency, setCurrency] = useState<StoreCurrency>('USD');
@@ -35,6 +38,7 @@ export default function SellerOnboardingView() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const busy = authLoading || uploading;
+  const error = formError || authError;
 
   const pickBanner = (file: File | undefined) => {
     if (!file) return;
@@ -62,7 +66,7 @@ export default function SellerOnboardingView() {
 
   const submit = async () => {
     if (!name.trim()) {
-      setFormError('Введите название магазина');
+      setFormError(t('seller.onboarding.nameRequired'));
       return;
     }
     setFormError(null);
@@ -76,7 +80,6 @@ export default function SellerOnboardingView() {
           setUploading(false);
         }
       }
-      setLanguage(language);
       await createStore({ name: name.trim(), currency, language, bannerUrl });
     } catch (e) {
       setFormError((e as Error).message);
@@ -85,69 +88,62 @@ export default function SellerOnboardingView() {
 
   return (
     <Motion.div
-      initial={{ opacity: 0, y: 20 }}
+      className="onboarding"
+      initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      style={styles.emptyContainer}
+      transition={{ duration: 0.28, ease: 'easeOut' }}
     >
-      <div style={styles.emptyIconWrapper}>
-        <span style={{ fontSize: 40, lineHeight: 1 }}>🏬</span>
+      <div className="onboarding__hero">
+        <div className="onboarding__logo">
+          <Store size={34} strokeWidth={2.2} aria-hidden />
+        </div>
+        <h1 className="onboarding__title">{t('seller.onboarding.title')}</h1>
+        <p className="onboarding__subtitle">{t('seller.onboarding.subtitle')}</p>
       </div>
-      <h2
-        style={{
-          fontSize: '22px',
-          fontWeight: 900,
-          marginBottom: '8px',
-          marginTop: 0,
-          color: '#000',
-        }}
-      >
-        Свой Магазин в Telegram
-      </h2>
-      <p
-        style={{
-          textAlign: 'center',
-          color: '#666',
-          marginBottom: '24px',
-          padding: '0 20px',
-          lineHeight: '1.4',
-          fontSize: '14px',
-          marginTop: 0,
-        }}
-      >
-        Создайте свой магазин прямо сейчас и начните принимать заказы!
-      </p>
 
-      <div
-        style={{
-          width: '100%',
-          maxWidth: '340px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '16px',
+      <form
+        className="onboarding__form"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void submit();
         }}
       >
-        <div style={styles.bannerUploadCont}>
+        <div className="onboarding__field">
+          <span className="onboarding__label">
+            <ImagePlus size={14} aria-hidden /> {t('seller.onboarding.banner')}
+          </span>
           {bannerPreview ? (
-            <div style={styles.bannerPreviewCont}>
-              <img
-                src={bannerPreview}
-                style={styles.bannerSmallImg}
-                alt="Preview"
-                decoding="async"
-              />
+            <div className="onboarding__banner-preview">
+              <img src={bannerPreview} alt={t('seller.onboarding.bannerAlt')} decoding="async" />
               <button
                 type="button"
+                className="onboarding__banner-remove"
                 onClick={clearBanner}
-                style={styles.clearBannerBtn}
-                aria-label="Убрать баннер"
+                aria-label={t('seller.onboarding.removeBanner')}
               >
-                ✕
+                <X size={16} aria-hidden />
               </button>
+              <label className="onboarding__banner-change">
+                <ImagePlus size={13} aria-hidden />
+                <span>{t('seller.onboarding.replace')}</span>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => pickBanner(e.target.files?.[0])}
+                  style={{ display: 'none' }}
+                />
+              </label>
             </div>
           ) : (
-            <label style={styles.bannerLabel}>
-              <span style={{ fontSize: 24, lineHeight: 1 }}>🖼️</span>
-              <span style={{ fontSize: '13px', color: '#666' }}>Добавить баннер магазина</span>
+            <label className="onboarding__banner-drop">
+              <span className="onboarding__banner-icon">
+                <ImagePlus size={22} aria-hidden />
+              </span>
+              <span className="onboarding__banner-title">{t('seller.onboarding.addBanner')}</span>
+              <span className="onboarding__banner-hint">
+                {t('seller.onboarding.addBannerHint')}
+              </span>
               <input
                 ref={fileRef}
                 type="file"
@@ -159,63 +155,86 @@ export default function SellerOnboardingView() {
           )}
         </div>
 
-        <input
-          placeholder="Название (напр. Apple Hub)"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          style={styles.nameInput}
-          maxLength={60}
-        />
+        <label className="onboarding__field">
+          <span className="onboarding__label">{t('seller.onboarding.storeName')}</span>
+          <input
+            className="onboarding__input"
+            placeholder={t('seller.onboarding.storeNamePlaceholder')}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            maxLength={60}
+          />
+        </label>
 
-        <select
-          value={currency}
-          onChange={(e) => setCurrency(e.target.value as StoreCurrency)}
-          style={styles.nameInput}
-        >
-          {CURRENCIES.map((c) => (
-            <option key={c.code} value={c.code}>
-              {c.label}
-            </option>
-          ))}
-        </select>
-
-        <select
-          value={language}
-          onChange={(e) => setLang(e.target.value as StoreLanguage)}
-          style={styles.nameInput}
-        >
-          {LANGUAGES.map((l) => (
-            <option key={l.code} value={l.code}>
-              {l.label}
-            </option>
-          ))}
-        </select>
-
-        {(formError || authError) && (
-          <div style={{ textAlign: 'center', color: '#FF3B30', fontSize: 13 }}>
-            {formError || authError}
+        <div className="onboarding__field">
+          <span className="onboarding__label">
+            <Coins size={14} aria-hidden /> {t('seller.onboarding.currency')}
+          </span>
+          <div className="onboarding__segmented">
+            {CURRENCIES.map((c) => (
+              <button
+                type="button"
+                key={c.code}
+                className="onboarding__seg"
+                data-active={currency === c.code}
+                onClick={() => setCurrency(c.code)}
+                aria-pressed={currency === c.code}
+              >
+                <span>{c.symbol}</span>
+                <span>{c.code}</span>
+              </button>
+            ))}
           </div>
-        )}
+        </div>
 
-        <button
-          type="button"
-          disabled={busy || !name.trim()}
-          onClick={submit}
-          style={{
-            ...styles.createBtn,
-            opacity: busy || !name.trim() ? 0.7 : 1,
-            cursor: busy || !name.trim() ? 'default' : 'pointer',
-          }}
-        >
-          {uploading ? 'Загрузка баннера…' : authLoading ? 'Создаем...' : '🚀 Создать мой магазин'}
+        <div className="onboarding__field">
+          <span className="onboarding__label">
+            <Globe size={14} aria-hidden /> {t('seller.onboarding.language')}
+          </span>
+          <div className="onboarding__segmented">
+            {LANGUAGES.map((l) => (
+              <button
+                type="button"
+                key={l.code}
+                className="onboarding__seg"
+                data-active={language === l.code}
+                onClick={() => setLang(l.code)}
+                aria-pressed={language === l.code}
+              >
+                <span>{l.flag}</span>
+                <span>{t(`language.${l.code}`)}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {error ? (
+          <p className="onboarding__error" role="alert">
+            {error}
+          </p>
+        ) : null}
+
+        <button type="submit" className="onboarding__submit" disabled={busy || !name.trim()}>
+          {busy ? (
+            <LoaderCircle size={18} className="onboarding__spin" aria-hidden />
+          ) : (
+            <Rocket size={18} aria-hidden />
+          )}
+          <span>
+            {uploading
+              ? t('seller.onboarding.uploadingBanner')
+              : authLoading
+                ? t('seller.onboarding.creating')
+                : t('seller.onboarding.create')}
+          </span>
         </button>
-      </div>
+      </form>
 
       <ImageCropSheet
         open={cropFile !== null}
         file={cropFile}
         aspect={BANNER_ASPECT}
-        title="Кадрировать баннер"
+        title={t('seller.settings.identity.cropBanner')}
         outputWidth={BANNER_OUTPUT_WIDTH}
         onConfirm={applyBannerCrop}
         onClose={() => setCropFile(null)}
@@ -223,90 +242,3 @@ export default function SellerOnboardingView() {
     </Motion.div>
   );
 }
-
-const styles: Record<string, React.CSSProperties> = {
-  emptyContainer: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-    minHeight: '80vh',
-    padding: 'calc(32px + var(--safe-top, 0px)) 24px 24px',
-    background: 'var(--color-bg-app, #F0EDFF)',
-  },
-  emptyIconWrapper: {
-    width: '96px',
-    height: '96px',
-    borderRadius: '32px',
-    backgroundColor: '#F0EFFF',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: '12px',
-  },
-  nameInput: {
-    width: '100%',
-    padding: '16px 20px',
-    borderRadius: '16px',
-    border: '2px solid #EEE',
-    fontSize: '16px',
-    fontWeight: 600,
-    outline: 'none',
-    transition: 'border-color 0.2s',
-    background: '#FFFFFF',
-    color: '#000',
-    boxSizing: 'border-box',
-  },
-  createBtn: {
-    width: '100%',
-    padding: '18px',
-    borderRadius: '16px',
-    backgroundColor: '#6C5DD3',
-    color: 'white',
-    border: 'none',
-    fontSize: '16px',
-    fontWeight: 800,
-    cursor: 'pointer',
-    boxShadow: '0 8px 24px rgba(108,93,211,0.25)',
-  },
-  bannerUploadCont: { width: '100%', marginBottom: '8px' },
-  bannerPreviewCont: {
-    position: 'relative',
-    width: '100%',
-    height: '160px',
-    borderRadius: '16px',
-    overflow: 'hidden',
-  } as React.CSSProperties,
-  bannerSmallImg: { width: '100%', height: '100%', objectFit: 'cover' },
-  clearBannerBtn: {
-    position: 'absolute',
-    top: '10px',
-    right: '10px',
-    width: '28px',
-    height: '28px',
-    borderRadius: '14px',
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    color: 'white',
-    border: 'none',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    cursor: 'pointer',
-    zIndex: 10,
-    fontSize: 14,
-  } as React.CSSProperties,
-  bannerLabel: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '8px',
-    width: '100%',
-    height: '160px',
-    borderRadius: '16px',
-    border: '2px dashed #DDD',
-    backgroundColor: '#F9F9F9',
-    cursor: 'pointer',
-    boxSizing: 'border-box',
-  } as React.CSSProperties,
-};

@@ -1,5 +1,6 @@
 import type { ComponentType } from 'react';
 import { motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 
 export interface NavTab {
   id: string;
@@ -33,8 +34,9 @@ export default function BottomNavBar({
   onTabChange,
   accentColor,
 }: BottomNavBarProps) {
+  const { t } = useTranslation();
   return (
-    <nav className="bottom-nav" role="tablist" aria-label="Основная навигация">
+    <nav className="bottom-nav" role="tablist" aria-label={t('nav.primary')}>
       <div className="bottom-nav__bar">
         {tabs.map((tab) => {
           const active = tab.id === activeTab;
@@ -45,6 +47,7 @@ export default function BottomNavBar({
               type="button"
               role="tab"
               aria-selected={active}
+              data-nav-id={tab.id}
               className={`bottom-nav__tab ${active ? 'bottom-nav__tab--active' : 'bottom-nav__tab--inactive'}`}
               onClick={() => onTabChange(tab.id)}
             >

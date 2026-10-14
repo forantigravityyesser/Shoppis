@@ -1,5 +1,6 @@
 import { useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import { useOrders } from '../../../application/hooks/useOrders';
 import { useOrdersRealtime } from '../../../application/hooks/useOrdersRealtime';
 import { useStuck } from '../../shared/hooks/useStuck';
@@ -20,6 +21,7 @@ import '../../shared/orders/orders.css';
  * владение магазином. Мутаций нет (actions — ORD-10).
  */
 export default function SellerOrdersView() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const statusFilter = parseStatusFilterParam(searchParams.get('status'));
@@ -58,7 +60,7 @@ export default function SellerOrdersView() {
       </div>
       <div className="screen__header screen__header--row screen__header--center" ref={headerRef}>
         <span className="screen__header-spacer" aria-hidden />
-        <h1 className="screen__title">Заказы</h1>
+        <h1 className="screen__title">{t('seller.orders.title')}</h1>
         <span className="screen__header-spacer" aria-hidden />
       </div>
       <OrderStatusTabs
@@ -66,7 +68,7 @@ export default function SellerOrdersView() {
         onChange={setFilter}
         panelId="seller-orders-panel"
       />
-      <div id="seller-orders-panel" role="tabpanel" aria-label="Заказы">
+      <div id="seller-orders-panel" role="tabpanel" aria-label={t('seller.orders.title')}>
         <OrdersListBody
           orders={orders}
           loading={loading}

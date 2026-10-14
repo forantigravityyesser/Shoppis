@@ -1,4 +1,5 @@
 import { Star } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   value: number;
@@ -8,8 +9,9 @@ interface Props {
 
 /** Интерактивный выбор оценки (5 звёзд): выбрал 4 → 4 заполнены, 5-я пустая. */
 export default function StarInput({ value, onChange, size = 30 }: Props) {
+  const { t } = useTranslation();
   return (
-    <span className="pd-star-input" role="radiogroup" aria-label="Оценка">
+    <span className="pd-star-input" role="radiogroup" aria-label={t('buyer.product.ratingAria')}>
       {[1, 2, 3, 4, 5].map((n) => {
         const on = n <= value;
         return (
@@ -17,7 +19,7 @@ export default function StarInput({ value, onChange, size = 30 }: Props) {
             key={n}
             type="button"
             className="pd-star-input__btn"
-            aria-label={`${n} из 5`}
+            aria-label={t('buyer.product.starAria', { value: n })}
             aria-pressed={on}
             onClick={() => onChange(n)}
           >

@@ -16,7 +16,15 @@ export interface ProductRepository {
   fetchCatalog(storeId: string): Promise<ProductCatalog>;
   /** Создаёт товар и возвращает его id (нужен, чтобы привязать копию к созданному товару). */
   addProduct(input: NewProductInput, token: string | null): Promise<string>;
-  updateProduct(id: string, patch: UpdateProductPatch, token: string | null): Promise<void>;
+  /**
+   * Обновляет товар. Возвращает прежние фото (full+thumb), чтобы вызывающий слой
+   * удалил из Storage откреплённые файлы, не полагаясь на загруженный каталог.
+   */
+  updateProduct(
+    id: string,
+    patch: UpdateProductPatch,
+    token: string | null,
+  ): Promise<Array<{ storageKey: string; thumbStorageKey: string | null }>>;
   updateVariantStock(variantId: string, patch: VariantStockPatch): Promise<void>;
   addVariantToProduct(
     productId: string,

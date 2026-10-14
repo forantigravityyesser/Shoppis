@@ -13,8 +13,14 @@ vi.mock('../../application/hooks/useHaptic', () => ({
 }));
 
 vi.mock('../../application/store', () => ({
-  useStore: (selector: (state: { toast: string | null; clearToast: () => void }) => unknown) =>
-    selector({ toast: null, clearToast: vi.fn() }),
+  useStore: (
+    selector: (state: {
+      toast: string | null;
+      clearToast: () => void;
+      animations: unknown[];
+      dropAnimation: () => void;
+    }) => unknown,
+  ) => selector({ toast: null, clearToast: vi.fn(), animations: [], dropAnimation: vi.fn() }),
 }));
 
 import BuyerLayout from './BuyerLayout';

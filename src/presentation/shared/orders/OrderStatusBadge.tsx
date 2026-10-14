@@ -1,5 +1,6 @@
+import { useTranslation } from 'react-i18next';
 import type { OrderStatus } from '../../../domain/models/order';
-import { orderStatusLabel } from '../../../domain/constants/order-statuses';
+import { orderStatusLabelKey } from '../../../domain/constants/order-statuses';
 
 const STATUS_MODIFIER: Record<OrderStatus, string> = {
   NEW: 'order-badge--new',
@@ -16,6 +17,7 @@ interface Props {
 
 /** Цветной бейдж статуса заказа с RU-подписью (docs/22 §5.1). Общий для buyer/seller. */
 export default function OrderStatusBadge({ status, className }: Props) {
+  const { t } = useTranslation();
   // Safe-getters (docs/24 §2.4): неизвестный статус не роняет рендер.
   const modifier = status in STATUS_MODIFIER ? STATUS_MODIFIER[status] : '';
   return (
@@ -24,7 +26,7 @@ export default function OrderStatusBadge({ status, className }: Props) {
       data-testid="order-status-badge"
       data-status={status}
     >
-      {orderStatusLabel(status)}
+      {t(orderStatusLabelKey(status))}
     </span>
   );
 }

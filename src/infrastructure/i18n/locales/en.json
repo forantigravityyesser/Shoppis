@@ -1,6 +1,821 @@
 {
-  "common": {},
-  "welcome": {},
-  "buyer": {},
-  "seller": {}
+  "common": {
+    "cancel": "Cancel",
+    "save": "Save",
+    "back": "Back",
+    "retry": "Retry",
+    "loading": "Loading…",
+    "close": "Close",
+    "delete": "Delete",
+    "edit": "Edit",
+    "confirm": "Confirm",
+    "apply": "Apply",
+    "done": "Done",
+    "create": "Create",
+    "add": "Add",
+    "search": "Search",
+    "reset": "Reset",
+    "error": "Error",
+    "notSpecified": "Not specified",
+    "comingSoon": "This section will arrive in a future stage",
+    "copy": "Copy",
+    "copied": "Copied",
+    "preview": "Preview",
+    "saving": "Saving…",
+    "storeNotSelected": "Store not selected",
+    "clear": "Clear",
+    "close": "Close"
+  },
+  "language": {
+    "label": "Interface language",
+    "ru": "Russian",
+    "en": "English"
+  },
+  "nav": {
+    "primary": "Main navigation",
+    "buyer": {
+      "home": "Home",
+      "catalog": "Catalog",
+      "favorites": "Favorites",
+      "orders": "Orders",
+      "cart": "Cart"
+    },
+    "seller": {
+      "dashboard": "Home",
+      "inventory": "Inventory",
+      "orders": "Orders",
+      "settings": "Settings"
+    }
+  },
+  "domain": {
+    "orderStatus": {
+      "NEW": "New",
+      "IN_TRANSIT": "In transit",
+      "DELIVERED": "Delivered",
+      "REFUSED": "Refused",
+      "CANCELLED": "Cancelled",
+      "unknown": "Unknown status"
+    },
+    "refusalReason": {
+      "BUYER_CHANGED_MIND": "Buyer changed their mind",
+      "COULD_NOT_CONTACT_BUYER": "Could not contact the buyer",
+      "DELIVERY_TERMS": "Delivery terms",
+      "PRODUCT_NOT_MATCHED_EXPECTATIONS": "Product did not match expectations",
+      "OTHER": "Other",
+      "unknown": "Reason not specified"
+    }
+  },
+  "errors": {
+    "orderAction": {
+      "notFound": "Order not found.",
+      "terminal": "This order is already finished — action unavailable.",
+      "cancelNotAllowed": "This order can no longer be cancelled.",
+      "transitionNotAllowed": "This action is currently unavailable.",
+      "notDelivered": "The order has not been delivered yet.",
+      "outcomeAlreadyRecorded": "The delivery outcome has already been recorded.",
+      "invalidOutcome": "Invalid delivery outcome.",
+      "reasonRequired": "Please provide a reason.",
+      "invalidRefusalReason": "Invalid refusal reason.",
+      "invalidQuantity": "Invalid quantity.",
+      "forbidden": "You do not have permission for this action.",
+      "unauthorized": "Session expired. Please reopen the app.",
+      "network": "Check your connection and try again.",
+      "fallback": "Could not complete the action. Please try again."
+    },
+    "checkout": {
+      "STORE_PAUSED": "The store is temporarily unavailable for checkout.",
+      "STORE_NOT_FOUND": "Store not found. Please refresh the page.",
+      "INSUFFICIENT_STOCK": "Not enough stock. Please check the quantity.",
+      "PRODUCT_NOT_ACTIVE": "This product is no longer available. Please refresh your cart.",
+      "VARIANT_NOT_FOUND": "The product has changed. Please refresh your cart.",
+      "FOREIGN_VARIANT": "The product has changed. Please refresh your cart.",
+      "INVENTORY_NOT_FOUND": "This product is no longer available. Please refresh your cart.",
+      "INVALID_QUANTITY": "Please check the item quantity.",
+      "EMPTY_CART": "Your cart is empty.",
+      "VARIANT_DUPLICATE": "Your cart has duplicate items. Please refresh it.",
+      "INVALID_CART_ITEM": "Your cart is corrupted. Please refresh it.",
+      "IDEMPOTENCY_KEY_REQUIRED": "Could not place the order. Please try again.",
+      "UNAUTHORIZED": "Session expired. Please reopen the app.",
+      "NETWORK": "Could not place the order. Check your connection.",
+      "UNKNOWN": "Could not place the order. Please try again."
+    },
+    "question": {
+      "UNAUTHORIZED": "Sign in through Telegram to ask a question.",
+      "ALREADY_ASKED": "You have already asked a question about this product.",
+      "DUPLICATE_ANSWER": "This question has already been answered.",
+      "TEXT_REQUIRED": "Please enter some text.",
+      "TEXT_TOO_LONG": "The text is too long.",
+      "STORE_PAUSED": "The store is temporarily closed.",
+      "QUESTION_NOT_FOUND": "This question is no longer available.",
+      "PRODUCT_NOT_FOUND": "This product is no longer available.",
+      "FORBIDDEN": "You do not have permission.",
+      "fallback": "Could not complete the action. Please try again."
+    },
+    "review": {
+      "UNAUTHORIZED": "Sign in through Telegram to leave a review.",
+      "ALREADY_REVIEWED": "You have already reviewed this product.",
+      "DUPLICATE_REPLY": "You have already replied to this review.",
+      "CANNOT_REPLY_OWN": "You cannot reply to your own review.",
+      "INVALID_RATING": "Please rate from 1 to 5.",
+      "TEXT_REQUIRED": "Please enter the reply text.",
+      "TEXT_TOO_LONG": "The text is too long.",
+      "STORE_PAUSED": "The store is temporarily closed.",
+      "REVIEW_NOT_FOUND": "This review is no longer available.",
+      "FORBIDDEN": "You do not have permission.",
+      "fallback": "Could not complete the action. Please try again."
+    }
+  },
+  "imageCrop": {
+    "processing": "Processing…",
+    "preparing": "Preparing photo…",
+    "noImage": "No image",
+    "zoom": "Zoom",
+    "prepareFailed": "Could not process the photo. Try another one.",
+    "cropFailed": "Could not process the photo. Please try again."
+  },
+  "orders": {
+    "refreshLabel": "Refresh orders",
+    "total": "Total",
+    "confirmAria": "Action confirmation",
+    "itemQtyAria": "Quantity {{count}}",
+    "delivery": {
+      "recipient": "Recipient",
+      "phone": "Phone",
+      "address": "Address"
+    },
+    "skeleton": {
+      "list": "Loading orders…",
+      "detail": "Loading order…"
+    },
+    "loadingAria": "Loading orders",
+    "filterAria": "Order filter",
+    "tabs": {
+      "all": "All",
+      "NEW": "New",
+      "IN_TRANSIT": "In transit",
+      "DELIVERED": "Delivered",
+      "history": "History"
+    },
+    "empty": {
+      "all": "No orders yet",
+      "NEW": "No new orders",
+      "IN_TRANSIT": "No orders in transit",
+      "DELIVERED": "No delivered orders yet",
+      "history": "Order history is empty"
+    },
+    "error": {
+      "title": "Could not load orders",
+      "text": "Check your connection and try again."
+    },
+    "contact": {
+      "label": "Contact",
+      "empty": "Contact not specified.",
+      "openFailed": "Could not open the contact."
+    },
+    "card": {
+      "amountLabel": "Order total",
+      "details": "Details",
+      "detailsAria": "Details for order {{number}}",
+      "moreItems": "{{first}} and {{count}} more"
+    },
+    "detail": {
+      "statusLabel": "Order status",
+      "createdAt": "Placed {{date}}",
+      "updatedAt": "Updated {{date}}",
+      "received": "Buyer has collected the order",
+      "refusalPrefix": "Refusal reason: {{reason}}",
+      "items": "Items",
+      "delivery": "Delivery",
+      "contact": "Contact"
+    },
+    "refusal": {
+      "aria": "Refusal reason",
+      "title": "Select a refusal reason",
+      "confirm": "Confirm refusal"
+    }
+  },
+  "productSocial": {
+    "ratingAria": "Rating {{value}} out of 5",
+    "reviews_one": "{{count}} review",
+    "reviews_other": "{{count}} reviews",
+    "yourReview": "Your review",
+    "yourQuestion": "Your question",
+    "you": "You",
+    "seller": "Seller",
+    "answered": "Answered",
+    "unanswered": "Unanswered"
+  },
+  "seller": {
+    "dashboard": {
+      "title": "Home",
+      "empty": {
+        "noStoreTitle": "No store data",
+        "noStoreText": "Open a store to see the summary.",
+        "noSummaryTitle": "Summary unavailable",
+        "noSummaryText": "Please try refreshing later."
+      },
+      "error": {
+        "title": "Could not load the summary",
+        "text": "Check your connection and try again."
+      },
+      "skeletonAria": "Loading summary",
+      "sales": {
+        "earned": "Earned",
+        "potential": "Potential"
+      },
+      "orders": {
+        "title": "Orders",
+        "aria": "{{label}}: {{value}}",
+        "stats": {
+          "new": "New",
+          "inTransit": "In transit",
+          "delivered": "Delivered",
+          "history": "History"
+        }
+      },
+      "inventory": {
+        "title": "Products",
+        "categories": "Categories",
+        "onShelf": "On shelf",
+        "archived": "Archived",
+        "active": "Active",
+        "onShelfAria": "On shelf: {{value}}",
+        "archivedAria": "Archived: {{value}}",
+        "activeAria": "Active categories: {{value}}"
+      },
+      "attention": {
+        "title": "Needs attention",
+        "text": "Tasks that require action will appear here. In future updates: out-of-stock and low-stock products, new buyer questions and reviews, and order reminders."
+      }
+    },
+    "inventory": {
+      "title": "Inventory",
+      "switcherAria": "Inventory sections",
+      "mode": {
+        "products": "Products",
+        "categories": "Categories"
+      },
+      "add": "Add",
+      "addProduct": "Add product",
+      "noProducts": "No products yet",
+      "archived": "archived",
+      "archivedCount": "{{count}} archived",
+      "positionAria": "Position {{position}} in the catalog. Change",
+      "productCount_one": "{{count}} product",
+      "productCount_other": "{{count}} products",
+      "noResults": "Nothing found",
+      "loadError": "Could not load the catalog",
+      "loadErrorHint": "Check your connection and try again.",
+      "categoryPicker": {
+        "triggerAria": "Category",
+        "uncategorized": "Uncategorized",
+        "chooseFromList": "Choose from the list",
+        "sheetTitle": "Product category",
+        "listAria": "Product category",
+        "newCategory": "New category",
+        "search": "Find a category",
+        "clear": "Clear"
+      },
+      "categoryView": {
+        "title": "Category",
+        "loading": "Loading…",
+        "notFound": "Category not found.",
+        "editAria": "Edit category",
+        "searchProduct": "Find a product",
+        "emptyTitle": "This category has no products yet",
+        "noResultsHint": "Try changing your query"
+      },
+      "photo": "Photo",
+      "addSheet": {
+        "title": "Add to “{{name}}”",
+        "newProduct": "New product",
+        "newProductHint": "Create from scratch",
+        "productFromStore": "Product from the store",
+        "productFromStoreHint": "Choose from the catalog",
+        "storeProducts": "Store products",
+        "storeEmpty": "The store has no products yet",
+        "listAria": "Store products",
+        "alreadyHere": "already here",
+        "assignError": "Could not add the products. Please try again.",
+        "adding": "Adding…",
+        "addCount": "Add ({{count}})",
+        "selectProducts": "Select products"
+      },
+      "editCategory": {
+        "title": "Edit category",
+        "removePhoto": "Remove photo",
+        "addPhoto": "Add photo",
+        "nameLabel": "Name",
+        "thresholdLabel": "Notify on low stock",
+        "thresholdPlaceholder": "Default",
+        "orderLabel": "Storefront order",
+        "orderValue": "{{position}} of {{total}}",
+        "changeOrder": "Change order",
+        "uploadError": "Could not upload the photo. Please try again.",
+        "saveError": "Could not save the category. Please try again.",
+        "deleteError": "Could not delete the category. Please try again.",
+        "deleteConfirm": "Delete the category? Products will move to “Uncategorized”, and the cover will be removed from storage.",
+        "deleting": "Deleting…",
+        "deleteLink": "Delete category",
+        "cropCover": "Crop cover"
+      },
+      "createCategory": {
+        "title": "New category",
+        "nameLabel": "Name",
+        "namePlaceholder": "E.g. Vegetables",
+        "createError": "Could not create the category. Please try again.",
+        "creating": "Creating…",
+        "submit": "Create category"
+      },
+      "reorder": {
+        "title": "Order in the catalog",
+        "groupAria": "Position in the catalog"
+      },
+      "linkSheet": {
+        "title": "Links",
+        "hint": "Select products — they will appear in each other's “Similar” section.",
+        "searchPlaceholder": "Search product",
+        "remove": "Remove",
+        "link": "Link"
+      },
+      "stock": {
+        "outOfStock": "Out of stock",
+        "low": "⚠ {{count}} pcs.",
+        "hidden": "Hidden",
+        "available": "{{count}} pcs."
+      },
+      "preview": {
+        "prev": "Previous products",
+        "next": "Next products"
+      },
+      "thumbnailArchived": "{{title}} (archived)",
+      "attentionAria": "Needs attention: {{reviews}} reviews, {{questions}} questions",
+      "products": {
+        "title": "Products",
+        "empty": "No products"
+      }
+    },
+    "product": {
+      "createTitle": "New product",
+      "editTitle": "Edit product",
+      "title": "Product",
+      "notFound": "Product not found.",
+      "statusActive": "On storefront",
+      "statusArchived": "Archived",
+      "photoAria": "Photo {{number}}",
+      "previewAsBuyer": "View as buyer",
+      "newBadge": "{{count}} new",
+      "tabs": {
+        "card": "Card",
+        "reviews": "Reviews",
+        "questions": "Questions",
+        "storefront": "Storefront"
+      },
+      "preview": {
+        "loadError": "Could not load the catalog.",
+        "links": "Links",
+        "linksEmpty": "No linked products yet. Add some — they will appear in the buyer's “Similar” section.",
+        "removeLink": "Remove “{{title}}” from links",
+        "addLink": "Add link"
+      },
+      "overview": {
+        "inStock": "In stock",
+        "held": "On hold",
+        "stockControl": "Stock control",
+        "variants": "Variants",
+        "noVariants": "No variants",
+        "availableCount": "{{count}} pcs.",
+        "heldCount": "{{count}} on hold",
+        "features": "Specifications",
+        "statusError": "Could not change the status. Please try again.",
+        "publishing": "Publishing…",
+        "publish": "Return to storefront",
+        "archiving": "Archiving…",
+        "archive": "Archive",
+        "edit": "Edit",
+        "deleteFromArchive": "Delete from archive",
+        "deleteError": "Could not delete the product. Please try again.",
+        "publishHint": "Add at least one purchase option (size/volume) to put the product on the storefront."
+      },
+      "stock": {
+        "title": "Stock control",
+        "noVariants": "No variants to manage stock.",
+        "inStockShort": "in stock",
+        "heldShort": "on hold",
+        "availableLabel": "In stock",
+        "heldLabel": "On hold",
+        "moving": "Moving…",
+        "moveAll": "Move all to stock",
+        "addVariant": "Add variant",
+        "saveError": "Could not save the stock. Please try again.",
+        "reservedError": "Some stock is reserved by active orders. It can only be released after the order is cancelled or refused.",
+        "moveError": "Could not move the stock. Please try again."
+      },
+      "variant": {
+        "title": "New variant",
+        "nameLabel": "Dimension",
+        "nameDefault": "Volume",
+        "namePlaceholder": "Size / Volume",
+        "valueLabel": "Value",
+        "valuePlaceholder": "1 kg",
+        "quantityLabel": "Stock",
+        "priceLabel": "Price",
+        "discountLabel": "Discount %",
+        "saveError": "Could not add the variant. Please try again."
+      },
+      "form": {
+        "photoTitle": "Product photos",
+        "coverTag": "Cover",
+        "addPhotoShort": "Add",
+        "photoHint": "Up to {{max}} photos — Shoppis will prepare them for the catalog.",
+        "sectionMain": "General",
+        "nameLabel": "Name",
+        "namePlaceholder": "E.g. Carrots",
+        "descriptionLabel": "Description",
+        "descriptionPlaceholder": "Optional",
+        "categoryLabel": "Category",
+        "featuresTitle": "Specifications",
+        "featureNamePlaceholder": "Material",
+        "featureValuePlaceholder": "Leather",
+        "removeFeature": "Remove specification",
+        "addFeature": "Add specification",
+        "variantsTitle": "Purchase options",
+        "variantN": "Option {{number}}",
+        "removeVariant": "Remove option",
+        "dimensionLabel": "Dimension",
+        "dimensionPlaceholder": "size / volume / memory",
+        "valueLabel": "Value",
+        "valuePlaceholder": "42 / XL / 500 ml / 128 GB",
+        "quantityLabel": "Stock",
+        "priceLabel": "Price",
+        "discountLabel": "Discount %",
+        "customValues": "Custom values for this option",
+        "priceLikeProduct": "Use the product price",
+        "discountLikeProduct": "Use the product discount",
+        "inheritsBase": "Inherits the price and discount of option 1",
+        "variantsHint": "Up to {{max}} options. Without an option the product can only be archived, not published.",
+        "archive": "Archive",
+        "publish": "Publish",
+        "publishing": "Publishing…",
+        "saveError": "Could not save the product. Please try again."
+      },
+      "draft": {
+        "statusDraft": "Draft",
+        "statusChanged": "Has changes",
+        "statusSaved": "Saved",
+        "statusError": "Save error",
+        "createCopy": "Create a copy",
+        "copyLimit": "Limit reached: 6 cards",
+        "unsavedText": "You have unsaved changes. Leave without saving?",
+        "stay": "Stay",
+        "exit": "Leave",
+        "removeDraftConfirm": "Delete the draft without saving?",
+        "removeDraftAria": "Delete draft {{number}}",
+        "draftsAria": "Product drafts",
+        "original": "Original",
+        "copyN": "Copy {{number}}",
+        "limitText": "Limit reached: 6 cards per session"
+      }
+    },
+    "onboarding": {
+      "title": "Your store starts here 🛍️",
+      "subtitle": "A few simple steps and you'll have your own storefront for products. Let's start with the basics!",
+      "banner": "Banner",
+      "bannerAlt": "Store banner",
+      "removeBanner": "Remove banner",
+      "replace": "Replace",
+      "addBanner": "Add a banner",
+      "addBannerHint": "Tap to choose a photo",
+      "storeName": "Store name",
+      "storeNamePlaceholder": "E.g. Apple Hub",
+      "currency": "Currency",
+      "language": "Store language",
+      "nameRequired": "Enter the store name",
+      "uploadingBanner": "Uploading banner…",
+      "creating": "Creating…",
+      "create": "Create store"
+    },
+    "orders": {
+      "title": "Orders",
+      "loadError": "Could not load the order",
+      "notFound": "Order not found",
+      "toOrders": "To orders",
+      "orderNumber": "Order #{{number}}",
+      "order": "Order",
+      "writeBuyer": "Message the buyer",
+      "phone": "Phone: {{phone}}",
+      "phoneNotSpecified": "not specified",
+      "received": "Buyer collected",
+      "refuse": "Refuse",
+      "advance": "Advance order",
+      "advanceInTransit": "Send to delivery",
+      "advanceDelivered": "Mark as delivered",
+      "cancel": "Cancel",
+      "cancelTextInTransit": "Cancel the order? Stock will not be returned automatically — manual reconciliation is required.",
+      "cancelText": "Cancel this order?",
+      "cancelOrder": "Cancel order",
+      "transition": {
+        "inTransit": "Sent to delivery",
+        "delivered": "Order delivered",
+        "received": "Order collected",
+        "cancelled": "Order cancelled",
+        "refused": "Refusal recorded"
+      }
+    },
+    "sales": {
+      "title": "Sales",
+      "switcherAria": "Sales sections",
+      "groupEarned": "Earned",
+      "groupPotential": "Potential",
+      "disabledNoSession": "Sign in to see sales.",
+      "disabledNoStore": "Open a store to see sales.",
+      "emptyEarned": "No earned sales yet",
+      "emptyPotential": "No potential sales"
+    },
+    "reviews": {
+      "loadError": "Could not load reviews.",
+      "delete": "Delete review",
+      "replyPlaceholder": "Reply from the store",
+      "reply": "Reply",
+      "empty": "No reviews yet"
+    },
+    "questions": {
+      "loadError": "Could not load questions.",
+      "delete": "Delete question",
+      "answerPlaceholder": "Reply to the buyer",
+      "answer": "Reply",
+      "empty": "No questions yet"
+    },
+    "settings": {
+      "title": "Settings",
+      "loading": "Loading store…",
+      "notFound": "Store not found",
+      "groupStore": "Store",
+      "groupBuyers": "For buyers",
+      "groupInterface": "Interface",
+      "rowProfile": "Store profile",
+      "rowLocalization": "Language and currency",
+      "rowContacts": "Contacts",
+      "rowShare": "Share store",
+      "rowPreview": "Preview",
+      "valueNotSpecified": "Not specified",
+      "profileTitle": "Store profile",
+      "contactTitle": "Contacts",
+      "localizationTitle": "Language and currency",
+      "shareTitle": "Share store",
+      "localization": {
+        "cardTitle": "Localization",
+        "currency": "Currency",
+        "language": "Language"
+      },
+      "identity": {
+        "title": "Store",
+        "storeName": "Store name",
+        "nameRequired": "Store name is required",
+        "descriptionLabel": "Store description",
+        "descriptionPlaceholder": "Tell buyers about your store",
+        "descriptionHint": "Up to {{max}} characters",
+        "descriptionTooLong": "Description must be up to {{max}} characters",
+        "cropBanner": "Crop banner"
+      },
+      "communication": {
+        "title": "Contact with buyers",
+        "hint": "Contact for communication: seller, manager, or bot. Buyers will open a chat via the button.",
+        "invalid": "Enter a username, @username, or a t.me/… link",
+        "inputAria": "Contact for communication",
+        "placeholder": "@username or t.me/username",
+        "clearAria": "Clear contact",
+        "prefillWith": "Use my @{{username}}",
+        "prefillGeneric": "Use my @username",
+        "linkLabel": "Link for buyers:",
+        "openAria": "Open contact in Telegram",
+        "copyAria": "Copy contact"
+      },
+      "status": {
+        "title": "Store status",
+        "active": "Store is active",
+        "paused": "Store is paused",
+        "activeHint": "Buyers see the storefront and can place orders.",
+        "pausedHint": "Buyers see the “Store is temporarily closed” screen. Management is still available.",
+        "switchAria": "Store is active",
+        "confirmText": "The store will temporarily close for buyers. Continue?",
+        "pausing": "Pausing…",
+        "pause": "Pause"
+      },
+      "share": {
+        "title": "Share",
+        "hint": "Storefront link for buyers.",
+        "openAria": "Open storefront",
+        "copyAria": "Copy link",
+        "previewAria": "Store preview",
+        "note": "Preview will become available once the storefront is live."
+      },
+      "banner": {
+        "alt": "Store banner",
+        "replaceAria": "Replace banner",
+        "removeAria": "Remove banner",
+        "add": "Add a store banner",
+        "addAria": "Add banner"
+      }
+    }
+  },
+  "buyer": {
+    "catalog": {
+      "title": "Catalog",
+      "profileAria": "Profile",
+      "allCategories": "All categories",
+      "searchPlaceholder": "Find a product",
+      "searchAria": "Search by name",
+      "priceFromAria": "Price from",
+      "priceToAria": "Price to",
+      "loadError": "Could not load the catalog",
+      "loadErrorHint": "Check your connection and try again.",
+      "categoryFallback": "Category",
+      "filtersAria": "Filters",
+      "updatingAria": "Updating catalog",
+      "streamError": "Could not load more products",
+      "loadingAria": "Loading products",
+      "emptySearchTitle": "Nothing found",
+      "emptySearchText": "No products for “{{query}}”. Try changing your query.",
+      "emptyPriceTitle": "No products in this range",
+      "emptyPriceText": "Try adjusting the price filter.",
+      "emptyCategoryTitle": "This category has no products yet",
+      "emptyCategoryText": "Take a look at other categories.",
+      "emptyTitle": "No products yet",
+      "emptyText": "There is nothing to show in this store yet.",
+      "priceFrom": "from {{price}}",
+      "priceTo": "up to {{price}}",
+      "priceRange": "{{min}} – {{max}}",
+      "filter": {
+        "title": "Filters",
+        "loading": "Loading filter…",
+        "loadError": "Could not load the price filter",
+        "price": "Price",
+        "empty": "No available prices to filter yet.",
+        "reset": "Reset",
+        "apply": "Show products",
+        "appliedAria": "Applied filters",
+        "removeCategory": "Remove filter “{{name}}”",
+        "removePrice": "Remove price filter {{price}}"
+      }
+    },
+    "storeStatus": {
+      "notFoundTitle": "Store not found",
+      "notFoundText": "Check the link or ask the seller for a new one.",
+      "pausedTitle": "Store is temporarily closed",
+      "pausedText": "Orders in this store are currently unavailable. Please check back later.",
+      "contact": "Contact the seller"
+    },
+    "home": {
+      "searchAria": "Search",
+      "profileAria": "Profile",
+      "descriptionAria": "Store description",
+      "descriptionTitle": "About the store",
+      "loadError": "Could not load the store.",
+      "streamError": "Could not load more products",
+      "loadingAria": "Loading products",
+      "sectionProducts": "Products",
+      "sectionCategories": "Categories",
+      "viewAllProducts": "See all →",
+      "viewAllCategories": "All →"
+    },
+    "product": {
+      "outOfStock": "Out of stock",
+      "loadError": "Could not load the product",
+      "notFound": "Product not found",
+      "notFoundText": "The product may have been removed or the link is outdated.",
+      "shareAria": "Share",
+      "more": "… More",
+      "collapse": "Collapse",
+      "features": "Specifications",
+      "addToCart": "Add to cart",
+      "added": "Added",
+      "total": "Total",
+      "variantFallback": "Option",
+      "variantsCountAria": "Available options: {{count}}",
+      "ratingAria": "Rating",
+      "starAria": "{{value}} out of 5",
+      "you": "You",
+      "composerHint": "Rate the product",
+      "composerPlaceholder": "Comment (optional)",
+      "sending": "Sending…",
+      "send": "Send",
+      "askQuestion": "Ask a question",
+      "questionPlaceholder": "Your question",
+      "reviewsLoadError": "Could not load reviews.",
+      "reviewsNotice": "You have already left a review. You can't change it or leave a new one.",
+      "reviewsDelete": "Delete review",
+      "replyPlaceholder": "Your reply",
+      "reply": "Reply",
+      "reviewsEmpty": "No reviews yet",
+      "questionsLoadError": "Could not load questions.",
+      "questionsNotice": "You have already asked a question. You can't change it or ask a new one.",
+      "questionsDelete": "Delete question",
+      "questionsEmpty": "No questions yet",
+      "relatedEmpty": "No similar products yet",
+      "addedToCart": "Added to cart",
+      "openPhotoAria": "Open photo",
+      "photoAria": "Photo {{number}}",
+      "tabs": {
+        "about": "About",
+        "reviews": "Reviews",
+        "questions": "Questions",
+        "related": "Similar"
+      }
+    },
+    "favorites": {
+      "title": "Favorites",
+      "loadError": "Could not load favorites",
+      "emptyTitle": "No favorites yet",
+      "emptyText": "Tap ♥ on a product to save it here.",
+      "addAria": "Add to favorites",
+      "removeAria": "Remove from favorites"
+    },
+    "account": {
+      "title": "Profile",
+      "hint": "The profile will arrive in a future stage"
+    },
+    "settings": {
+      "title": "Settings",
+      "hint": "The settings section will be available after sign-in"
+    },
+    "cart": {
+      "title": "Cart",
+      "loadError": "Could not load the cart",
+      "inlineError": "Could not update the cart.",
+      "checkout": "Checkout · {{total}}",
+      "item": {
+        "selectOn": "Remove from checkout",
+        "selectOff": "Include in checkout",
+        "openAria": "Open “{{title}}”",
+        "availableOnly": "Only {{count}} pcs. available",
+        "fix": "Reduce to {{count}}",
+        "removeAria": "Remove “{{title}}” from the cart"
+      },
+      "empty": {
+        "title": "Your cart is empty",
+        "text": "Add products from the catalog to place an order.",
+        "cta": "Go to catalog"
+      },
+      "selection": {
+        "selected": "Selected {{count}}",
+        "selectAll": "Select all",
+        "clearAll": "Clear all",
+        "updatingAria": "Updating cart"
+      },
+      "quantity": {
+        "aria": "Quantity",
+        "decrease": "Decrease quantity",
+        "increase": "Increase quantity"
+      },
+      "remove": {
+        "aria": "Remove item",
+        "text": "Remove this item from the cart?",
+        "no": "No",
+        "yes": "Yes"
+      }
+    },
+    "checkout": {
+      "title": "Checkout",
+      "close": "Close",
+      "nameLabel": "Full name",
+      "namePlaceholder": "John Smith",
+      "nameError": "Enter your first and last name",
+      "phoneLabel": "Phone",
+      "phonePlaceholder": "+1 900 000-00-00",
+      "phoneError": "Enter a phone number",
+      "addressLabel": "Delivery address",
+      "addressPlaceholder": "City, street, postal address",
+      "addressError": "Enter the delivery address",
+      "submitting": "Placing…",
+      "submit": "Place order",
+      "contactNotSpecified": "The seller has not provided a contact.",
+      "contactOpenFailed": "Could not open the seller's contact.",
+      "contactHintNoStore": "Have questions about checkout?",
+      "contactHintWithStore": "Have questions about checkout at “{{store}}”?",
+      "contactCta": "Contact the seller",
+      "successTitle": "Order received!",
+      "successNumberLabel": "Order number:",
+      "successTotalLabel": "Total:",
+      "notifyOn": "Notifications are on — the “Order received” message and delivery statuses will arrive in Telegram.",
+      "notifyOff": "Turn on notifications so you don't miss the “Order received” message and delivery statuses in Telegram.",
+      "allowPending": "Requesting…",
+      "allow": "Allow notifications",
+      "toOrders": "Go to orders"
+    },
+    "orders": {
+      "title": "Orders",
+      "disabledNoStore": "Open a store to view orders",
+      "disabledNoSession": "Sign in to view orders",
+      "disabled": "Orders are currently unavailable",
+      "loadError": "Could not load the order",
+      "notFound": "Order not found",
+      "toOrders": "To orders",
+      "orderNumber": "Order #{{number}}",
+      "order": "Order",
+      "writeSeller": "Message the seller",
+      "cancelText": "Cancel this order?",
+      "cancelOrder": "Cancel order"
+    }
+  }
 }

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import BottomSheet from '../../../shared/components/BottomSheet';
 import { useInventoryActions } from '../../../../application/hooks/useInventoryActions';
 import {
@@ -18,9 +19,10 @@ interface AddVariantSheetProps {
  * Размерность · Значение · Остаток · Цена · Скидка %.
  */
 export default function AddVariantSheet({ open, productId, onClose }: AddVariantSheetProps) {
+  const { t } = useTranslation();
   const { addVariant } = useInventoryActions();
 
-  const [name, setName] = useState('Объём');
+  const [name, setName] = useState(() => t('seller.product.variant.nameDefault'));
   const [value, setValue] = useState('');
   const [quantity, setQuantity] = useState('0');
   const [price, setPrice] = useState('');
@@ -45,7 +47,7 @@ export default function AddVariantSheet({ open, productId, onClose }: AddVariant
       onClose();
     } catch (e) {
       console.error('[inventory] addVariant failed', e);
-      setSaveError('Не удалось добавить вариант. Попробуйте ещё раз.');
+      setSaveError(t('seller.product.variant.saveError'));
     } finally {
       setSaving(false);
     }
@@ -53,31 +55,31 @@ export default function AddVariantSheet({ open, productId, onClose }: AddVariant
 
   return (
     <BottomSheet open={open} onClose={onClose} nested>
-      <h2 className="sheet__title">Новый вариант</h2>
+      <h2 className="sheet__title">{t('seller.product.variant.title')}</h2>
 
       <div className="field__row">
         <label className="field">
-          <span className="field__label">Размерность</span>
+          <span className="field__label">{t('seller.product.variant.nameLabel')}</span>
           <input
             className="field__input"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Размер / Объём"
+            placeholder={t('seller.product.variant.namePlaceholder')}
           />
         </label>
         <label className="field">
-          <span className="field__label">Значение</span>
+          <span className="field__label">{t('seller.product.variant.valueLabel')}</span>
           <input
             className="field__input"
             value={value}
             onChange={(e) => setValue(e.target.value)}
-            placeholder="1 кг"
+            placeholder={t('seller.product.variant.valuePlaceholder')}
           />
         </label>
       </div>
 
       <label className="field">
-        <span className="field__label">Остаток</span>
+        <span className="field__label">{t('seller.product.variant.quantityLabel')}</span>
         <input
           className="field__input"
           type="number"
@@ -89,7 +91,7 @@ export default function AddVariantSheet({ open, productId, onClose }: AddVariant
 
       <div className="field__row">
         <label className="field">
-          <span className="field__label">Цена</span>
+          <span className="field__label">{t('seller.product.variant.priceLabel')}</span>
           <input
             className="field__input"
             inputMode="decimal"
@@ -99,7 +101,7 @@ export default function AddVariantSheet({ open, productId, onClose }: AddVariant
           />
         </label>
         <label className="field">
-          <span className="field__label">Скидка %</span>
+          <span className="field__label">{t('seller.product.variant.discountLabel')}</span>
           <input
             className="field__input"
             inputMode="numeric"
@@ -121,7 +123,7 @@ export default function AddVariantSheet({ open, productId, onClose }: AddVariant
           disabled={!canSave || saving}
           onClick={() => void save()}
         >
-          {saving ? 'Сохранение…' : 'Сохранить'}
+          {saving ? t('common.saving') : t('common.save')}
         </button>
       </div>
     </BottomSheet>

@@ -1,7 +1,9 @@
 import { ArrowLeft } from 'lucide-react';
-import { useNavigate, useParams } from 'react-router';
+import { useTranslation } from 'react-i18next';
+import { useParams } from 'react-router';
 import { useInventoryHome } from '../../../application/hooks/useInventory';
 import { useProductDetail } from '../../../application/hooks/useProduct';
+import { useSmartBack } from '../../shared/hooks/useSmartBack';
 import ProductDraftEditor from '../components/ProductDraftEditor';
 import { detailToFormValues } from '../components/product-form-values';
 import '../inventory/inventory.css';
@@ -11,8 +13,9 @@ import '../inventory/inventory.css';
  * с предзаполненными данными товара. Копирование создаёт независимый товар (docs/23 §3.2).
  */
 export default function EditProductView() {
+  const { t } = useTranslation();
   const { productId = '' } = useParams();
-  const navigate = useNavigate();
+  const goBack = useSmartBack();
   const { categories } = useInventoryHome();
   const { product, loading } = useProductDetail(productId);
 
@@ -23,15 +26,17 @@ export default function EditProductView() {
           <button
             type="button"
             className="inv-icon-btn"
-            onClick={() => navigate(-1)}
-            aria-label="Назад"
+            onClick={() => goBack('/seller/inventory')}
+            aria-label={t('common.back')}
           >
             <ArrowLeft size={20} />
           </button>
-          <h1 className="form-header__title">Редактировать товар</h1>
+          <h1 className="form-header__title">{t('seller.product.editTitle')}</h1>
           <span className="form-header__spacer" aria-hidden />
         </div>
-        <div className="card card__muted">{loading ? 'Загрузка…' : 'Товар не найден.'}</div>
+        <div className="card card__muted">
+          {loading ? t('common.loading') : t('seller.product.notFound')}
+        </div>
       </div>
     );
   }
@@ -40,12 +45,15 @@ export default function EditProductView() {
     <div className="screen inv-form">
       <ProductDraftEditor
         key={product.id}
-        headerTitle="Редактировать товар"
+        headerTitle={t('seller.product.editTitle')}
         categories={categories}
         initialValues={detailToFormValues(product)}
         mode="edit"
         productId={product.id}
         exitTo={`/seller/inventory/product/${product.id}`}
+        // После сохранения открываем карточку последнего сохранённого товара (сверка;
+        // если сохранили копию — откроется именно её карточка).
+        savedTo={(savedId) => `/seller/inventory/product/${savedId}`}
       />
     </div>
   );

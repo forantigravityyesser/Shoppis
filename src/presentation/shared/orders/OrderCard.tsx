@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { OrderListItem, OrderPreviewItem } from '../../../application/read-models/order';
 import { formatMoneyMinor } from '../../../domain/rules/product-rules';
 import OrderStatusBadge from './OrderStatusBadge';
@@ -14,14 +15,11 @@ interface Props {
   /** Слот под карточкой (действия/подсказки). */
   footer?: ReactNode;
   detailsLabel?: string;
-}
-
-/** Краткая строка состава: «Первый товар и ещё N». */
-function summaryText(items: OrderPreviewItem[], itemCount: number): string {
-  if (items.length === 0) return '';
-  const first = items[0].title;
-  const rest = itemCount - 1;
-  return rest > 0 ? `${first} и ещё ${rest}` : first;
+  /**
+   * Цвет суммы (docs/25 §4.3): `earned` — полученные продажи (зелёный),
+   * `potential` — потенциальные (жёлтый). Без значения — обычный цвет.
+   */
+  priceTone?: 'earned' | 'potential';
 }
 
 /**
@@ -34,10 +32,20 @@ export default function OrderCard({
   onOpen,
   subtitle,
   footer,
-  detailsLabel = 'Подробнее',
+  detailsLabel,
+  priceTone,
 }: Props) {
+  const { t } = useTranslation();
   const { id, publicOrderNumber, status, createdAt, totalMinor, currencySymbol, itemCount } = order;
-  const summary = summaryText(order.previewItems, itemCount);
+  /** Краткая строка состава: «Первый товар и ещё N». */
+  const firstItem: OrderPreviewItem | undefined = order.previewItems[0];
+  const rest = itemCount - 1;
+  const summary = !firstItem
+    ? ''
+    : rest > 0
+      ? t('orders.card.moreItems', { first: firstItem.title, count: rest })
+      : firstItem.title;
+  const totalClass = `order-card__total${priceTone ? ` order-card__total--${priceTone}` : ''}`;
 
   return (
     <article className="order-card" data-testid="order-card">
@@ -58,19 +66,17 @@ export default function OrderCard({
 
         <div className="order-card__foot">
           <div className="order-card__amount">
-            <span className="order-card__amount-label">Сумма заказа</span>
-            <span className="order-card__total">
-              {formatMoneyMinor(totalMinor, currencySymbol)}
-            </span>
+            <span className="order-card__amount-label">{t('orders.card.amountLabel')}</span>
+            <span className={totalClass}>{formatMoneyMinor(totalMinor, currencySymbol)}</span>
           </div>
           {onOpen ? (
             <button
               type="button"
               className="order-card__details"
               onClick={() => onOpen(id)}
-              aria-label={`Подробнее о заказе ${publicOrderNumber}`}
+              aria-label={t('orders.card.detailsAria', { number: publicOrderNumber })}
             >
-              {detailsLabel}
+              {detailsLabel ?? t('orders.card.details')}
             </button>
           ) : null}
         </div>

@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { SlidersHorizontal } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router';
 import { useStore } from '../../../application/store';
 import { useStorefrontHome } from '../../../application/hooks/useStorefrontHome';
@@ -29,6 +30,7 @@ const SEARCH_DEBOUNCE_MS = 300;
  * Поиск дебаунсится (300ms), фильтр цены применяется по кнопке (CAT-09).
  */
 export default function CatalogView() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const viewedStore = useStore((s) => s.viewedStore);
@@ -92,10 +94,11 @@ export default function CatalogView() {
   }, [search]);
 
   const shouldFocus = searchParams.get('focus') === '1';
-  // Фокус поиска с Home (CAT-13): ждём, пока поле реально смонтируется (сначала может
-  // быть скелетон), и только затем убираем одноразовый `focus` из URL. Иначе фокус
-  // терялся до появления input — не открывалась клавиатура и не центрировалось поле.
-  useEffect(() => {
+  // Фокус поиска с Home (CAT-13): навигация синхронная (useTransitions=false),
+  // поэтому useLayoutEffect вызывается внутри пользовательского тапа — клавиатура
+  // открывается в Telegram/WebView. Ждём, пока поле реально смонтируется (сначала
+  // может быть скелетон), и затем убираем одноразовый `focus` из URL.
+  useLayoutEffect(() => {
     if (!shouldFocus) return;
     const input = inputRef.current;
     if (!input) return;
@@ -144,14 +147,17 @@ export default function CatalogView() {
 
   const header = (
     <CatalogHeader
-      title="Каталог"
+      title={t('buyer.catalog.title')}
       buyerAvatarUrl={serverUser?.photoUrl ?? null}
       buyerName={serverUser?.firstName ?? ''}
       onProfile={() => navigate('/account')}
     />
   );
 
-  if (loading || catalog.loading) {
+  // Скелетон всего экрана — только пока грузится контекст витрины. Товарный поток
+  // грузим внутри уже отрисованной оболочки: поле поиска должно существовать сразу
+  // (синхронный автофокус из Home открывает клавиатуру; CAT-13).
+  if (loading) {
     return <CatalogSkeleton />;
   }
 
@@ -161,8 +167,8 @@ export default function CatalogView() {
         {header}
         <div className="home-sheet">
           <div className="catalog-error" role="alert">
-            <p className="catalog-error__title">Не удалось загрузить каталог</p>
-            <p className="catalog-error__text">Проверьте соединение и попробуйте снова.</p>
+            <p className="catalog-error__title">{t('buyer.catalog.loadError')}</p>
+            <p className="catalog-error__text">{t('buyer.catalog.loadErrorHint')}</p>
             <button
               type="button"
               className="home-retry"
@@ -171,7 +177,7 @@ export default function CatalogView() {
                 catalog.refresh();
               }}
             >
-              Повторить
+              {t('common.retry')}
             </button>
           </div>
         </div>
@@ -197,9 +203,18 @@ export default function CatalogView() {
   const products = catalog.products;
   const priceActive = minPrice != null || maxPrice != null;
   const categoryName = categoryId
-    ? (home.categories.find((c) => c.id === categoryId)?.name ?? 'Категория')
+    ? (home.categories.find((c) => c.id === categoryId)?.name ?? t('buyer.catalog.categoryFallback'))
     : null;
-  const priceLabel = buildPriceLabel(minPrice, maxPrice, home.store.currencySymbol);
+  /** Подпись ценового фильтра: диапазон / «от» / «до». null — фильтра нет. */
+  const fmtPrice = (value: number) => formatMoneyMinor(value, home.store.currencySymbol);
+  const priceLabel =
+    minPrice != null && maxPrice != null
+      ? t('buyer.catalog.priceRange', { min: fmtPrice(minPrice), max: fmtPrice(maxPrice) })
+      : minPrice != null
+        ? t('buyer.catalog.priceFrom', { price: fmtPrice(minPrice) })
+        : maxPrice != null
+          ? t('buyer.catalog.priceTo', { price: fmtPrice(maxPrice) })
+          : null;
 
   return (
     <div className="home">
@@ -219,7 +234,7 @@ export default function CatalogView() {
           <button
             type="button"
             className={`catalog-filter-btn${priceActive ? ' catalog-filter-btn--active' : ''}`}
-            aria-label="Фильтры"
+            aria-label={t('buyer.catalog.filtersAria')}
             aria-pressed={priceActive}
             onClick={() => {
               setFilterOpen(true);
@@ -242,16 +257,24 @@ export default function CatalogView() {
           className={`catalog-results${catalog.updating ? ' catalog-results--updating' : ''}`}
           aria-busy={catalog.updating}
         >
-          <ProductGrid
-            products={products}
-            currencySymbol={home.store.currencySymbol}
-            onOpen={(productId) => navigate(`/product/${productId}`)}
-          />
+          {products.length === 0 && catalog.loading ? (
+            <div className="product-grid" aria-hidden>
+              {Array.from({ length: 6 }).map((_, index) => (
+                <div key={index} className="skel skel--card" />
+              ))}
+            </div>
+          ) : (
+            <ProductGrid
+              products={products}
+              currencySymbol={home.store.currencySymbol}
+              onOpen={(productId) => navigate(`/product/${productId}`)}
+            />
+          )}
           {catalog.updating ? (
             <div
               className="catalog-updating"
               role="status"
-              aria-label="Обновление каталога"
+              aria-label={t('buyer.catalog.updatingAria')}
               data-testid="catalog-updating"
             >
               <span className="home-stream-spinner" aria-hidden />
@@ -261,9 +284,9 @@ export default function CatalogView() {
         {products.length > 0 ? (
           catalog.nextPageError ? (
             <div className="home-stream-error" role="alert" data-testid="catalog-stream-error">
-              <span className="home-stream-error__text">Не удалось загрузить ещё товары</span>
+              <span className="home-stream-error__text">{t('buyer.catalog.streamError')}</span>
               <button type="button" className="home-stream-error__retry" onClick={catalog.loadMore}>
-                Повторить
+                {t('common.retry')}
               </button>
             </div>
           ) : (
@@ -278,7 +301,7 @@ export default function CatalogView() {
                 <div
                   className="home-stream-loading"
                   role="status"
-                  aria-label="Загрузка товаров"
+                  aria-label={t('buyer.catalog.loadingAria')}
                   data-testid="catalog-stream-loading"
                 >
                   <span className="home-stream-spinner" aria-hidden />
@@ -287,29 +310,29 @@ export default function CatalogView() {
             </>
           )
         ) : null}
-        {products.length === 0 ? (
+        {products.length === 0 && !catalog.loading ? (
           <div className="catalog-empty" role="status">
             {search ? (
               <>
-                <p className="catalog-empty__title">Ничего не нашлось</p>
+                <p className="catalog-empty__title">{t('buyer.catalog.emptySearchTitle')}</p>
                 <p className="catalog-empty__text">
-                  По запросу «{search}» товаров нет. Попробуйте изменить запрос.
+                  {t('buyer.catalog.emptySearchText', { query: search })}
                 </p>
               </>
             ) : priceActive ? (
               <>
-                <p className="catalog-empty__title">Нет товаров в этом диапазоне</p>
-                <p className="catalog-empty__text">Попробуйте изменить фильтр по цене.</p>
+                <p className="catalog-empty__title">{t('buyer.catalog.emptyPriceTitle')}</p>
+                <p className="catalog-empty__text">{t('buyer.catalog.emptyPriceText')}</p>
               </>
             ) : categoryId ? (
               <>
-                <p className="catalog-empty__title">В этой категории пока нет товаров</p>
-                <p className="catalog-empty__text">Загляните в другие категории.</p>
+                <p className="catalog-empty__title">{t('buyer.catalog.emptyCategoryTitle')}</p>
+                <p className="catalog-empty__text">{t('buyer.catalog.emptyCategoryText')}</p>
               </>
             ) : (
               <>
-                <p className="catalog-empty__title">Товаров пока нет</p>
-                <p className="catalog-empty__text">В этом магазине пока нечего показать.</p>
+                <p className="catalog-empty__title">{t('buyer.catalog.emptyTitle')}</p>
+                <p className="catalog-empty__text">{t('buyer.catalog.emptyText')}</p>
               </>
             )}
           </div>
@@ -351,13 +374,4 @@ function parsePriceParam(value: string | null): number | null {
   if (value === null || value === '') return null;
   const n = Number(value);
   return Number.isFinite(n) && n >= 0 ? n : null;
-}
-
-/** Подпись ценового фильтра: диапазон / «от» / «до». null — фильтра нет. */
-function buildPriceLabel(min: number | null, max: number | null, symbol: string): string | null {
-  const fmt = (value: number) => formatMoneyMinor(value, symbol);
-  if (min != null && max != null) return `${fmt(min)} – ${fmt(max)}`;
-  if (min != null) return `от ${fmt(min)}`;
-  if (max != null) return `до ${fmt(max)}`;
-  return null;
 }

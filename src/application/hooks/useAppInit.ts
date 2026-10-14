@@ -1,9 +1,11 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router';
 import { useStore } from '../store';
 import { deps } from '../composition/container';
 import { authenticate } from '../services/auth-service';
 import {
   parseLegacyStoreStartParam,
+  parseProductStartParam,
   parseStorefrontStartParam,
 } from '../../domain/rules/storefront-link';
 import type { AppContext } from '../../domain/constants/app-context';
@@ -26,7 +28,20 @@ interface TelegramWebApp {
  * покупать в других витринах. 01 §5
  */
 export function useAppInit(): void {
+  const navigate = useNavigate();
+  /**
+   * `useNavigate()` возвращает новую функцию при каждой смене pathname (её
+   * useCallback зависит от location). Без этого флага эффект ниже перезапускался
+   * бы на каждом переходе и повторно вызывал `loadSellerStore()`/`loadBuyerStore()`,
+   * которые сбрасывают каталог и категории — товары «мигали» и пропадали после
+   * навигации. Инициализация входа обязана выполниться ровно один раз.
+   */
+  const startedRef = useRef(false);
+
   useEffect(() => {
+    if (startedRef.current) return;
+    startedRef.current = true;
+
     const initAppFlow = async () => {
       try {
         // --- 1. Telegram WebApp допавечки ---
@@ -46,9 +61,11 @@ export function useAppInit(): void {
 
         // --- 2. Серверная аутентификация: initData → session/user ---
         let authenticated = false;
+        let sessionToken: string | null = null;
         try {
           const session = await authenticate();
           useStore.getState().setSession(session.token, session.user);
+          sessionToken = session.token;
           authenticated = true;
         } catch (e) {
           console.warn('[appInit] authentication failed:', e);
@@ -58,6 +75,9 @@ export function useAppInit(): void {
         // --- 3. Контекст входа по start_param (два бота) ---
         let finalContext: AppContext = 'buyer';
         let buyerPublicId: string | null = null;
+        // Товарный deep-link (`prod_<public_id>_<product_id>`) — после загрузки
+        // витрины переходим на карточку товара.
+        let buyerProductId: string | null = null;
 
         if (authenticated) {
           const startParam = deps().telegram.getStartParam();
@@ -67,17 +87,31 @@ export function useAppInit(): void {
             finalContext = 'seller';
             // storeId оставим null → App покажет SellerOnboardingView
           } else {
-            // --- БОТ ПОКУПАТЕЛЯ: deep link на витрину `shop_<public_id>` ---
+            // --- БОТ ПОКУПАТЕЛЯ: deep link на витрину `shop_<public_id>`
+            // или на товар `prod_<public_id>_<product_id>`.
             // Legacy `store_<id>` поддержан только для чтения старых ссылок.
+            const productLink = parseProductStartParam(startParam);
             const fromLink =
-              parseStorefrontStartParam(startParam) ?? parseLegacyStoreStartParam(startParam);
+              productLink?.publicId ??
+              parseStorefrontStartParam(startParam) ??
+              parseLegacyStoreStartParam(startParam);
             if (fromLink) {
               finalContext = 'buyer';
               buyerPublicId = fromLink;
+              buyerProductId = productLink?.productId ?? null;
               localStorage.setItem('last_visited_store_public_id', fromLink);
             } else {
               // Вход без параметра: последняя посещённая витрина
               buyerPublicId = localStorage.getItem('last_visited_store_public_id');
+            }
+
+            // Открытие витрины фиксируем на сервере: список магазинов покупателя
+            // и счётчик посетителей у продавца (store-visit). Fire-and-forget —
+            // сбой записи визита не должен блокировать приложение.
+            if (buyerPublicId && sessionToken) {
+              void deps()
+                .storeVisitApi.recordStoreVisit(sessionToken, buyerPublicId)
+                .catch((e) => console.warn('[appInit] store visit failed:', e));
             }
           }
         } else {
@@ -90,6 +124,13 @@ export function useAppInit(): void {
 
         if (finalContext === 'buyer') {
           await useStore.getState().loadBuyerStore(buyerPublicId);
+          // Товар из deep-link: витрина загружена. Кладём главную магазина в
+          // историю и открываем товар поверх — кнопка «назад» из карточки вернёт
+          // на витрину магазина, из которого пришла ссылка.
+          if (buyerProductId) {
+            navigate('/', { replace: true });
+            navigate(`/product/${buyerProductId}`);
+          }
         } else if (authenticated) {
           // Контекст продавца — пробуем загрузить его существующий магазин
           await useStore.getState().loadSellerStore();
@@ -102,5 +143,5 @@ export function useAppInit(): void {
     };
 
     void initAppFlow();
-  }, []);
+  }, [navigate]);
 }

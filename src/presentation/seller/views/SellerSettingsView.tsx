@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import { Eye, Languages, Power, Send, Share2, Store as StoreIcon } from 'lucide-react';
 import { useStore } from '../../../application/store';
 import { useStorefrontLink } from '../../../application/hooks/useStorefrontLink';
 import { useOpenTelegramLink } from '../../../application/hooks/useOpenTelegramLink';
 import type { StoreStatus } from '../../../domain/models/store';
 import BackButton from '../../shared/components/BackButton';
+import LanguageSwitcher from '../../shared/components/LanguageSwitcher';
 import SettingsRow from '../settings/components/SettingsRow';
 import BlockSaveButton from '../settings/components/BlockSaveButton';
 
@@ -23,6 +25,7 @@ function HubStatusToggle({
   initialStatus: StoreStatus;
   onSaveStatus: (status: StoreStatus) => Promise<void>;
 }) {
+  const { t } = useTranslation();
   const [status, setStatus] = useState<StoreStatus>(initialStatus);
   const [confirming, setConfirming] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -58,11 +61,11 @@ function HubStatusToggle({
   return (
     <>
       <SettingsRow
-        title="Магазин активен"
+        title={t('seller.settings.status.active')}
         icon={Power}
         toggle={{
           checked: active,
-          label: 'Магазин активен',
+          label: t('seller.settings.status.active'),
           disabled: saving,
           onChange: () => {
             setStatus(active ? 'PAUSED' : 'ACTIVE');
@@ -78,9 +81,7 @@ function HubStatusToggle({
       ) : null}
       {confirming ? (
         <div className="settings-confirm">
-          <span className="settings-confirm__text">
-            Магазин временно закроется для покупателей. Продолжить?
-          </span>
+          <span className="settings-confirm__text">{t('seller.settings.status.confirmText')}</span>
           <div className="settings-confirm__actions">
             <button
               type="button"
@@ -88,7 +89,7 @@ function HubStatusToggle({
               className="settings-confirm__cancel"
               disabled={saving}
             >
-              Отмена
+              {t('common.cancel')}
             </button>
             <button
               type="button"
@@ -96,7 +97,7 @@ function HubStatusToggle({
               className="settings-confirm__danger"
               disabled={saving}
             >
-              {saving ? 'Приостановка…' : 'Приостановить'}
+              {saving ? t('seller.settings.status.pausing') : t('seller.settings.status.pause')}
             </button>
           </div>
         </div>
@@ -115,6 +116,7 @@ function HubStatusToggle({
  * inline toggle, Share/Preview — действия без Save. 12 §hub.
  */
 export default function SellerSettingsView() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const currentStore = useStore((s) => s.currentStore);
   const fetchCurrentStore = useStore((s) => s.fetchCurrentStore);
@@ -132,10 +134,10 @@ export default function SellerSettingsView() {
       <div className="screen">
         <div className="screen__header screen__header--row screen__header--center">
           <BackButton fallback="/seller/dashboard" />
-          <h1 className="screen__title">Настройки</h1>
+          <h1 className="screen__title">{t('seller.settings.title')}</h1>
         </div>
         <div className="card card__muted" style={{ textAlign: 'center' }}>
-          Загрузка магазина…
+          {t('seller.settings.loading')}
         </div>
       </div>
     );
@@ -146,41 +148,45 @@ export default function SellerSettingsView() {
       <div className="screen">
         <div className="screen__header screen__header--row screen__header--center">
           <BackButton fallback="/seller/dashboard" />
-          <h1 className="screen__title">Настройки</h1>
+          <h1 className="screen__title">{t('seller.settings.title')}</h1>
         </div>
         <div className="card card__muted" style={{ textAlign: 'center' }}>
-          Магазин не найден
+          {t('seller.settings.notFound')}
         </div>
       </div>
     );
   }
 
-  const languageLabel = currentStore.language === 'ru' ? 'Русский' : 'English';
+  const languageLabel = t(`language.${currentStore.language}`);
 
   return (
     <div className="screen">
       <div className="screen__header screen__header--row screen__header--center">
         <BackButton fallback="/seller/dashboard" />
-        <h1 className="screen__title">Настройки</h1>
+        <h1 className="screen__title">{t('seller.settings.title')}</h1>
       </div>
 
-      <div className="settings-group__label">Магазин</div>
-      <section className="settings-group" aria-label="Магазин">
+      <div className="settings-group__label">{t('seller.settings.groupStore')}</div>
+      <section className="settings-group" aria-label={t('seller.settings.groupStore')}>
         <SettingsRow
-          title="Профиль магазина"
+          title={t('seller.settings.rowProfile')}
           value={currentStore.name}
           icon={StoreIcon}
           onClick={() => navigate('/seller/settings/profile')}
         />
         <SettingsRow
-          title="Язык и валюта"
+          title={t('seller.settings.rowLocalization')}
           value={`${languageLabel} · ${currentStore.currencyCode}`}
           icon={Languages}
           onClick={() => navigate('/seller/settings/localization')}
         />
         <SettingsRow
-          title="Контакты"
-          value={currentStore.supportHandle ? `@${currentStore.supportHandle}` : 'Не указан'}
+          title={t('seller.settings.rowContacts')}
+          value={
+            currentStore.supportHandle
+              ? `@${currentStore.supportHandle}`
+              : t('seller.settings.valueNotSpecified')
+          }
           icon={Send}
           onClick={() => navigate('/seller/settings/contact')}
         />
@@ -191,19 +197,36 @@ export default function SellerSettingsView() {
         />
       </section>
 
-      <div className="settings-group__label">Для покупателей</div>
-      <section className="settings-group" aria-label="Для покупателей">
+      <div className="settings-group__label">{t('seller.settings.groupBuyers')}</div>
+      <section className="settings-group" aria-label={t('seller.settings.groupBuyers')}>
         <SettingsRow
-          title="Поделиться магазином"
+          title={t('seller.settings.rowShare')}
           icon={Share2}
           onClick={() => navigate('/seller/settings/share')}
         />
         <SettingsRow
-          title="Предпросмотр"
+          title={t('seller.settings.rowPreview')}
           icon={Eye}
           action
           onClick={() => openTelegramLink(storefrontUrl)}
         />
+      </section>
+
+      <div className="settings-group__label">{t('seller.settings.groupInterface')}</div>
+      <section className="settings-group" aria-label={t('seller.settings.groupInterface')}>
+        <div style={{ padding: 14 }}>
+          <div
+            style={{
+              fontSize: 13,
+              fontWeight: 700,
+              color: 'var(--color-text-secondary, #8E8E93)',
+              marginBottom: 10,
+            }}
+          >
+            {t('language.label')}
+          </div>
+          <LanguageSwitcher />
+        </div>
       </section>
     </div>
   );

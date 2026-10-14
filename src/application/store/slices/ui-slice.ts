@@ -15,6 +15,8 @@ export interface ToastMessage {
   text: string;
   /** Миниатюра товара (например, при добавлении в корзину). */
   imageUrl?: string | null;
+  /** Маршрут, на который переводит клик по тосту (например, корзина). */
+  action?: string | null;
 }
 
 export interface UiSlice {
@@ -26,7 +28,9 @@ export interface UiSlice {
   closeModal: () => void;
   toast: ToastMessage | null;
   /** Строка (обычный тост) либо объект с миниатюрой (напр. добавление в корзину). */
-  showToast: (input: string | { text: string; imageUrl?: string | null }) => void;
+  showToast: (
+    input: string | { text: string; imageUrl?: string | null; action?: string | null },
+  ) => void;
   clearToast: () => void;
 }
 
@@ -47,7 +51,12 @@ export const createUiSlice: StateCreator<RootStore, [], [], UiSlice> = (set) => 
       toast:
         typeof input === 'string'
           ? { id: uid(), text: input }
-          : { id: uid(), text: input.text, imageUrl: input.imageUrl ?? null },
+          : {
+              id: uid(),
+              text: input.text,
+              imageUrl: input.imageUrl ?? null,
+              action: input.action ?? null,
+            },
     }),
   clearToast: () => set({ toast: null }),
 });

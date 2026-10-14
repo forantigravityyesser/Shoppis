@@ -3,7 +3,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Store construction reads the app language through deps(); only i18n is needed here.
 vi.mock('../../composition/container', () => ({
-  deps: () => ({ i18n: { getAppLanguage: () => 'ru', setAppLanguage: () => {} } }),
+  deps: () => ({
+    i18n: {
+      getAppLanguage: () => 'ru',
+      setAppLanguage: () => {},
+      applyStoreDefaultLanguage: () => {},
+    },
+  }),
 }));
 
 import { useStore } from '../index';

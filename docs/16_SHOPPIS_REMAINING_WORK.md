@@ -121,4 +121,5 @@
 ## AR — Архитектурные/продуктовые блоки (roadmap)
 
 - **Каталог server-side** — **сделан** (`17`, CAT-00…CAT-16): read-model `0026`, hardening `0033` (PAUSED-boundary + literal search), reorder категорий `0027`, application-контур, URL/поиск/фильтр/pagination/состояния. Осталось: ручная визуальная проверка в Telegram (`TELEGRAM VERIFIED`); RLS — отдельный гейт (`11 §S1`); trigram-индекс — по замеру (`17 §9.2`).
+- **Главная продавца + вкладка «Продажи»** — **сделано** (`25`, SDB-00…SDB-10): сводка `seller_dashboard_read` + `seller_sales_list_read` (`0053`, правка `0055` — потенциальный доход включает `NEW`), edge `seller-dashboard`/`order-queries` (sales), application-контур, 4 блока главной, экран `/seller/sales` (два раздела с переключателем, `?group=`). Осталось: ручная проверка `LOCAL`/`TELEGRAM`. Deferred: realtime инвентаря (нет канала каталога); мультивалютные суммы — MVP-ограничение (только текущая валюта, `25 §8`).
 - **Доставка / промокоды / рекомендации / чат с продавцом** — вне MVP.

@@ -1,4 +1,5 @@
 import { RefreshCw } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   /** Перечитать все заказы (все статусы/табы), не всё приложение. */
@@ -20,16 +21,18 @@ export default function OrderRefreshButton({
   onRefresh,
   refreshing = false,
   disabled = false,
-  label = 'Обновить заказы',
+  label,
   className,
 }: Props) {
+  const { t } = useTranslation();
+  const resolvedLabel = label ?? t('orders.refreshLabel');
   return (
     <button
       type="button"
       className={`orders-refresh${className ? ` ${className}` : ''}`}
       onClick={onRefresh}
       disabled={disabled || refreshing}
-      aria-label={label}
+      aria-label={resolvedLabel}
       data-testid="orders-refresh"
     >
       <RefreshCw

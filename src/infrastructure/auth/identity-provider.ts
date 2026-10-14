@@ -21,5 +21,6 @@ export function getDevServerUser(): ServerUser | null {
     firstName: 'Dev User',
     languageCode: 'ru',
     photoUrl: '',
+    notificationsEnabled: false,
   };
 }

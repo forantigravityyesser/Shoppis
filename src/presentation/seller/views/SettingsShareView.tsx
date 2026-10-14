@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useStore } from '../../../application/store';
 import { useStorefrontLink } from '../../../application/hooks/useStorefrontLink';
 import BackButton from '../../shared/components/BackButton';
@@ -11,6 +12,7 @@ import SharePreviewBlock from '../settings/SharePreviewBlock';
  * Генерация ссылки — через существующий хук, формат не меняется.
  */
 export default function SettingsShareView() {
+  const { t } = useTranslation();
   const currentStore = useStore((s) => s.currentStore);
   const fetchCurrentStore = useStore((s) => s.fetchCurrentStore);
   const authLoading = useStore((s) => s.authLoading);
@@ -24,16 +26,16 @@ export default function SettingsShareView() {
     <div className="screen">
       <div className="screen__header screen__header--row screen__header--center">
         <BackButton fallback="/seller/settings" />
-        <h1 className="screen__title">Поделиться магазином</h1>
+        <h1 className="screen__title">{t('seller.settings.shareTitle')}</h1>
       </div>
 
       {authLoading && !currentStore ? (
         <div className="card card__muted" style={{ textAlign: 'center' }}>
-          Загрузка магазина…
+          {t('seller.settings.loading')}
         </div>
       ) : !currentStore ? (
         <div className="card card__muted" style={{ textAlign: 'center' }}>
-          Магазин не найден
+          {t('seller.settings.notFound')}
         </div>
       ) : (
         <SharePreviewBlock url={storefrontUrl} showPreview={false} />

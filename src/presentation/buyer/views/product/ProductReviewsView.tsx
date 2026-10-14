@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useParams } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import { useStore } from '../../../../application/store';
 import { useStorefrontProductReviews } from '../../../../application/hooks/useStorefrontProduct';
 import { useReviewActions } from '../../../../application/hooks/useReviewActions';
@@ -17,6 +18,7 @@ import { reviewErrorMessage } from '../../../shared/review-error-message';
  * (1 раз). Модерация продавца — PD-10c. docs/14 §8.
  */
 export default function ProductReviewsView() {
+  const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const publicId = useStore((s) => s.viewedStore?.publicId ?? null);
   const viewer = useStore((s) => s.serverUser);
@@ -62,32 +64,30 @@ export default function ProductReviewsView() {
   };
 
   return (
-    <SocialLayer title="Отзывы" backTo={`/product/${id ?? ''}`}>
+    <SocialLayer title={t('buyer.product.tabs.reviews')} backTo={`/product/${id ?? ''}`}>
       <div className="pd-reviews" data-testid="product-reviews">
         {error ? (
           <div className="pd-reviews__state">
-            <p>Не удалось загрузить отзывы.</p>
+            <p>{t('buyer.product.reviewsLoadError')}</p>
             <button type="button" className="pd-retry" onClick={refresh}>
-              Повторить
+              {t('common.retry')}
             </button>
           </div>
         ) : loading ? (
-          <div className="pd-reviews__state">Загрузка…</div>
+          <div className="pd-reviews__state">{t('common.loading')}</div>
         ) : (
           <>
             <ReviewsHistogram distribution={distribution} summary={summary} />
 
             {canReview ? (
               <ReviewComposer
-                authorName={viewer?.firstName || 'Вы'}
+                authorName={viewer?.firstName || t('buyer.product.you')}
                 onSubmit={handleCreate}
                 pending={actions.pending}
                 error={actionError}
               />
             ) : (
-              <p className="pd-reviews__notice">
-                Вы уже оставляли отзыв. Изменить или оставить новый нельзя.
-              </p>
+              <p className="pd-reviews__notice">{t('buyer.product.reviewsNotice')}</p>
             )}
 
             {reviews.length > 0 ? (
@@ -104,7 +104,7 @@ export default function ProductReviewsView() {
                         disabled={actions.pending}
                         onClick={() => void handleDelete(review.id)}
                       >
-                        Удалить отзыв
+                        {t('buyer.product.reviewsDelete')}
                       </button>
                     );
                   } else if (!hasOwnReply) {
@@ -113,7 +113,7 @@ export default function ProductReviewsView() {
                         <div className="pd-reply-form">
                           <textarea
                             className="pd-compose__input"
-                            placeholder="Ваш ответ"
+                            placeholder={t('buyer.product.replyPlaceholder')}
                             value={replyText}
                             maxLength={2000}
                             rows={2}
@@ -127,7 +127,7 @@ export default function ProductReviewsView() {
                               disabled={actions.pending}
                               onClick={() => void handleReply(review.id)}
                             >
-                              Ответить
+                              {t('buyer.product.reply')}
                             </button>
                             <button
                               type="button"
@@ -137,7 +137,7 @@ export default function ProductReviewsView() {
                                 setReplyText('');
                               }}
                             >
-                              Отмена
+                              {t('common.cancel')}
                             </button>
                           </div>
                         </div>
@@ -150,7 +150,7 @@ export default function ProductReviewsView() {
                             setReplyText('');
                           }}
                         >
-                          Ответить
+                          {t('buyer.product.reply')}
                         </button>
                       );
                   }
@@ -159,7 +159,7 @@ export default function ProductReviewsView() {
                 })}
               </div>
             ) : (
-              <p className="pd-reviews__empty">Пока нет отзывов</p>
+              <p className="pd-reviews__empty">{t('buyer.product.reviewsEmpty')}</p>
             )}
           </>
         )}

@@ -29,6 +29,7 @@
 }
 
 .pd-viewer__media {
+  position: relative;
   display: flex;
   flex: 1 1 auto;
   align-items: center;
@@ -41,12 +42,27 @@
   -webkit-user-select: none;
 }
 
+/* Низко-детальный фолбэк (thumb) под full, пока тот грузится. */
+.pd-viewer__placeholder {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  margin: auto;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
 .pd-viewer__img {
+  position: relative;
+  z-index: 1;
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
   transform-origin: center center;
   will-change: transform;
+  transition: opacity 0.25s ease-out;
 }
 
 .pd-viewer__thumbs {

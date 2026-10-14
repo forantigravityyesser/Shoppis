@@ -1,11 +1,16 @@
-import { requestOrderDetails, requestOrderList } from '../functions/order-query-api';
-import { mapOrderDetails, mapOrderListPage } from '../../application/mappers/order-mappers';
+import {
+  requestOrderDetails,
+  requestOrderList,
+  requestSalesList,
+} from '../functions/order-query-api';
+import { mapOrderDetails, mapOrderListPage, mapSalesListPage } from '../../application/mappers/order-mappers';
 import type {
   OrderDetailsQuery,
   OrderListQuery,
   OrderRepository,
+  SalesListQuery,
 } from '../../application/ports/order-repository';
-import type { OrderDetails, OrderListPage } from '../../application/read-models/order';
+import type { OrderDetails, OrderListPage, SalesListPage } from '../../application/read-models/order';
 
 /**
  * Orders read repository (query-only).
@@ -37,4 +42,20 @@ export const getOrderDetails: OrderRepository['getOrderDetails'] = async (
     orderId: query.orderId,
   });
   return mapOrderDetails(raw);
+};
+
+/**
+ * Продажи (docs/25 §3.2) — та же проекция списка заказов через `order-queries`
+ * (action `sales`), плюс сумма группы. Seller-only; авторизация — в SQL.
+ */
+export const listSales: OrderRepository['listSales'] = async (
+  query: SalesListQuery,
+): Promise<SalesListPage> => {
+  const raw = await requestSalesList(query.sessionToken, {
+    storeRef: query.storeRef,
+    group: query.group,
+    cursor: query.cursor,
+    limit: query.limit,
+  });
+  return mapSalesListPage(raw);
 };

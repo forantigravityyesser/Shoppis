@@ -1,4 +1,5 @@
 import { Minus, Plus } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { canDecrement, canIncrement } from '../../../../domain/rules/cart-rules';
 
 interface Props {
@@ -13,15 +14,16 @@ interface Props {
  * Количество — намерение покупателя, не резерв стока.
  */
 export default function CartQuantityControl({ quantity, disabled = false, onChange }: Props) {
+  const { t } = useTranslation();
   const dec = !disabled && canDecrement(quantity);
   const inc = !disabled && canIncrement(quantity);
 
   return (
-    <div className="cart-qty" role="group" aria-label="Количество">
+    <div className="cart-qty" role="group" aria-label={t('buyer.cart.quantity.aria')}>
       <button
         type="button"
         className="cart-qty__btn"
-        aria-label="Уменьшить количество"
+        aria-label={t('buyer.cart.quantity.decrease')}
         disabled={!dec}
         onClick={() => onChange(quantity - 1)}
       >
@@ -33,7 +35,7 @@ export default function CartQuantityControl({ quantity, disabled = false, onChan
       <button
         type="button"
         className="cart-qty__btn"
-        aria-label="Увеличить количество"
+        aria-label={t('buyer.cart.quantity.increase')}
         disabled={!inc}
         onClick={() => onChange(quantity + 1)}
       >

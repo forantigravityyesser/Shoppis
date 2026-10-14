@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   onSubmit: (text: string) => void | Promise<void>;
@@ -11,6 +12,7 @@ interface Props {
  * раскрывается поле ввода + «Отправить»/«Отмена». Без оценки. docs/14 §9.
  */
 export default function QuestionComposer({ onSubmit, pending, error }: Props) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [text, setText] = useState('');
 
@@ -24,7 +26,7 @@ export default function QuestionComposer({ onSubmit, pending, error }: Props) {
     return (
       <div className="pd-questions__ask" data-testid="question-composer">
         <button type="button" className="pd-question__ask-btn" onClick={() => setOpen(true)}>
-          Задать вопрос
+          {t('buyer.product.askQuestion')}
         </button>
       </div>
     );
@@ -34,7 +36,7 @@ export default function QuestionComposer({ onSubmit, pending, error }: Props) {
     <section className="pd-compose" data-testid="question-composer">
       <textarea
         className="pd-compose__input"
-        placeholder="Ваш вопрос"
+        placeholder={t('buyer.product.questionPlaceholder')}
         value={text}
         maxLength={2000}
         rows={3}
@@ -44,7 +46,7 @@ export default function QuestionComposer({ onSubmit, pending, error }: Props) {
       <div className="pd-compose__actions">
         {error ? <span className="pd-compose__error">{error}</span> : null}
         <button type="button" className="pd-compose__submit" disabled={pending} onClick={submit}>
-          {pending ? 'Отправка…' : 'Отправить'}
+          {pending ? t('buyer.product.sending') : t('buyer.product.send')}
         </button>
         <button
           type="button"
@@ -54,7 +56,7 @@ export default function QuestionComposer({ onSubmit, pending, error }: Props) {
             setText('');
           }}
         >
-          Отмена
+          {t('common.cancel')}
         </button>
       </div>
     </section>

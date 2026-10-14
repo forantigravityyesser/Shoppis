@@ -7,17 +7,21 @@ import HomeHeader from './HomeHeader';
 function setup(overrides: Partial<Parameters<typeof HomeHeader>[0]> = {}) {
   const onSearch = vi.fn();
   const onProfile = vi.fn();
+  const onToggleDescription = vi.fn();
   const result = render(
     <HomeHeader
       storeName="Nike Shop"
+      storeDescription={null}
+      descriptionOpen={false}
       buyerAvatarUrl={null}
       buyerName="Александр"
       onSearch={onSearch}
       onProfile={onProfile}
+      onToggleDescription={onToggleDescription}
       {...overrides}
     />,
   );
-  return { onSearch, onProfile, ...result };
+  return { onSearch, onProfile, onToggleDescription, ...result };
 }
 
 describe('HomeHeader', () => {
@@ -62,8 +66,26 @@ describe('HomeHeader', () => {
     expect(screen.getByText('🎉')).toBeInTheDocument();
   });
 
-  it('нет уведомлений: только две кнопки в шапке', () => {
+  it('нет уведомлений: только поиск и профиль, когда описания нет', () => {
     setup();
     expect(screen.getAllByRole('button')).toHaveLength(2);
+  });
+
+  it('с описанием: кнопка описания вызывает toggle и ставит aria-expanded', async () => {
+    const { onToggleDescription } = setup({
+      storeDescription: 'О нас',
+      descriptionOpen: true,
+    });
+
+    const button = screen.getByRole('button', { name: 'Описание магазина' });
+    expect(button).toHaveAttribute('aria-expanded', 'true');
+
+    await userEvent.click(button);
+    expect(onToggleDescription).toHaveBeenCalledTimes(1);
+  });
+
+  it('пустое/пробельное описание → кнопки описания нет', () => {
+    setup({ storeDescription: '   ' });
+    expect(screen.queryByRole('button', { name: 'Описание магазина' })).toBeNull();
   });
 });

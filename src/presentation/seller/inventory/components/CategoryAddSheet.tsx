@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { ArrowLeft, Boxes, Check, PackagePlus, Search, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import BottomSheet from '../../../shared/components/BottomSheet';
 import SafeImage from '../../../shared/components/SafeImage';
 import type { InventoryProductItem } from '../../../../application/hooks/useInventory';
@@ -35,6 +36,7 @@ export default function CategoryAddSheet({
   onCreateProduct,
   onAssign,
 }: CategoryAddSheetProps) {
+  const { t } = useTranslation();
   const [step, setStep] = useState<'menu' | 'pick'>('menu');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState('');
@@ -68,34 +70,46 @@ export default function CategoryAddSheet({
       onClose();
     } catch (e) {
       console.error('[inventory] assignProductsToCategory failed', e);
-      setError('Не удалось добавить товары. Попробуйте ещё раз.');
+      setError(t('seller.inventory.addSheet.assignError'));
     } finally {
       setSaving(false);
     }
   };
 
   const categoryLabel = (product: InventoryProductItem): string =>
-    product.categoryId ? (categoryNameById[product.categoryId] ?? 'Без категории') : 'Без категории';
+    product.categoryId
+      ? (categoryNameById[product.categoryId] ?? t('seller.inventory.categoryPicker.uncategorized'))
+      : t('seller.inventory.categoryPicker.uncategorized');
 
   return (
     <BottomSheet open={open} onClose={saving ? () => {} : onClose}>
       {step === 'menu' ? (
         <>
-          <h2 className="sheet__title">Добавить в «{categoryName}»</h2>
+          <h2 className="sheet__title">
+            {t('seller.inventory.addSheet.title', { name: categoryName })}
+          </h2>
           <div className="sheet__options">
             <button type="button" className="sheet-option" onClick={onCreateProduct}>
               <span className="sheet-option__icon" aria-hidden>
                 <PackagePlus size={26} strokeWidth={1.8} />
               </span>
-              <span className="sheet-option__label">Новый товар</span>
-              <span className="sheet-option__hint">Создать с нуля</span>
+              <span className="sheet-option__label">
+                {t('seller.inventory.addSheet.newProduct')}
+              </span>
+              <span className="sheet-option__hint">
+                {t('seller.inventory.addSheet.newProductHint')}
+              </span>
             </button>
             <button type="button" className="sheet-option" onClick={() => setStep('pick')}>
               <span className="sheet-option__icon" aria-hidden>
                 <Boxes size={26} strokeWidth={1.8} />
               </span>
-              <span className="sheet-option__label">Товар из магазина</span>
-              <span className="sheet-option__hint">Выбрать из каталога</span>
+              <span className="sheet-option__label">
+                {t('seller.inventory.addSheet.productFromStore')}
+              </span>
+              <span className="sheet-option__hint">
+                {t('seller.inventory.addSheet.productFromStoreHint')}
+              </span>
             </button>
           </div>
         </>
@@ -106,12 +120,12 @@ export default function CategoryAddSheet({
               type="button"
               className="inv-icon-btn"
               onClick={() => setStep('menu')}
-              aria-label="Назад"
+              aria-label={t('common.back')}
               disabled={saving}
             >
               <ArrowLeft size={20} />
             </button>
-            <h2 className="sheet__title">Товары магазина</h2>
+            <h2 className="sheet__title">{t('seller.inventory.addSheet.storeProducts')}</h2>
             <span className="inv-header__spacer" aria-hidden />
           </div>
 
@@ -121,15 +135,15 @@ export default function CategoryAddSheet({
               className="inv-search__input"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Найти товар"
-              aria-label="Найти товар"
+              placeholder={t('seller.inventory.categoryView.searchProduct')}
+              aria-label={t('seller.inventory.categoryView.searchProduct')}
             />
             {query ? (
               <button
                 type="button"
                 className="inv-search__clear"
                 onClick={() => setQuery('')}
-                aria-label="Очистить"
+                aria-label={t('seller.inventory.categoryPicker.clear')}
               >
                 <X size={16} />
               </button>
@@ -137,11 +151,15 @@ export default function CategoryAddSheet({
           </div>
 
           {products.length === 0 ? (
-            <p className="cat-pick__empty">В магазине пока нет товаров</p>
+            <p className="cat-pick__empty">{t('seller.inventory.addSheet.storeEmpty')}</p>
           ) : filtered.length === 0 ? (
-            <p className="cat-pick__empty">Ничего не найдено</p>
+            <p className="cat-pick__empty">{t('seller.inventory.noResults')}</p>
           ) : (
-            <div className="cat-pick__list" role="group" aria-label="Товары магазина">
+            <div
+              className="cat-pick__list"
+              role="group"
+              aria-label={t('seller.inventory.addSheet.listAria')}
+            >
               {filtered.map((product) => {
                 const isExisting = existing.has(product.id);
                 const checked = isExisting || selected.has(product.id);
@@ -172,7 +190,9 @@ export default function CategoryAddSheet({
                       <span className="cat-pick__title">{product.title}</span>
                       <span className="cat-pick__meta">{categoryLabel(product)}</span>
                     </span>
-                    {isExisting ? <span className="cat-pick__tag">уже здесь</span> : null}
+                    {isExisting ? (
+                      <span className="cat-pick__tag">{t('seller.inventory.addSheet.alreadyHere')}</span>
+                    ) : null}
                   </button>
                 );
               })}
@@ -193,10 +213,10 @@ export default function CategoryAddSheet({
               onClick={() => void assign()}
             >
               {saving
-                ? 'Добавление…'
+                ? t('seller.inventory.addSheet.adding')
                 : selected.size > 0
-                  ? `Добавить (${selected.size})`
-                  : 'Выберите товары'}
+                  ? t('seller.inventory.addSheet.addCount', { count: selected.size })
+                  : t('seller.inventory.addSheet.selectProducts')}
             </button>
           </div>
         </>

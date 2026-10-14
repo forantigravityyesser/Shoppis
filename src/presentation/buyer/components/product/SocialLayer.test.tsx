@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
+import { resetNavigationDepth, setNavigationDepth } from '../../../shared/can-go-back';
 
 const { navigate, selectTick, reduceRef, motionProps } = vi.hoisted(() => ({
   navigate: vi.fn(),
@@ -30,11 +31,8 @@ beforeEach(() => {
   selectTick.mockReset();
   reduceRef.current = false;
   motionProps.current = {};
-  window.history.replaceState({ idx: 2 }, '');
-});
-
-afterEach(() => {
-  window.history.replaceState(null, '');
+  resetNavigationDepth();
+  setNavigationDepth(2);
 });
 
 describe('SocialLayer', () => {
@@ -57,7 +55,7 @@ describe('SocialLayer', () => {
     );
 
     await userEvent.click(screen.getByRole('button', { name: 'Назад' }));
-    expect(navigate).toHaveBeenCalledWith(-1);
+    expect(navigate).toHaveBeenCalledWith('/product/p1', { replace: true });
   });
 
   it('анимация → навигация после завершения exit', async () => {
@@ -73,6 +71,6 @@ describe('SocialLayer', () => {
 
     const onComplete = motionProps.current.onAnimationComplete as () => void;
     onComplete();
-    expect(navigate).toHaveBeenCalledWith(-1);
+    expect(navigate).toHaveBeenCalledWith('/product/p1', { replace: true });
   });
 });

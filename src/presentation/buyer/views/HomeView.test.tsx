@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 
@@ -43,6 +43,7 @@ const HOME: StorefrontHome = {
     id: 's1',
     publicId: 'pub1',
     name: 'Nike Shop',
+    description: null,
     bannerUrl: 'https://cdn/banner.jpg',
     status: 'ACTIVE',
     currencyCode: 'USD',
@@ -167,6 +168,19 @@ describe('HomeView', () => {
       'src',
       'https://cdn/banner.jpg',
     );
+  });
+
+  it('ACTIVE → кнопка описания открывает панель, фон закрывает', async () => {
+    useStorefrontHome.mockReturnValue(
+      contextState({ home: { ...HOME, store: { ...HOME.store, description: 'О нас' } } }),
+    );
+    const { container } = renderHome();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Описание магазина' }));
+    expect(screen.getByRole('dialog', { name: 'О магазине' })).toBeInTheDocument();
+
+    await userEvent.click(container.querySelector('.store-about__backdrop') as Element);
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   });
 
   it('ACTIVE → рендерит категории-чипы', () => {

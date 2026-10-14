@@ -1,4 +1,4 @@
-import { requestWriteAccess, shareURL } from '@telegram-apps/sdk';
+import { requestWriteAccess, shareMessage, shareURL } from '@telegram-apps/sdk';
 import { BUYER_APP_SHORTNAME, BUYER_BOT_USERNAME } from '../insforge/config';
 import { buildStorefrontLink } from '../../domain/rules/storefront-link';
 
@@ -19,6 +19,23 @@ export function shareStoreLink(publicId: string): void {
     shareURL(buildBuyerLink(publicId));
   } catch {
     // Вне Telegram — игнорируем, копирование обработает UI
+  }
+}
+
+/**
+ * Показать нативный диалог шаринга подготовленной сервером карточки
+ * (`savePreparedInlineMessage` → id). Bot API 8.0+: на старых клиентах
+ * `isAvailable()` = false → вызывающий слой откатывается на `t.me/share/url`.
+ * @returns `true`, если диалог открыт.
+ */
+export function sharePreparedMessage(messageId: string): boolean {
+  if (!messageId) return false;
+  try {
+    if (!shareMessage.isAvailable()) return false;
+    void shareMessage(messageId).catch(() => undefined);
+    return true;
+  } catch {
+    return false;
   }
 }
 

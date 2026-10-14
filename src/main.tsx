@@ -42,7 +42,10 @@ void initI18n().then(() => {
   ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
       <QueryClientProvider client={queryClient}>
-        <MemoryRouter>
+        {/* useTransitions={false}: навигация синхронная. Нужно, чтобы автофокус
+            поля поиска (Home → Каталог) происходил внутри пользовательского жеста
+            и в Telegram/WebView открывалась клавиатура (иначе focus() — вне жеста). */}
+        <MemoryRouter useTransitions={false}>
           <App />
         </MemoryRouter>
       </QueryClientProvider>

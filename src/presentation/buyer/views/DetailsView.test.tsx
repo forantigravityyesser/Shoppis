@@ -15,6 +15,8 @@ const {
   selectTick,
   notifySuccess,
   favoriteRef,
+  exitPreview,
+  previewRef,
 } = vi.hoisted(() => ({
   productState: { current: {} as Record<string, unknown> },
   refresh: vi.fn(),
@@ -25,6 +27,8 @@ const {
   selectTick: vi.fn(),
   notifySuccess: vi.fn(),
   favoriteRef: { current: false },
+  exitPreview: vi.fn(),
+  previewRef: { current: null as string | null },
 }));
 
 vi.mock('../../../application/store', () => ({
@@ -33,6 +37,8 @@ vi.mock('../../../application/store', () => ({
       viewedStore: { publicId: 'pub1', supportHandle: 'support' },
       authLoading: false,
       showToast,
+      previewReturnPath: previewRef.current,
+      exitStorePreview: exitPreview,
     }),
 }));
 
@@ -42,6 +48,7 @@ vi.mock('../../../application/hooks/useStorefrontProduct', () => ({
 
 vi.mock('../../../application/hooks/useStorefrontLink', () => ({
   useStorefrontLink: () => 'https://t.me/bot?startapp=shop_pub1',
+  useStorefrontProductLink: () => 'https://t.me/bot?startapp=prod_pub1_p1',
 }));
 
 vi.mock('../../../application/hooks/useOpenTelegramLink', () => ({
@@ -66,6 +73,7 @@ const store = {
   id: 's1',
   publicId: 'pub1',
   name: 'Nike',
+  description: null,
   bannerUrl: null,
   status: 'ACTIVE' as const,
   currencyCode: 'USD' as const,
@@ -124,6 +132,8 @@ beforeEach(() => {
   addToCart.mockReset();
   selectTick.mockReset();
   notifySuccess.mockReset();
+  exitPreview.mockReset();
+  previewRef.current = null;
   favoriteRef.current = false;
   productState.current = {
     detail: null,
@@ -231,7 +241,13 @@ describe('DetailsView shell', () => {
   });
 
   it('trailing slash: /product/p1/ → CTA показан (как /product/p1)', () => {
-    productState.current = { detail: DETAIL, loading: false, error: null, notFound: false, refresh };
+    productState.current = {
+      detail: DETAIL,
+      loading: false,
+      error: null,
+      notFound: false,
+      refresh,
+    };
     render(
       <MemoryRouter initialEntries={['/product/p1/']}>
         <Routes>
@@ -243,7 +259,13 @@ describe('DetailsView shell', () => {
   });
 
   it('trailing slash: /product/p1/reviews/ → слой показан, CTA скрыт', () => {
-    productState.current = { detail: DETAIL, loading: false, error: null, notFound: false, refresh };
+    productState.current = {
+      detail: DETAIL,
+      loading: false,
+      error: null,
+      notFound: false,
+      refresh,
+    };
     render(
       <MemoryRouter initialEntries={['/product/p1/reviews/']}>
         <Routes>
@@ -390,6 +412,55 @@ describe('DetailsView shell', () => {
     expect(showToast).toHaveBeenCalledWith({
       text: 'Добавлено в корзину',
       imageUrl: 'https://cdn/t1.jpg',
+      action: '/cart',
     });
+  });
+
+  it('предпросмотр: «назад» выходит в seller-карточку товара, а не на витрину', async () => {
+    previewRef.current = '/seller/inventory/product/p1';
+    productState.current = {
+      detail: DETAIL,
+      loading: false,
+      error: null,
+      notFound: false,
+      refresh,
+    };
+    render(
+      <MemoryRouter initialEntries={['/product/p1']}>
+        <Routes>
+          <Route path="/product/:id" element={<DetailsView />} />
+          <Route path="/seller/inventory/product/:productId" element={<div>seller-detail</div>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Назад' }));
+
+    expect(exitPreview).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('seller-detail')).toBeInTheDocument();
+  });
+
+  it('предпросмотр: экран ошибки тоже даёт выйти назад в seller-карточку', async () => {
+    previewRef.current = '/seller/inventory/product/p1';
+    productState.current = {
+      detail: null,
+      loading: false,
+      error: 'boom',
+      notFound: false,
+      refresh,
+    };
+    render(
+      <MemoryRouter initialEntries={['/product/p1']}>
+        <Routes>
+          <Route path="/product/:id" element={<DetailsView />} />
+          <Route path="/seller/inventory/product/:productId" element={<div>seller-detail</div>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Назад' }));
+
+    expect(exitPreview).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('seller-detail')).toBeInTheDocument();
   });
 });

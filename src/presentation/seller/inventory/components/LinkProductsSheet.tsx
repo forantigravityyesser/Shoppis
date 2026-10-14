@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Search } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { InventoryProductItem } from '../../../../application/hooks/useInventory';
 import { currencySymbol } from '../../../../domain/constants/currencies';
 import { formatMoneyMinor } from '../../../../domain/rules/product-rules';
@@ -31,6 +32,7 @@ export default function LinkProductsSheet({
   pendingId,
   onToggle,
 }: Props) {
+  const { t } = useTranslation();
   const [query, setQuery] = useState('');
 
   const filtered = useMemo(() => {
@@ -41,24 +43,22 @@ export default function LinkProductsSheet({
 
   return (
     <BottomSheet open={open} onClose={onClose}>
-      <h2 className="sheet__title">Связи</h2>
-      <p className="link-sheet__hint">
-        Выберите товары — они появятся друг у друга в разделе «Похожее».
-      </p>
+      <h2 className="sheet__title">{t('seller.inventory.linkSheet.title')}</h2>
+      <p className="link-sheet__hint">{t('seller.inventory.linkSheet.hint')}</p>
 
       <label className="link-sheet__search">
         <Search size={16} aria-hidden />
         <input
           className="link-sheet__input"
           type="search"
-          placeholder="Поиск товара"
+          placeholder={t('seller.inventory.linkSheet.searchPlaceholder')}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
       </label>
 
       {filtered.length === 0 ? (
-        <p className="link-sheet__empty">Ничего не найдено</p>
+        <p className="link-sheet__empty">{t('seller.inventory.noResults')}</p>
       ) : (
         <ul className="link-sheet__list">
           {filtered.map((product) => {
@@ -84,7 +84,9 @@ export default function LinkProductsSheet({
                   disabled={pendingId === product.id}
                   onClick={() => onToggle(product.id)}
                 >
-                  {linked ? 'Убрать' : 'Связать'}
+                  {linked
+                    ? t('seller.inventory.linkSheet.remove')
+                    : t('seller.inventory.linkSheet.link')}
                 </button>
               </li>
             );

@@ -1,21 +1,13 @@
 import { Heart, Home, LayoutGrid, Package, ShoppingCart } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import BottomNavBar, { type NavTab } from './BottomNavBar';
 import { useHaptic } from '../../../application/hooks/useHaptic';
 
-/** Вкладки покупателя: Home · Catalog · Favorites · Orders · Cart. docs/13 §1, §3. */
-const TABS: NavTab[] = [
-  { id: '/', icon: Home, label: 'Главная' },
-  { id: '/catalog', icon: LayoutGrid, label: 'Каталог' },
-  { id: '/favorites', icon: Heart, label: 'Избранное' },
-  { id: '/orders', icon: Package, label: 'Заказы' },
-  { id: '/cart', icon: ShoppingCart, label: 'Корзина' },
-];
-
 /** Активная вкладка по pathname; `/` — только точное совпадение. */
-function resolveActive(pathname: string): string {
+function resolveActive(pathname: string, tabs: NavTab[]): string {
   if (pathname === '/') return '/';
-  const tab = TABS.find(
+  const tab = tabs.find(
     (t) => t.id !== '/' && (pathname === t.id || pathname.startsWith(`${t.id}/`)),
   );
   return tab?.id ?? '';
@@ -26,10 +18,21 @@ function resolveActive(pathname: string): string {
  * что у продавца, только 5 вкладок): Home · Catalog · Favorites · Orders · Cart.
  */
 export default function FloatingNavBar() {
+  const { t } = useTranslation();
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const { selectTick } = useHaptic();
-  const active = resolveActive(pathname);
+
+  /** Вкладки покупателя: Home · Catalog · Favorites · Orders · Cart. docs/13 §1, §3. */
+  const tabs: NavTab[] = [
+    { id: '/', icon: Home, label: t('nav.buyer.home') },
+    { id: '/catalog', icon: LayoutGrid, label: t('nav.buyer.catalog') },
+    { id: '/favorites', icon: Heart, label: t('nav.buyer.favorites') },
+    { id: '/orders', icon: Package, label: t('nav.buyer.orders') },
+    { id: '/cart', icon: ShoppingCart, label: t('nav.buyer.cart') },
+  ];
+
+  const active = resolveActive(pathname, tabs);
 
   const handleChange = (id: string) => {
     if (id === active) return;
@@ -37,5 +40,5 @@ export default function FloatingNavBar() {
     navigate(id);
   };
 
-  return <BottomNavBar tabs={TABS} activeTab={active} onTabChange={handleChange} />;
+  return <BottomNavBar tabs={tabs} activeTab={active} onTabChange={handleChange} />;
 }
