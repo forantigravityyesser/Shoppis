@@ -8,10 +8,18 @@ const h = vi.hoisted(() => ({
   navigate: vi.fn(),
   refetch: vi.fn(),
   state: {
-    currentStore: { name: 'Мой магазин', currencySymbol: '$', currencyCode: 'USD' } as {
+    currentStore: {
+      name: 'Мой магазин',
+      currencySymbol: '$',
+      currencyCode: 'USD',
+      logoUrl: '',
+      status: 'ACTIVE',
+    } as {
       name: string;
       currencySymbol: string;
       currencyCode: 'USD';
+      logoUrl: string;
+      status: 'ACTIVE' | 'PAUSED';
     } | null,
   },
   dash: {
@@ -42,7 +50,13 @@ const summary: SellerDashboardSummary = {
 beforeEach(() => {
   h.navigate.mockReset();
   h.refetch.mockReset();
-  h.state.currentStore = { name: 'Мой магазин', currencySymbol: '$', currencyCode: 'USD' };
+  h.state.currentStore = {
+    name: 'Мой магазин',
+    currencySymbol: '$',
+    currencyCode: 'USD',
+    logoUrl: '',
+    status: 'ACTIVE',
+  };
   h.dash = {
     summary: null,
     loading: false,
@@ -53,6 +67,24 @@ beforeEach(() => {
 });
 
 describe('SellerDashboard (docs/25 SDB-06)', () => {
+  it('название магазина — крупный заголовок с чипом статуса', () => {
+    render(<SellerDashboard />);
+    expect(screen.getByRole('heading', { level: 1, name: 'Мой магазин' })).toBeInTheDocument();
+    expect(screen.getByText('Магазин активен')).toBeInTheDocument();
+  });
+
+  it('приостановленный магазин — чип «на паузе»', () => {
+    h.state.currentStore = {
+      name: 'Мой магазин',
+      currencySymbol: '$',
+      currencyCode: 'USD',
+      logoUrl: '',
+      status: 'PAUSED',
+    };
+    render(<SellerDashboard />);
+    expect(screen.getByText('Магазин на паузе')).toBeInTheDocument();
+  });
+
   it('loading → skeleton', () => {
     h.dash.loading = true;
     render(<SellerDashboard />);

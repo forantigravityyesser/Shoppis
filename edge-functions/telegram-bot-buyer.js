@@ -37,6 +37,7 @@ import {
   buyerWelcomeGrantText,
   buyerWelcomeText,
   formatBuyerOrdersText,
+  normalizeStoreList,
 } from './_shared/bot-views.js';
 
 const BOT = 'buyer';
@@ -85,8 +86,7 @@ async function loadStores(userId) {
       p_actor_user_id: userId,
     });
     if (error) throw error;
-    const payload = Array.isArray(data) ? data[0] : data;
-    return Array.isArray(payload) ? payload : [];
+    return normalizeStoreList(data);
   } catch (e) {
     console.error('[buyer-bot] store list error:', e);
     return [];

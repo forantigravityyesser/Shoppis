@@ -190,6 +190,17 @@ export function buyerWelcomeText(lastStore) {
   );
 }
 
+/**
+ * Нормализует ответ RPC `buyer_store_list_read`. Функция возвращает jsonb-массив,
+ * который SDK отдаёт как есть; но на случай иной обёртки принимаем и `{value:[...]}`.
+ * Невалидный/пустой ответ → пустой список.
+ */
+export function normalizeStoreList(data) {
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.value)) return data.value;
+  return [];
+}
+
 /** Экран «Мои магазины»: название + переход на каждую посещённую витрину. */
 export function buyerStoresView({ stores, botUsername, appShortname }) {
   const rows = (stores || []).map((s) => [

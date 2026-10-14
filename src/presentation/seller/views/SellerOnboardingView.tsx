@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { motion as Motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
-import { Coins, Globe, ImagePlus, LoaderCircle, Rocket, Store, X } from 'lucide-react';
+import { Check, Coins, Globe, ImagePlus, LoaderCircle, Rocket, Store, X } from 'lucide-react';
 import type { StoreCurrency, StoreLanguage } from '../../../domain/models/store';
 import { useStore } from '../../../application/store';
 import { BANNER_ASPECT, BANNER_OUTPUT_WIDTH } from '../../../utils/image';
@@ -26,10 +26,12 @@ export default function SellerOnboardingView() {
   const uploadStoreBanner = useStore((s) => s.uploadStoreBanner);
   const authLoading = useStore((s) => s.authLoading);
   const authError = useStore((s) => s.authError);
+  const setLanguage = useStore((s) => s.setLanguage);
+  const appLanguage = useStore((s) => s.userSettings.language);
 
   const [name, setName] = useState('');
   const [currency, setCurrency] = useState<StoreCurrency>('USD');
-  const [language, setLang] = useState<StoreLanguage>('ru');
+  const [language, setLang] = useState<StoreLanguage>(appLanguage);
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [bannerPreview, setBannerPreview] = useState('');
   const [cropFile, setCropFile] = useState<File | null>(null);
@@ -39,6 +41,13 @@ export default function SellerOnboardingView() {
 
   const busy = authLoading || uploading;
   const error = formError || authError;
+
+  // Язык магазина и язык интерфейса приложения выбираются одним действием:
+  // продавец сразу видит результат, а витрина получает выбранный язык.
+  const pickLanguage = (code: StoreLanguage) => {
+    setLang(code);
+    setLanguage(code);
+  };
 
   const pickBanner = (file: File | undefined) => {
     if (!file) return;
@@ -198,11 +207,14 @@ export default function SellerOnboardingView() {
                 key={l.code}
                 className="onboarding__seg"
                 data-active={language === l.code}
-                onClick={() => setLang(l.code)}
+                onClick={() => pickLanguage(l.code)}
                 aria-pressed={language === l.code}
               >
                 <span>{l.flag}</span>
                 <span>{t(`language.${l.code}`)}</span>
+                {language === l.code ? (
+                  <Check size={15} strokeWidth={3} aria-hidden />
+                ) : null}
               </button>
             ))}
           </div>

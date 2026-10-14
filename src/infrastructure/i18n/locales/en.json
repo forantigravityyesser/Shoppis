@@ -208,6 +208,10 @@
   "seller": {
     "dashboard": {
       "title": "Home",
+      "store": {
+        "active": "Store active",
+        "paused": "Store paused"
+      },
       "empty": {
         "noStoreTitle": "No store data",
         "noStoreText": "Open a store to see the summary.",

@@ -12,6 +12,7 @@ import {
   formatBuyerOrdersText,
   formatSellerInviteText,
   formatSellerStatsText,
+  normalizeStoreList,
   sellerAppUrl,
   sellerInviteKeyboard,
   sellerMainMenu,
@@ -136,6 +137,30 @@ describe('buyerMainMenu / welcome', () => {
     expect(kb.inline_keyboard[0][0].url).toBe('https://t.me/BuyShoppis_bot/shop?startapp=shop_p1');
     expect(kb.inline_keyboard[0][0].text).toContain('Цветы');
     expect(buyerWelcomeText({ name: 'Цветы', publicId: 'p1' })).toContain('«Цветы»');
+  });
+});
+
+describe('normalizeStoreList — разбор ответа buyer_store_list_read', () => {
+  it('jsonb-массив витрин отдаётся как есть (а не первый элемент)', () => {
+    const stores = [
+      { publicId: 'p1', name: 'Рыбалка' },
+      { publicId: 'p2', name: 'Книги' },
+    ];
+    expect(normalizeStoreList(stores)).toEqual(stores);
+  });
+
+  it('пустой jsonb-массив → пустой список', () => {
+    expect(normalizeStoreList([])).toEqual([]);
+  });
+
+  it('обёртка {value:[...]} тоже принимается', () => {
+    const stores = [{ publicId: 'p1', name: 'Рыбалка' }];
+    expect(normalizeStoreList({ value: stores })).toEqual(stores);
+  });
+
+  it('null / объект без массива → пустой список', () => {
+    expect(normalizeStoreList(null)).toEqual([]);
+    expect(normalizeStoreList({ orders: [] })).toEqual([]);
   });
 });
 

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useStore } from '../../../application/store';
 import { useSellerDashboard } from '../../../application/hooks/useSellerDashboard';
 import { currencySymbol } from '../../../domain/constants/currencies';
+import DashboardStoreHeader from '../dashboard/components/DashboardStoreHeader';
 import DashboardSalesBlock from '../dashboard/components/DashboardSalesBlock';
 import DashboardOrdersBlock from '../dashboard/components/DashboardOrdersBlock';
 import DashboardInventoryBlock from '../dashboard/components/DashboardInventoryBlock';
@@ -64,10 +65,13 @@ export default function SellerDashboard() {
 
   return (
     <div className="screen dash">
-      <div className="screen__header">
-        <h1 className="screen__title">{t('seller.dashboard.title')}</h1>
-        {currentStore ? <p className="screen__subtitle">{currentStore.name}</p> : null}
-      </div>
+      {currentStore ? (
+        <DashboardStoreHeader store={currentStore} />
+      ) : (
+        <div className="screen__header">
+          <h1 className="screen__title">{t('seller.dashboard.title')}</h1>
+        </div>
+      )}
       {body}
     </div>
   );
