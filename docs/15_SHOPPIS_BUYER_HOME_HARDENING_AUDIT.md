@@ -1,7 +1,10 @@
 # SHOPPIS — BUYER HOME / STOREFRONT HARDENING AUDIT
 
 **Version:** 1.0
-**Дата:** 2026-10-04
+**Дата:** 2026-10-04  
+**Актуализировано:** 2026-10-14 (ревизия документации, партия 8: `15`, `16`) — обновлены
+cross-ссылки на перенумерованный `08`; содержание hardening (HOME-HARDEN-01…11) остаётся
+актуальным и не пересматривалось.
 **Репозиторий:** `forantigravityyesser/Shoppis`
 **Базовый срез кода:** `main @ 21a6aa9` («Buyer storefront UI/UX ready: home cards + catalog tab logic») + рабочее дерево (Product Detail / Reviews в процессе, отдельный трек).
 **Объект:** вкладка **Главная** покупателя, storefront read layer, buyer state, изображения, публичный резолв магазина, производительность Home.
@@ -108,7 +111,7 @@ Severity hardening: **H1** обязательно · **H2** высоко · **H3
 | T | Pause — не только frontend, есть серверный инвариант | ✅ уже есть | `migrations/0004_checkout.sql:77` `raise exception 'STORE_PAUSED'`; также `0017:51` |
 | U | Image pipeline: thumb на Home, full на Detail | ✅ уже так | `0014:64-69` (thumb→full); `0010_product_image_thumb.sql` |
 | V | React Query `useInfiniteQuery` | ❌ нет | `useQuery`, staleTime 5 мин, retry 1 (`queryClient.ts:7-10`) |
-| W | Cold start делает 2 запроса | ✅ подтверждён | `loadBuyerStore` (резолв) + `storefront_home_read`; зафиксировано в `08 §1.14` как S3-остаток |
+| W | Cold start делает 2 запроса | ✅ подтверждён | `loadBuyerStore` (резолв) + context/products read; это **осознанная модель** (см. §5.8), не divergence |
 
 **Вывод разбора:** архитектуру трогать не нужно; из «проблем аудита» уже закрыты D, P, Q, R, T, U. Реальная работа — E–G (avatar), A–C (boundary), H–K/V (pagination stream), L–O (семантика/чистка), плюс документация.
 
@@ -271,7 +274,7 @@ first ACTIVE variant:
 
 ### 3.11 Избранное
 
-Фундамент оставляем как есть: `favoritesByStore` + `Zustand persist`, store-scoped. Отдельную БД favorites сейчас не создаём (`08 §2.2` — отдельная будущая задача).
+Фундамент оставляем как есть: `favoritesByStore` + `Zustand persist`, store-scoped. Отдельную БД favorites сейчас не создаём (решение MVP — локально, `01 D14`; `03 §20`).
 
 ---
 
@@ -304,7 +307,7 @@ private seller data (language/created_at, если не нужно витрин�
 
 ### 4.2 Резолвер
 
-Вместо `select('*')` — минимальная публичная проекция через RPC (та же граница, что и `storefront_home_read`, и будущая граница RLS — `08 §1.9`):
+Вместо `select('*')` — минимальная публичная проекция через RPC (та же граница, что и `storefront_home_read`, и будущая граница RLS — `08 §1.1`):
 
 ```sql
 storefront_public_context_read(p_store_ref text) → jsonb
@@ -318,7 +321,7 @@ storefront_public_context_read(p_store_ref text) → jsonb
 
 - Канон: `shop_<public_id>` → `public_id` → `PublicStoreContext`.
 - Legacy `store_<internalId>` резолвится тем же публичным RPC по внутреннему id (`id = p_store_ref::uuid`), невалидный uuid трактуется как «не найдено».
-- Legacy-ветка допускается только для чтения старых ссылок и **позже удаляется** (`08 §2.12`).
+- Legacy-ветка допускается только для чтения старых ссылок и **позже удаляется** (`08 §4.3`).
 - Legacy-резолв тоже возвращает **минимальную** проекцию, а не `select('*')`.
 
 **Реализовано (HOME-HARDEN-01):** миграция `0021_storefront_public_context.sql`; read-model `application/read-models/public-store.ts`; mapper `mapPublicStoreContext`; порт/инфра `StorefrontRepository.loadPublicStoreContext`; `loadBuyerStore` переведён с `select('*')` на резолвер; `viewedStore: PublicStoreContext`.
@@ -984,7 +987,7 @@ Home не мыслится как «покажем 6 товаров», а как
 |---|---|
 | `13_BUYER_HOME_PLAN` | Продуктовое направление. Этот документ **переопределяет** §3 (heart), §5 (seller avatar), §9-10 (originalPrice), §19 (модель), §28 H-07 (фикс. 6). Добавлена кросс-ссылка. |
 | `14_PRODUCT_DETAIL_PLAN` | Независимый трек. Home передаёт только `productId`. |
-| `08_DIVERGENCE` | §1.9 (RLS) — public resolver станет границей; §1.14-остаток (2 запроса на холодном старте) закрывается через context-read; §2.2 (favorites в БД) — не сейчас. |
+| `08_DIVERGENCE` | §1.1 (RLS) — public resolver станет границей; модель «2 read на холодном старте» — осознанное решение (§5.8), а не divergence; favorites — локально by design (`01 D14`). |
 | `11_HARDENING_BACKLOG` | Общий backlog; этот документ — детализация Home-части. |
 | `02`, `03`, `04` | Продукт/данные/инфраструктура; при расхождении — этот документ для Home. |
 

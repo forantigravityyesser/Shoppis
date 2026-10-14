@@ -1,6 +1,9 @@
 # SHOPPIS — BUYER PRODUCT DETAIL PLAN
 
-**Version:** 0.3 (2026-10-04)
+**Version:** 0.3 (2026-10-04)  
+**Актуализировано:** 2026-10-14 (ревизия документации, партия 7: `13`, `14`) — обновлён раздел
+«Следующие блоки» (Cart/Favorites/Orders реализованы отдельно), добавлено примечание о
+viewer-aware read-RPC (`0016`/`0019`); related — через `product_links` (уже отражено).  
 **Статус:** `PD-01…PD-14` выполнены (реализация + тесты). `PD-13` — functional/unit QA;
 security/business-rule hardening закрыт (PD-H pass, применён на dev). Финальные
 `LOCAL/TELEGRAM VERIFIED` — за владельцем. Отложенное — в `16_SHOPPIS_REMAINING_WORK.md`.
@@ -23,7 +26,7 @@ write layer (edge `review-actions`/`question-actions`/`catalog-actions`; миг�
 - RLS, доставка, промокоды, рекомендации, чат с продавцом.
 
 **Связанные документы:** `00` (индекс), `02` (Product Spec), `03` (Domain & Database Spec),
-`04` (Technical Spec), `05` (Implementation Plan), `08` (Divergence), `11` (Hardening backlog),
+`04` (Technical Spec), `05` (Development History), `08` (Divergence), `11` (Hardening backlog),
 `13` (Buyer Home Plan), `мысли о деталях товара.md` (исходные идеи, приняты как основа).
 
 ---
@@ -576,6 +579,11 @@ product.status != 'ACTIVE' → null
 
 ### 12.4 `storefront_product_reviews_read(p_public_id text, p_product_id uuid) → jsonb`
 
+> **Актуализация (2026-10-14):** в актуальной реализации RPC **viewer-aware** —
+> сигнатура `(p_public_id, p_product_id, p_viewer_user_id default null)`, ответ дополнен
+> `distribution` (5 бакетов), `replies[]`, `viewerReview`, `canReview`, `isOwn`
+> (миграции `0016`/`0019`, PD-10a/11a). Схемы ниже — исходный `0015`.
+
 ```jsonc
 {
   "summary": { "average": 4.7, "count": 12 },
@@ -1004,9 +1012,10 @@ Desktop) — за владельцем. Отложенное вынесено в
 
 ### Следующие блоки (вне этого документа)
 
-1. Экраны Cart / Favorites / Orders (сейчас `return null`).
-2. Пагинация/фильтры/сортировка social-лент; удаление ответов продавца.
-3. RLS-hardening публичных данных (общая граница проекта, docs/08/11).
+1. **Экраны Cart / Favorites / Orders — реализованы** отдельными блоками (`18` Cart, `22` Orders,
+   Favorites — store-scoped hydration по id).
+2. Пагинация/фильтры/сортировка social-лент; удаление ответов продавца (`16` FD-4).
+3. RLS-hardening публичных данных (общая граница проекта, `08`/`11`).
 
 > Покупатель пишет отзыв/вопрос и seller-цикл (ответ на отзыв/вопрос, удаление/скрытие)
 > завершены в этом блоке: отзывы — `PD-10b/10c`, вопросы — `PD-11b/11c`.
@@ -1090,8 +1099,8 @@ Product → Related product → Product
 
 > Зум и жесты в fullscreen-просмотре **включены** (PD-12), в отличие от ранней версии плана.
 
-Вне блока (следующие блоки): экраны Cart/Favorites/Orders, пагинация/фильтры social-лент,
-удаление ответов продавца, RLS-hardening.
+Вне блока: пагинация/фильтры social-лент, удаление ответов продавца, RLS-hardening.
+Экраны Cart/Favorites/Orders реализованы отдельно (`18`/`22`); linking-атрибуты — `16` FD-1.
 
 ---
 

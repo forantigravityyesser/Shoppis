@@ -1,17 +1,20 @@
 # SHOPPIS — INVENTORY UX SPEC
 
-**Version:** 0.1
-**Дата:** 2026-09-24
-**Роль:** что пользователь видит и делает. Данные/БД/релизы — в `06_SHOPPIS_SELLER_INVENTORY_SPEC_v0.1.md`.
-**Статус:** Inventory переведён на реальный бэкенд InsForge (PostgreSQL + PostgREST + Storage `shoppis-media`); in-memory mock удалён. Порядок и статус работ — `09 SHOPPIS_INVENTORY_IMPLEMENTATION_PLAN`, детали миграции — `inventory_real_backend_migration_plan.md`.
+**Version:** 0.1  
+**Актуализировано:** 2026-10-14 (ревизия документации, партия 4: `06`, `07`, `09`).  
+**Роль:** что пользователь видит и делает. Данные/БД/маршруты/статусы — `06`; реконструкция —
+`19`; hardening — `20`; план/история этапов — `09`.  
+**Статус:** Inventory работает на реальном backend (InsForge PostgreSQL + PostgREST + Storage
+`shoppis-media`), mock-слой удалён. Разделы ниже соответствуют текущему экрану (секции
+«Товары»/«Категории», `19`).
 
 ---
 
 ## 0. Разделение документов
 
-- `06 … INVENTORY_SPEC` — домен, БД, маршруты, слои, миграция, релизы, тесты.
+- `06 … INVENTORY_SPEC` — домен, БД, маршруты, слои, миграции, тесты.
 - **этот документ** — UX экранов Inventory.
-- `09 … IMPLEMENTATION_PLAN` — в каком порядке кодируем и что уже сделано.
+- `09 … IMPLEMENTATION_PLAN` — порядок этапов и их статус (историко-статусный).
 
 ---
 
@@ -19,24 +22,30 @@
 
 `/seller/inventory` — рабочее пространство управления каталогом. Не таблица склада, не CRUD.
 
-Две визуальные сущности:
+Две единицы:
 
-- **Категория** — большой визуальный контейнер с превью товаров.
-- **Товар** — миниатюра (`ProductThumbnail`) внутри категории.
+- **Категория** — контейнер с превью товаров (полноширинная строка).
+- **Товар** — строка списка (секция «Товары») или миниатюра-превью внутри категории.
 
-Правило: **Home = визуальная навигация**, **Category = операционная навигация**, **Product = управление**.
-На Home товар не превращается в полноценную карточку.
+Правило: **Home = навигация по каталогу**, **Category = список товаров категории**,
+**Product = управление товаром**. На Home товар не превращается в полноценную карточку.
 
 ---
 
-## 2. Структура экрана (5 зон)
+## 2. Структура экрана (актуально)
 
 ```
 InventoryView
-├── 1. InventoryHeader      заголовок + мета + «+ Добавить» + поиск
-├── 2. Category section     заголовок «Категории»
-├── 3. Category grid        композиция wide / pair
-└── 4. BottomNavBar         существует, вне задачи Inventory
+├── InventoryHeader         «назад» (залипающий рейл) + центрированный заголовок
+├── InventoryModeSwitcher   «Товары» (по умолчанию) / «Категории»
+├── секция по режиму:
+│   ├── InventoryProductsSection        (mode=products)
+│   │     ├── InventorySectionHead («Товары» + «+»)
+│   │     ├── InventoryProductSearch
+│   │     └── InventoryProductList → InventoryProductRow
+│   └── InventoryCategoryList           (mode=categories)
+│         └── InventoryCategoryRow → ProductPreviewRow → ProductThumbnail[] + AddProductTile
+└── BottomNavBar (существует вне задачи Inventory)
 ```
 
 Скролл — внутри `.scrollable-content` (`SellerLayout`), навбар неподвижен.
@@ -45,187 +54,167 @@ InventoryView
 
 ## 3. Header (`InventoryHeader`)
 
-Обычный режим:
-
 ```
-            Инвентарь                🔍
-                          [+ Добавить]  ← строкой ниже, справа
+←            Инвентарь
 ```
 
-- Заголовок 26px / 700, **по центру** шапки.
-- `🔍` — иконка справа, **не** постоянное поле. Клик → search state.
-- `+ Добавить` — на строке ниже шапки, выровнена вправо.
-- Мета `N товаров · M категорий` **пока не показывается**.
-
-Search state (тот же экран, не отдельный маршрут):
-
-```
-←  🔍 Найти товар или категорию
-```
-
-Поле раскрывается по необходимости; `←` закрывает и сбрасывает запрос.
+- Кнопка «назад» в залипающем рейле: пока шапка видна — в шапке, при скролле залипает слева
+  вверху и бледнеет (`useStuck`).
+- Заголовок «Инвентарь» — по центру.
+- **Поиска в шапке нет:** он разнесён по секциям — в «Товарах» инлайн-поиск, в «Категориях»
+  поиска нет. Глобальный `InventorySearchState` удалён (`19` Phase D/F).
 
 ---
 
-## 4. Add
+## 4. Переключатель секций (`InventoryModeSwitcher`)
 
-Строкой ниже шапки, справа — главная CTA `[+ Добавить]` (видна всегда). Клик → **bottom sheet** `AddInventorySheet`:
-
-Клик → **bottom sheet** `AddInventorySheet`:
-
-```
-Добавить
-┌────────────┐  ┌────────────┐
-│    📦      │  │    ▦       │
-│  Товар     │  │  Категория │
-└────────────┘  └────────────┘
-```
-
-Только два действия. Товар → CreateProduct (`initialCategoryId = null`); Категория → CreateCategory.
+Компактный `role="tablist"` из двух вкладок: **«Товары»** (по умолчанию) и **«Категории»**.
+Активный раздел хранится в URL: `?mode=categories` (чтобы «назад» из карточки категории
+возвращал в «Категории», а не в «Товары»). Переключение не сбрасывает состояние других секций.
 
 ---
 
-## 5. Список категорий — полноширинные строки
+## 5. Секция «Товары» (`InventoryProductsSection`)
+
+- `InventorySectionHead` — заголовок «Товары» + «+» (создать товар, `/seller/inventory/product/new`).
+- Пустой каталог → empty-state: иконка, «Нет товаров» + `+ Добавить товар` (без поиска).
+- Иначе — `InventoryProductSearch` (инлайн-поле, фильтр по `title` по уже загруженному read-model)
+  и `InventoryProductList` (`InventoryProductRow` на товар).
+- «Ничего не найдено» — при непустом запросе без совпадений.
+
+`InventoryProductRow`: миниатюра/эмодзи, название, цена, статус/остаток, переход в карточку.
+
+---
+
+## 6. Секция «Категории» — `InventoryCategoryList` / `InventoryCategoryRow`
 
 > **Актуализация (2026-10-05, `19` Phase E):** compose-грид (wide/pair, 50/50) **удалён**.
-> Категории — **полноширинные строки**, по одной на строку; визуал карточки не менялся.
-> `buildCategoryRows`/`CategoryRow`/`PREVIEW_VISIBLE.compact` удалены, превью — единый
-> `PREVIEW_VISIBLE = 5`. Это устраняет responsive-проблему длинных названий/счётчиков.
+> Категории — **полноширинные строки**, по одной на строку; визуал карточки сохранён.
+> `buildCategoryRows`/`PREVIEW_VISIBLE.compact` удалены, превью — единый `PREVIEW_VISIBLE = 5`.
 
----
-
-## 6. InventoryCategoryRow — анатомия
+`InventoryCategoryRow` (анатомия):
 
 ```
 InventoryCategoryRow
-├── CategoryHeader (CategoryName, ProductCount, [CategoryMoreButton])
-└── ProductPreviewGrid
-    ├── ProductThumbnail × N
-    └── AddProductTile (+)
+├── Head: Avatar (обложка/иконка) + Name (или «Без категории») + Rank-бейдж + Count (+N в архиве)
+└── ProductPreviewRow (5 видимых + AddProductTile + стрелки ←/→)
 ```
 
-- `wide`: имя крупнее, в строке превью видно 5 карточек + `+`.
-- `compact`: имя меньше, в строке превью видно 3 карточки + `+`.
-- `⋯` (More) — **не** открывает категорию, открывает actions sheet. Не подключён.
-- Превью показывает **все** товары категории (активные первыми, затем архивные) в одну строку;
-  лишние доступны **листанием стрелками** ←/→ (см. §6.1).
+- **Avatar** — `category.imageUrl` (thumb); если нет — иконка `Shapes`.
+- **Name** — название; для `UNCATEGORIZED_ID` — «Без категории».
+- **Rank** — 1-based позиция категории на витрине; клик открывает `ReorderCategorySheet`
+  (порядок — `0027`). Показывается только для пользовательских категорий.
+- **Count** — число активных товаров; мелко «+N в архиве», если архивные есть.
+- Пустая категория → «Пока нет товаров» + «+ Добавить товар».
+- «+» в карточке — `CategoryAddSheet`: «Новый товар» (форма в контексте категории) /
+  «Товар из магазина» (мультивыбор товаров и быстрый перенос в категорию).
 
-## 6.1 Превью: порядок, архив и прокрутка
+«+» в заголовке секции — создать категорию (`/seller/inventory/category/new`). Поиска в
+«Категориях» нет (категорий немного).
+
+## 6.1 Превью: порядок, архив и листание
 
 - **Порядок:** сначала активные, затем архивные; внутри группы — по `sortOrder`, затем `createdAt`.
-- **Архивные** показываются приглушённо (grayscale + opacity) — товар не пропадает из каталога.
-- **Листание (mobile-first):** нативного скролла/свайпа нет — строка `ProductPreviewRow`
-  сдвигается **ровно на одну карточку** по клику `→` / `←` (сдвиг трансформом). Так карточки
-  не «выпадают» и поведение предсказуемо на телефоне.
-- **Видимо сразу:** `wide` — 5 карточек, `compact` — 3 (стрелки в compact меньше).
-- Стрелка `→` видна, пока справа есть карточки; `←` — пока есть слева. Последний элемент — `+`
-  (`AddProductTile`).
-
----
+- **Архивные** — приглушённо (`grayscale` + `opacity`), товар не пропадает из каталога.
+- **Листание (mobile-first):** без нативного скролла/свайпа — строка `ProductPreviewRow`
+  сдвигается **ровно на одну карточку** по клику `→`/`←`. Сразу видимо **5** карточек.
+- Стрелка `→` видна, пока справа есть карточки; `←` — пока есть слева. Последний элемент — `+`.
 
 ## 7. ProductThumbnail
 
-- Квадрат, `aspect-ratio: 1`, rounded 12px, `object-fit: cover`.
+- Квадрат `aspect-ratio: 1`, rounded 12px, `object-fit: cover`.
 - Нет изображения → эмодзи-заглушка (`📦`).
-- Архивный (скрытый) — приглушённый: `filter: grayscale(1)` + `opacity: 0.5`;
-  показывается в превью после активных.
-- Никаких бейджей поверх каждой миниатюры.
+- Архивный — приглушённый (`grayscale` + `opacity`), показывается после активных.
+- Бейджей поверх миниатюр нет.
 
 ## 8. AddProductTile (`+`)
 
-- Последняя ячейка превью, dashed border, акцентный `+`.
-- Не декор: контекстное создание товара **в этой категории** (`initialCategoryId`).
+Последняя ячейка превью, dashed border, акцентный `+` — контекстное создание товара в категории
+(`/seller/inventory/product/new?categoryId=…`).
 
 ## 9. Состояния карточки
 
 - **0 товаров** → «Пока нет товаров» + `+ Добавить товар` (без пустой сетки).
 - **1–2** → миниатюры остаются thumbnail-размера, не растягиваются.
-- **много** → одна строка, всегда с `+`; при переполнении — листание стрелками ←/→ по карточке.
+- **много** → одна строка, всегда с `+`; при переполнении — листание стрелками.
 
----
-
-## 10. Interaction map (жёстко)
+## 10. Interaction map (актуально)
 
 | Зона | Действие |
 |---|---|
-| Тело/заголовок карточки | `/seller/inventory/category/:categoryId` |
-| `ProductThumbnail` | `/seller/inventory/product/:productId` |
-| `+` в превью | CreateProduct(`categoryId`) |
-| `⋯` | CategoryActionsSheet |
-| `+ Добавить` (toolbar) | AddInventorySheet |
-| `🔍` | Search state |
+| «Товары» / «Категории» (switcher) | смена секции (`?mode=`) |
+| «+» в секции «Товары» | `/seller/inventory/product/new` |
+| «+» в секции «Категории» | `/seller/inventory/category/new` |
+| Тело/заголовок категории | `/seller/inventory/category/:categoryId` |
+| Rank-бейдж категории | `ReorderCategorySheet` |
+| `ProductThumbnail` / `InventoryProductRow` | `/seller/inventory/product/:productId` |
+| «+» в превью категории | `CategoryAddSheet` (новый товар / товар из магазина) |
 
----
-
-## 11. Search state
+## 11. Секция «Категории» и поиск
 
 > **Устарело (2026-10-05, `19` Phase D/F):** глобальный поиск Home убран (`InventorySearchState`
-> удалён). В секции «Товары» — инлайн-поиск по товарам; в «Категориях» поиска нет (категорий
-> немного). «Ничего не найдено» показывается в секции «Товары».
+> удалён). В секции «Товары» — инлайн-поиск по товарам; в «Категориях» поиска нет.
+> «Ничего не найдено» показывается в секции «Товары».
 
 ## 12. Empty / Loading / Error
 
-- **Пустые состояния:** в секции «Товары» — «Нет товаров» + «+ Добавить товар» и «Ничего не
-  найдено» для поиска. Системная «Без категории» (ADR-06.9) присутствует всегда, поэтому в
-  «Категориях» отдельного пустого экрана нет.
-- **Loading**: skeleton — полноширинные строки категорий (`19` Phase E).
-- **Error**: «Не удалось загрузить каталог» + «Проверьте соединение…» + `[Повторить]`.
-  При ошибке пустой каталог не показываем (иначе кажется, что товары исчезли).
-- **Ошибки смены статуса** (архив/витрина) — inline в карточке товара: сообщение + `[Повторить]`,
-  кнопка disabled и текст «…» на время операции. Коды: `NO_ACTIVE_VARIANT` (нельзя на витрину без
-  варианта покупки, ADR-06.8), `NOT_FOUND`, `FORBIDDEN`, `NETWORK`, `UNKNOWN`.
-
----
+- **Пусто:** «Товары» — «Нет товаров» + «+ Добавить товар», поиск-empty — «Ничего не найдено»;
+  «Категории» — «Пока нет товаров» в строке категории. Отдельного пустого экрана категорий нет:
+  виртуальная «Без категории» присутствует всегда (ADR-06.9).
+- **Loading**: skeleton полноширинных строк.
+- **Error**: «Не удалось загрузить каталог» + «Повторить»; пустой каталог при ошибке не показываем
+  (иначе кажется, что товары исчезли).
+- **Ошибки смены статуса** — inline в карточке товара: сообщение + «Повторить», кнопка disabled
+  на время операции. Коды: `NO_ACTIVE_VARIANT`, `NOT_FOUND`, `FORBIDDEN`, `NETWORK`, `UNKNOWN`.
+- **Ошибка остатка** — в `StockControlSheet`: `INVENTORY_RESERVED_BY_ORDERS` → «товар зарезервирован
+  под активным заказом».
 
 ## 13. Responsive
 
 - Категории — всегда одна полноширинная строка; длинные названия усекаются ellipsis, без
-  горизонтального overflow (`19` Phase E).
-- Большой/tablet: карточки не растягиваются бесконечно (`max-width` shell 480px).
+  горизонтального overflow.
+- Большой экран/tablet: shell ограничен `max-width` 480px, карточки не растягиваются.
 
 ## 14. Токены
 
-Используем существующую систему (`globals.css`), не создаём новую:
-`--color-accent` (бренд Shoppis), `--color-bg-card`, `--color-text-*`, `--spacing-*`,
-`--radius-*`, `--shadow-card`, `--safe-bottom`. Карточки — subtle border + мягкая тень, clean/premium/soft.
-Категории **не** разноцветные — цвет системный.
+Существующая система (`globals.css`): `--color-accent`, `--color-bg-card`, `--color-text-*`,
+`--spacing-*`, `--radius-*`, `--shadow-card`, `--safe-bottom`. Карточки — subtle border + мягкая
+тень. Категории **не** разноцветные — цвет системный. Стеклянные поверхности (`.glass`) — в
+карточке товара.
 
----
-
-## 15. Component tree (реализовано R1)
+## 15. Component tree (реализовано)
 
 ```
 InventoryView
-├── InventoryHeader
-│   ├── InventoryTitle (по центру)
-│   └── InventorySearchButton
-├── AddButton («+ Добавить», строка справа)
+├── InventoryHeader (BackButton + centered title)
+├── InventoryModeSwitcher
+├── InventoryProductsSection
+│   ├── InventorySectionHead
+│   ├── InventoryProductSearch
+│   └── InventoryProductList → InventoryProductRow
 ├── InventoryCategoryList
 │   └── InventoryCategoryRow
-│       ├── (CategoryHeader)
-│       └── ProductPreviewRow
-│           ├── ProductThumbnail[]
-│           └── AddProductTile
-├── EmptyInventoryState
-├── InventorySearchState
+│       ├── (head: avatar/name/rank/count)
+│       └── ProductPreviewRow → ProductThumbnail[] + AddProductTile
 ├── InventorySkeleton
-└── AddInventorySheet → BottomSheet
+├── ReorderCategorySheet
+└── CategoryAddSheet
 ```
 
-Файлы: `src/presentation/seller/inventory/` (`components/`, `layout.ts`, `inventory.css`),
-данные — `useInventoryHome` (`src/application/hooks/useInventory.ts`).
+Файлы: `src/presentation/seller/inventory/`; данные — `useInventoryHome` /
+`useInventoryActions` (`src/application/hooks/`).
 
-## 16. Data contracts
+## 16. Data contracts (актуально)
 
 ```ts
 type InventoryCategoryRowProps = {
   category: InventoryCategoryItem;
   previewProducts: InventoryProductItem[];
-  variant: 'wide' | 'compact';
   onOpen(): void;
-  onOpenProduct(id: string): void;
+  onOpenProduct(productId: string): void;
   onAddProduct(): void;
-  onMore?(): void;
+  position?: number;     // 1-based позиция в каталоге; нет — бейдж не показывается
+  onReorder?(): void;    // открыть выбор позиции (только пользовательские категории)
 };
 
 type ProductThumbnailProps = {
@@ -234,28 +223,26 @@ type ProductThumbnailProps = {
 };
 ```
 
-Компоненты **не** знают про InsForge/стора. Только props + callbacks.
+Компоненты **не** знают про InsForge/стор — только props + callbacks. `wide/compact`-вариант
+строки удалён (всегда full-width).
 
 ## 17. Что НЕ делать
 
-- таблицу товаров на Home; полноценные product cards внутри категорий;
-- scroll строки превью (управление только стрелками ←/→ по одной карточке); masonry; огромные баннеры;
-- 10 фильтров; сортировку; графики/аналитику;
+- таблицу товаров на Home (вместо списка/строк), полноценные product cards внутри категорий;
+- scroll строки превью (только стрелки ←/→ по одной карточке); masonry; огромные баннеры;
+- 10 фильтров; сортировку; графики/аналитику в Inventory;
 - отдельную кнопку «Добавить товар» у каждого thumbnail; дублирование CTA;
 - большие описания категорий; сложные dropdowns; лишние иконки;
 - новую дизайн-систему только для Inventory.
 
----
+## 18. Открытые вопросы (закрытые)
 
-## 18. Открытые вопросы
-
-1. ~~`CategoryMoreButton` (⋯)~~ — **решение (2026-10-05):** не нужен; prop `onMore` удалён как
-   мёртвый код. Действия категории — редактирование в `CategoryView` (карандаш) и `CategoryAddSheet`
-   («+» в блоке категории).
-2. ~~Действия `AddInventorySheet`~~ — **обновлено (2026-10-05):** секционные `+` ведут напрямую в
-   create-роуты (в «Товарах» — `CreateProductView`, в «Категориях» — `CreateCategoryView`);
-   `AddInventorySheet` удалён. «+» в блоке категории открывает `CategoryAddSheet`. Сохранение — в
-   InsForge через репозитории/Zustand.
-3. ~~Показывать ли «Скрытые» на Home~~ — **решено**: архивные показываются на Home приглушённо,
-   после активных (и в CategoryView, и в поиске).
-4. Edit-форма товара и загрузка фото — реализовано (Storage `shoppis-media`, `uploadAuto`).
+1. ~~`CategoryMoreButton` (⋯)~~ — **снято:** не нужен; действия категории — редактирование в
+   `CategoryView`/`EditCategorySheet` и «+» в блоке категории.
+2. ~~Действия `AddInventorySheet`~~ — **снято:** секционные «+» ведут напрямую в create-роуты;
+   `AddInventorySheet` удалён. «+» в блоке категории открывает `CategoryAddSheet`.
+3. ~~Показывать ли архивные на Home~~ — **решено:** архивные показываются приглушённо, после
+   активных (в секциях, категориях и списках).
+4. Edit-форма товара и загрузка фото — реализованы (`ProductDraftEditor`/`ProductForm`, Storage
+   `shoppis-media`).
+5. ~~Search state~~ / ~~порядок категорий~~ — закрыты (`19`, `0027`).

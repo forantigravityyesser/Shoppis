@@ -1,7 +1,9 @@
 # SHOPPIS — ORDERS / ЗАКАЗЫ (покупатель и продавец) — ТЕХНИЧЕСКИЙ ПЛАН
 
 **Version:** 1.0
-**Дата:** 2026-10-10
+**Дата:** 2026-10-10  
+**Актуализировано:** 2026-10-14 (ревизия документации, партия 12: `22`, `23`) — статус Orders
+закрыт (`ORD-00…ORD-13` + `ORD-14` realtime, hardening `ORD-HARDEN-00…12`); тело актуально.
 **Репозиторий:** `forantigravityyesser/Shoppis`
 **Базовый срез кода:** `main` (после закрытия Cart/Commerce `18`/`21` и Seller Inventory `19`/`20`).
 **Объект:** вкладки **Заказы** (покупатель `/orders`, продавец `/seller/orders`) и **Детали заказа**
@@ -14,10 +16,10 @@ buyer/seller actions → tests.
 
 **Связанные документы:** `00` (индекс), `01` (Constitution), `02` (Product Spec §6–7, §11–12, §14),
 `03` (Domain & Database Spec §13–18, §23–25), `04` (Technical Spec §4–5, §9, §11–12, §17), `05`
-(Implementation Plan), `08` (Divergence), `11` (Hardening Backlog S1–S3), `16` (Remaining Work, FD-3),
+(Development History), `08` (Divergence), `11` (Hardening Backlog S1–S3), `16` (Remaining Work, FD-3),
 `17` (Catalog Plan — конвенция keyset-cursor), `18` (Cart Plan — граница checkout и lifecycle), `19`/`20`
 (Seller Inventory), `21` (Commerce Hardening — idempotency / quantity-contract / harness), `24`
-(Orders Hardening Audit — второй слой поверх реализованного `22`, этапы `ORD-HARDEN-01…12`).
+(Orders Hardening Audit — второй слой поверх реализованного `22`, этапы `ORD-HARDEN-00…12`).
 
 **Статус документа:** authoritative для захода Orders. Переносит внешний план `19_SHOPPIS_ORDERS_TECHNICAL_PLAN.md`
 в формат проекта. Номер `19` в репозитории занят (`19_SHOPPIS_SELLER_INVENTORY_RECONSTRUCTION_SPEC_v0.1.md`),

@@ -1,7 +1,9 @@
 # SHOPPIS — CART (покупатель) — ПЛАН РЕАЛИЗАЦИИ
 
 **Version:** 1.0
-**Дата:** 2026-10-05
+**Дата:** 2026-10-05  
+**Актуализировано:** 2026-10-14 (ревизия документации, партия 9: `17`, `18`) — обновлены ссылки
+на перенумерованный `08` и число harness-тестов; содержание CART-01…06 актуально.
 **Репозиторий:** `forantigravityyesser/Shoppis`
 **Базовый срез кода:** `main` (после закрытия Catalog, `17`; buyer Home/Catalog/Product Detail реализованы).
 **Объект:** вкладка **Корзина** покупателя (`/cart`) и граница до **Checkout** (оформление заказа).
@@ -9,15 +11,15 @@
 резервирование стока из корзины, экраны Favorites/Orders, seller-операции.
 
 **Связанные документы:** `00` (индекс), `01` (Constitution), `02` (Product Spec §11–12), `03` (Domain &
-Database Spec §11–18, §24–25, §29), `04` (Technical Spec §4–5, §9, §12, §18), `05` (Implementation Plan),
-`08` (Divergence §2.2, §2.11), `11` (Hardening Backlog §S1–S3), `13` (Buyer Home Plan), `14` (Product Detail Plan),
+Database Spec §11–18, §24–25, §29), `04` (Technical Spec §4–5, §9, §12, §18), `05` (Development History),
+`08` (Divergence §1.1, §2.1), `11` (Hardening Backlog §S1–S3), `13` (Buyer Home Plan), `14` (Product Detail Plan),
 `16` (Remaining Work, FD-3), `17` (Catalog Plan).
 
 **Статус документа:** authoritative для захода Cart. Он **не пересматривает** Home/Catalog/Product Detail;
 Cart надстраивается поверх уже существующего cart-фундамента (домен/стор/граница checkout) и публичного
 storefront read-layer.
 
-> **Commerce hardening (2026-10-05):** поверх реализованного Cart открыт второй слой — `21_SHOPPIS_CART_COMMERCE_HARDENING_AUDIT.md` (этапы `CART-HARDEN-01…12`). **Выполнено:** idempotency (retry `CART-HARDEN-01` + SQL reserve-before-order `0038`), серверный quantity-contract `1..99` + reject duplicate variant (`0039`, edge), `held_quantity` custody, harness Test 1–9 (`npm run commerce:harness`, 24/24), checkout-error → reconciliation, `MAX_CART_ITEMS`, split `cart-rules`/`checkout-rules`, `BuyerCartItem`. `21` не меняет продуктовые/UX-решения `18` (адрес доставки вместо email, итог только в CTA). Осталась ручная `TELEGRAM VERIFIED`.
+> **Commerce hardening (2026-10-05):** поверх реализованного Cart открыт второй слой — `21_SHOPPIS_CART_COMMERCE_HARDENING_AUDIT.md` (этапы `CART-HARDEN-01…12`). **Выполнено:** idempotency (retry `CART-HARDEN-01` + SQL reserve-before-order `0038`), серверный quantity-contract `1..99` + reject duplicate variant (`0039`, edge), `held_quantity` custody, harness (на момент этапа Test 1–9, 24/24; сейчас расширен до **Test 1–34**), checkout-error → reconciliation, `MAX_CART_ITEMS`, split `cart-rules`/`checkout-rules`, `BuyerCartItem`. `21` не меняет продуктовые/UX-решения `18` (адрес доставки вместо email, итог только в CTA). Осталась ручная `TELEGRAM VERIFIED`.
 
 ---
 

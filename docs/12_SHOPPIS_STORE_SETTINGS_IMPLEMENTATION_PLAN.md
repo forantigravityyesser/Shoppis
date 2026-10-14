@@ -2,9 +2,11 @@
 
 **Version:** 0.1
 **Дата:** 2026-09-30
-**Роль:** порядок реализации блока «Настройки магазина» (вертикальные срезы S-00 … S-10):
+**Актуализировано:** 2026-10-14 (ревизия документации, партия 5: `10`, `11`, `12`).  
+**Роль:** порядок реализации блока «Настройки магазина» (вертикальные срезы S-00 … S-11):
 контракты, backend-границы, application-порты, UI, тесты и критерии закрытия каждого этапа.
-**Статус:** рабочий engineering-документ; ведётся по фактическому состоянию `main`.
+**Статус:** все срезы `S-00…S-11` закрыты; осталась ручная `LOCAL`/`TELEGRAM`-свёрка за владельцем.
+Документ носит статусно-исторический характер: актуальная спецификация — `10`, текущий код — `main`.
 
 **Связанные документы:**
 - `10_SHOPPIS_STORE_SETTINGS_PLAN.md` — ЧТО и UX (product/UX specification).
@@ -43,7 +45,7 @@ SPEC → Domain/Contract → Backend authorization + mutation → Application po
 
 | Элемент | Фактически сейчас |
 |---|---|
-| `SellerSettingsView` | read-only заглушка; читает `currentStore`, показывает баннер/название/валюту/язык/контакт |
+| `SellerSettingsView` | **Hub**: группы «Магазин / Покупатели / Интерфейс»; «тяжёлые» блоки — на дочерних экранах (`SettingsProfileView`, `SettingsLocalizationView`, `SettingsContactView`, `SettingsShareView`), статус — inline-тумблер, язык интерфейса — inline `LanguageSwitcher` |
 | Роут `/seller/settings` | зарегистрирован, гард `storeId` (`src/router.tsx:90`) |
 | `Store` | `id, ownerUserId, ownerTelegramId, name, description, logoUrl, bannerUrl, supportHandle, currencyCode, currencySymbol, language, status, publicId, createdAt` (`src/domain/models/store.ts`) |
 | `StoreStatus` | уже `'ACTIVE' \| 'PAUSED'` |
@@ -56,7 +58,7 @@ SPEC → Domain/Contract → Backend authorization + mutation → Application po
 | Storage | `uploadStoreBanner` → `compressImage` (1024, q0.78) → публичный бакет |
 | Сессия | `sessionToken` (HMAC) в `auth-slice`; `serverUser.username` доступен и в prod, и в dev |
 | Тесты | Vitest, `environment: node`, `include: src/**/*.{test,spec}.{ts,tsx}`; jsdom / @testing-library отсутствуют |
-| БД `stores` (0 строк) | есть `support_handle` **и** legacy `seller_contact`; `status`, `public_id` (unique), `updated_at`; `rlsEnabled: false` |
+| БД `stores` | есть `name`, `description` (`≤300`), `banner_url`, `support_handle` **и** legacy `seller_contact`; `currency`/`currency_symbol`/`language`; `status`, `public_id` (unique), `updated_at`; `rlsEnabled: false` |
 
 ---
 
@@ -214,15 +216,30 @@ edge-functions/
 migrations/
   0012_store_settings_atomic.sql          stores_assert_owner + store_update_profile_atomic (+ store_set_status_atomic в S-05)
 
+presentation/seller/views/
+  SellerSettingsView.tsx                 Hub (группы + inline-статус + язык)
+  SettingsProfileView.tsx                → StoreIdentityBlock
+  SettingsLocalizationView.tsx           → LocalizationBlock
+  SettingsContactView.tsx                → CommunicationBlock
+  SettingsShareView.tsx                  → SharePreviewBlock
+
 presentation/seller/settings/
-  StoreIdentityBlock.tsx (+ .test.tsx при L3)
+  StoreIdentityBlock.tsx (+ .test.tsx)
   LocalizationBlock.tsx (+ .test.tsx)
-  StoreStatusBlock.tsx   (+ .test.tsx)
+  StoreStatusBlock.tsx   (status toggle; исторически на странице, сейчас inline в Hub)
   CommunicationBlock.tsx (+ .test.tsx)
   SharePreviewBlock.tsx  (+ .test.tsx)
-  components/BlockSaveButton.tsx         выделяется в S-03, когда паттерн уже проявлен
+  components/BlockSaveButton.tsx
   components/BannerUploader.tsx
   components/SegmentedControl.tsx
+  components/SettingsRow.tsx
+```
+
+> **Hub-структура (фактическая).** Итоговый `/seller/settings` — Hub с тремя группами строк
+> («Магазин» / «Покупатели» / «Интерфейс»); каждый блок переиспользуется на своём дочернем экране,
+> а статус (`ACTIVE↔PAUSED`) и язык интерфейса — мгновенные inline-действия хаба. Это уточняет
+> исходную формулировку «интеграция в `SellerSettingsView`»: блоки не выстраиваются в одну
+> длинную страницу, а открываются из хаба. Детали — `10 §1.1`.
 ```
 
 > Примечание: API-порты вызовов edge-функций по конвенции живут в `application/ports/apis.ts`

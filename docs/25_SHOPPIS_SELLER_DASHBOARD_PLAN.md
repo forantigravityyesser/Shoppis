@@ -1,7 +1,9 @@
 # SHOPPIS — SELLER DASHBOARD / ГЛАВНАЯ ПРОДАВЦА — ТЕХНИЧЕСКИЙ ПЛАН
 
 **Version:** 1.0
-**Дата:** 2026-10-11
+**Дата:** 2026-10-11  
+**Актуализировано:** 2026-10-14 (ревизия документации, партия 13: `25`) — заход закрыт
+(`SDB-00…SDB-10`); «текущая миграция `0052`» — исторический снимок (проект на `0056`).
 **Репозиторий:** `forantigravityyesser/Shoppis`
 **Базовый срез кода:** `main` после закрытия Cart/Commerce (`18`/`21`), Seller Inventory (`19`/`20`),
 Product Copy (`23`) и Orders (`22` + hardening `24`, текущая миграция `0052`).
@@ -14,7 +16,7 @@ Product Copy (`23`) и Orders (`22` + hardening `24`, текущая мигра�
 (жизненный цикл/actions), изменения Seller Inventory.
 
 **Связанные документы:** `00` (индекс), `01` (Constitution), `02` (Product Spec §17 — Seller App),
-`03` (Domain & Database Spec §13–18), `04` (Technical Spec §4/§9/§11), `05` (Implementation Plan §2.3),
+`03` (Domain & Database Spec §13–18), `04` (Technical Spec §4/§9/§11), `05` (Development History, Stage 2),
 `06` (Seller Inventory — §13 `Dashboard ↔ Inventory`, устаревает, см. §8), `11` (Hardening Backlog §S1),
 `16` (Remaining Work), `17` (Catalog Plan — keyset-конвенция), `18` (Cart Plan — границы), `20`
 (Seller Inventory hardening — инвентарь как источник counts), `22`/`24` (Orders — read-контур,

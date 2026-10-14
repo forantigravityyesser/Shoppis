@@ -1,13 +1,16 @@
 # SHOPPIS — ORDERS HARDENING AUDIT
 
 **Version:** 1.0
-**Дата:** 2026-10-11
+**Дата:** 2026-10-11  
+**Актуализировано:** 2026-10-14 (ревизия документации, партия 11: `21`, `24`) — статус закрыт;
+ссылка на `08 §2.11` историческая (пункт закрыт и удалён из реестра `08`); «следующая `0053`» —
+сейчас проект на `0056`.
 **Репозиторий:** `forantigravityyesser/Shoppis`
 **Базовый срез кода:** `main @ df67079` («завершил заказы — детали заказов функционально…») + рабочее дерево (in-flight доработка ORD-14: persistent-сокет, retry/backoff, `onResync`, патч детали, снят `keepPreviousData`, manual refresh заказов — **не закоммичено**).
 **Объект:** вкладка/функциональный блок **Заказы** (buyer `/orders`, seller `/seller/orders`, shared детали) — read-контур (`order-queries` + `0046`), command-контур (`order-actions` + `0007`), checkout-snapshot (`create_order_atomic`), application/read-models/hooks, shared UI, actions.
 **Вне области:** realtime ORD-14 (`0047`) — **по указанию заказчика не меняем** (см. §2.4/§3.5); продуктовые решения `00`/`02`/`18`; промокоды/доставка-как-услуга/налоги/платёж/tracking/чат/reorder/invoice; активация RLS как отдельный прод-гейт (`11 §S1`); прочие таб-контуры.
 
-**Связанные документы:** `00` (индекс), `01` (Constitution), `02` (Product Spec §6–7, §11–12, §14), `03` (Domain & Database Spec §13–18, §23–25), `04` (Technical Spec §4–5, §9, §11–12, §17), `08` (Divergence §2.11), `11` (Hardening Backlog §S1–S3), `16` (Remaining Work, FD-3), `17` (Catalog Plan — keyset-конвенция), `18` (Cart Plan — граница checkout), `21` (Commerce Hardening), `22` (Orders Technical Plan — authoritative для блока Orders), `23` (Product Copy).
+**Связанные документы:** `00` (индекс), `01` (Constitution), `02` (Product Spec §6–7, §11–12, §14), `03` (Domain & Database Spec §13–18, §23–25), `04` (Technical Spec §4–5, §9, §11–12, §17), `08` (Divergence), `11` (Hardening Backlog §S1–S3), `16` (Remaining Work, FD-3), `17` (Catalog Plan — keyset-конвенция), `18` (Cart Plan — граница checkout), `21` (Commerce Hardening), `22` (Orders Technical Plan — authoritative для блока Orders), `23` (Product Copy).
 
 **Статус документа:** authoritative для **hardening-захода Orders** (второй слой поверх реализованного `22 ORD-00…ORD-14`). Переносит внешний аудит блока заказов в формат проекта, сверяет каждый тезис с фактическим кодом (`файл:строка`), фиксирует целевые решения и порядок исправлений. Продуктовые/UX-решения `00`/`02`/`18`/`22` не пересматриваются.
 

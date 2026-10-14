@@ -1,13 +1,16 @@
 # SHOPPIS — CART / COMMERCE HARDENING AUDIT
 
 **Version:** 1.0
-**Дата:** 2026-10-05
+**Дата:** 2026-10-05  
+**Актуализировано:** 2026-10-14 (ревизия документации, партия 11: `21`, `24`) — статус hardening
+закрыт. Числа «Test 1–9 / 24/24 / `0001..0039`» отражают момент этапа: позже commerce-harness
+расширен до **Test 1–34** (`24`/`25`), миграции — до `0056`.
 **Репозиторий:** `forantigravityyesser/Shoppis`
 **Базовый срез кода:** `main @ dfcde99` («docs: inventory reconstruction changelog row») + рабочее дерево (`INV-HARDEN-01` — независимые оси цены/скидки в JS, не закоммичено).
 **Объект:** сквозной коммерческий контур **Cart → Checkout → Order → Inventory lifecycle**: Cart domain/state/read-model/reconciliation, checkout-форма и её граница, order slice, SQL checkout (`create_order_atomic`), idempotency, inventory lifecycle (AVAILABLE/HELD), seller stock mutation, tests, docs.
 **Вне области:** buyer Home/Catalog/Product Detail (hardened — `15`/`17`/`14`), seller Inventory UI-корректность (отдельный hardening — `19`/`20`), RLS/безопасность (`11` S1), промокоды/доставка-как-услуга/налоги/платёжный шлюз, экраны Favorites/Orders (roadmap — `16` FD-3), языки/валюты.
 
-**Связанные документы:** `01` (Constitution), `02` (Product Spec §11–12), `03` (Domain & Database Spec §9–10, §11–18, §24–25, §29), `04` (Technical Spec §4–5, §9, §11–12, §18), `05` (Implementation Plan), `08` (Divergence), `11` (Hardening Backlog), `16` (Remaining Work, FD-3), `17` (Catalog Plan), `18` (Cart Plan — authoritative для Cart), `19` (Inventory Reconstruction), `20` (Seller Inventory Hardening Audit — владелец P0 независимых осей цены).
+**Связанные документы:** `01` (Constitution), `02` (Product Spec §11–12), `03` (Domain & Database Spec §9–10, §11–18, §24–25, §29), `04` (Technical Spec §4–5, §9, §11–12, §18), `05` (Development History), `08` (Divergence), `11` (Hardening Backlog), `16` (Remaining Work, FD-3), `17` (Catalog Plan), `18` (Cart Plan — authoritative для Cart), `19` (Inventory Reconstruction), `20` (Seller Inventory Hardening Audit — владелец P0 независимых осей цены).
 
 **Статус документа:** authoritative для **commerce hardening** (второй слой поверх реализованного Cart). Переносит внешний аудит Cart/Commerce в формат проекта, сверяет его с фактическим кодом, фиксирует целевые решения и порядок исправлений. Он **не пересматривает** продукт/UX-решения, уже зафиксированные в `00`/`18` (в частности: получатель — адрес доставки, а не email; итог — только в CTA). Там, где внешний аудит расходится с зафиксированными решениями, документ это явно помечает (⏭️) и не превращает в работу.
 

@@ -1,7 +1,10 @@
 # SHOPPIS — SELLER INVENTORY HARDENING AUDIT
 
 **Version:** 1.0
-**Дата:** 2026-10-05
+**Дата:** 2026-10-05  
+**Актуализировано:** 2026-10-14 (ревизия документации, партия 10: `19`, `20`) — ссылки на
+`08 §2.1/§2.11` исторические (пункты закрыты и удалены из реестра `08`); `INV-HARDEN-01…09`
+закрыты как LOCAL-этап.
 **Репозиторий:** `forantigravityyesser/Shoppis`
 **Базовый срез кода:** `main @ ee79300` («Обновления инвентаря») + рабочее дерево (Cart/checkout-правки — отдельный незакоммиченный трек, в этот hardening не входит).
 **Объект:** Seller Inventory **после реконструкции `19`** — `InventoryView → Products/Categories → CategoryView → ProductView/ProductForm → hooks → read-models/mappers → Zustand slices → repositories → domain rules → SQL/edge → tests → docs`.
@@ -82,7 +85,7 @@ Severity hardening: **H1** обязательно · **H2** высоко · **H3
 |---|---|---|
 | §15–16 «submit protection сделан правильно» — ок | `submittingRef` + `submitting` (`ProductForm.tsx:100-103,192-211`), кнопки disabled, ошибка с retry | ✅ подтверждено, работы нет |
 | §33 «проверить submit tests (double click → one request, failure → retry)» | Уже покрыто: `ProductForm.test.tsx:22-44` (double click/прогресс), `:46-63` (reject → alert → повтор) | ⏭️ устарело, работы нет |
-| §25–28 «документация расходится по Reviews/Questions; надо окончательно зафиксировать» | Решение заказчика уже зафиксировано: `19 §24–25`, `00`, `06` (шапка + ADR-06.7), `08 §2.1`; `ProductView.tsx:14-19` рендерит `Карточка/Отзывы/Вопросы/Витрина`, `ProductOverview` без ссылок | ⏭️ устарело, работы нет (кроме контрольной сверки `07`, §12) |
+| §25–28 «документация расходится по Reviews/Questions; надо окончательно зафиксировать» | Решение заказчика уже зафиксировано: `19 §24–25`, `00`, `06` (шапка + ADR-06.7), `08` (на момент этапа `§2.1`; позже закрыт/удалён); `ProductView.tsx:14-19` рендерит `Карточка/Отзывы/Вопросы/Витрина`, `ProductOverview` без ссылок | ⏭️ устарело, работы нет (кроме контрольной сверки `07`, §12) |
 | A.4.3 «`AddVariantSheet` — fire-and-forget, `addVariant` без `await`» | Уже `await` + `saving` + `saveError` + close только при успехе (`AddVariantSheet.tsx:44-63`) | ⏭️ устарело; **но** heuristic внутри `addVariant` — часть P0 (§4.2) |
 | §33 «нужны тесты категорий: save rejects → sheet open, save resolves → close» | `EditCategorySheet.test.tsx` покрывал только реордер | ✅ закрыто `INV-HARDEN-05` (save/delete reject+resolve, retry) |
 | §33 «long category name / archived count / position + long name» | `CategoryCard.test.tsx` — только rank-бейдж; `CategoryGrid.test.tsx` — layout/row | ✅ закрыто `INV-HARDEN-05`; тесты переименованы `INV-HARDEN-06` (`InventoryCategoryRow.test.tsx` / `InventoryCategoryList.test.tsx`) |

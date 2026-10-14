@@ -1,7 +1,9 @@
 # SHOPPIS — CATALOG (покупатель) — ПЛАН РЕАЛИЗАЦИИ
 
 **Version:** 1.0
-**Дата:** 2026-10-04
+**Дата:** 2026-10-04  
+**Актуализировано:** 2026-10-14 (ревизия документации, партия 9: `17`, `18`) — обновлены номер
+следующей миграции и диапазон этапов; остальное (CAT-00…CAT-16) актуально.
 **Репозиторий:** `forantigravityyesser/Shoppis`
 **Базовый срез кода:** `main @ 96e6946` («Functioning product detail block + reviews & questions + related, home quality pass»).
 **Объект:** вкладка **Каталог** покупателя — server-driven discovery/search (категория, поиск, цена, pagination), полностью на существующем storefront-фундаменте.
@@ -633,10 +635,10 @@ Navigation back/transitions/scroll-restoration · focus-management · input posi
 - **Search perf:** `ILIKE` без индекса на больших магазинах. Приемлемо для MVP; триграм-индекс — по замеру.
 - **Boundaries vs фильтр:** store-wide диапазон может оставлять «пустые» под-диапазоны внутри категории. Приемлемо для MVP.
 - **`storeId` смешивает роли** (`15` §9.3): Catalog использует `viewedStore.publicId` для read и `viewedStore.id` для scope — новых усилений смешения не вводим.
-- **Next migration number:** `0026` (последняя в репозитории — `0025_product_link.sql`; учтено в CAT-01).
+- **Номер миграции этапа:** `0026` (на момент захода последней в репозитории была `0025_product_link.sql`). Сейчас проект дошёл до `0056`; актуальный каталожный hardening — `0033`.
 
 ---
 
 ## 10. Международная сводка одного абзаца
 
-Catalog — это не новый каталог, а **серверный read-слой поверх уже готового Home-фундамента**: один RPC `storefront_catalog_products_read` (category + search + price + keyset-курсор) и лёгкий `storefront_catalog_price_bounds_read`, application-контур `StorefrontCatalogQuery → Repository → useStorefrontCatalog` на `useInfiniteQuery`, URL как единственный источник истины (`category/q/minPrice/maxPrice`), и UI, целиком собранный из существующих `ProductGrid/ProductCard/CategoryItem/SearchBar/SafeImage`. Единая price semantics, multi-shop boundary и отсутствие дублирующих механизмов — обязательные инварианты. Этапы идут строго по порядку CAT-00…CAT-15, первые пять — без визуала, каждый закрывается зелёными `typecheck`/`lint`/`test`/`build` и проверкой в Telegram.
+Catalog — это не новый каталог, а **серверный read-слой поверх уже готового Home-фундамента**: один RPC `storefront_catalog_products_read` (category + search + price + keyset-курсор) и лёгкий `storefront_catalog_price_bounds_read`, application-контур `StorefrontCatalogQuery → Repository → useStorefrontCatalog` на `useInfiniteQuery`, URL как единственный источник истины (`category/q/minPrice/maxPrice`), и UI, целиком собранный из существующих `ProductGrid/ProductCard/CategoryItem/SearchBar/SafeImage`. Единая price semantics, multi-shop boundary и отсутствие дублирующих механизмов — обязательные инварианты. Этапы идут строго по порядку CAT-00…CAT-16, первые пять — без визуала, каждый закрывается зелёными `typecheck`/`lint`/`test`/`build` и проверкой в Telegram.

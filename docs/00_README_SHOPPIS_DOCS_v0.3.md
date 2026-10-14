@@ -4,6 +4,10 @@
 Identity-слоем и Seller App Shell (маршруты панели продавца, нижняя навигация, разделение
 Dashboard ↔ Settings).
 
+**Ревизия 2026-10-14:** проведена сквозная сверка **всего набора `00`–`25`** с фактическим кодом и
+БД (по партиям; см. changelog ниже и `05` для полной истории). Каждый документ приведён к текущей
+реализации либо помечен статусом. Полный индекс — в разделе «Документы».
+
 **Актуализация v0.4 (2026-10-01):** зафиксировано направление buyer storefront MVP — вкладка
 Главная, Каталог, Product Card, карточка товара, избранное, корзина, заказы, нижняя навигация
 покупателя и storefront-read layer (`13`). Синхронизированы `02` §18–19, `03` §29–30,
@@ -176,29 +180,162 @@ Stage 0 (карта кода `файл:строка`, расхождения и 
 загрузке изображений идёт через `application` (`useHaptic`, `image-service`). Детали — Technical
 Spec §9.0.
 
+**Актуализация (2026-10-14) — ревизия документации, партия 1 (`01`, `02`):** начат сквозной проход
+по docs от первых номеров (самые старые — первыми). `01` дополнена §10 «Реестр зафиксированных
+решений» — 24 решения с обоснованием «что выбрано / почему / что отвергнуто» (контекст≠роль,
+entry-bot по подписи `initData`, `product_links` вместо ProductGroup, per-axis цены, reserve-before-
+order + обязательный idempotency key, адрес вместо email, локальные cart/favorites, границы order-
+RPC, delivery outcome, i18n ru/en, `buyer_store_visits`, миграционный трекинг, RLS-гейт, realtime).
+`02` приведена к текущей реализации: онбординг продавца, dashboard header, вкладка «Продажи»,
+матрица статусов/актёров заказов и терминальность исхода, фактическое состояние Reviews/Questions
+(свободные отзывы без verified purchase, ответы, hide; post-delivery feedback — `ПЛАН`),
+cart/checkout-контракт (локальная корзина + серверный read-model, `1..99`, до 100 строк,
+idempotency), новые §20 (entry points/боты/deep links), §21 (список магазинов покупателя), §22
+(языки интерфейса и магазина).
+
+**Актуализация (2026-10-14) — партия 2 (`03`, `04`):** сверка с фактической схемой dev-проекта
+(23 таблицы, индексы, RPC, grants, RLS). `03` переписан по реальности: `product_links` вместо
+ProductGroup (reserved), точные поля всех таблиц (`stores.description/currency_symbol`,
+`telegram_identities.photo_url/notifications_enabled`, `orders.currency_symbol_snapshot/
+delivery_outcome`, `order_idempotency`, `buyer_store_visits`, `schema_migrations`), словарь
+`inventory_movements`, order-aware reconcile, раздел про local cart/favorites и отсутствие
+NotificationDelivery, фактические unique/partial-индексы, grants/REVOKE-модель `0048`, полный
+список storefront-проекций. `04` актуализирован: 18 edge-функций и `_shared`, HMAC-сессия
+(TTL 6 ч) + окно `auth_date` + timing-safe, `entryBot`, admin/anon-клиенты, reserve-before-order
+и контракт checkout `1..99`, image-pipeline (4:5 full 1000×1250 + thumb 512×640; категория 320;
+баннер ≈2.2:1/1100), фактическая структура `src/` и слоёв, i18n, notifications-флоу, security
+actual-vs-planned, testing (vitest + harness Test 1–34 + migrations:check + CI), deployment
+(Vercel + InsForge, env-переменные), deep links и вход без `startapp`.
+
+**Актуализация (2026-10-14) — партия 3 (`05`):** прежний «OpenCode Implementation Plan»
+**переработан в историю разработки** — `05_SHOPPIS_DEVELOPMENT_HISTORY.md` (файл переименован,
+ссылки обновлены): этапы 0–8 от первых коммитов (`7c2e2cd`: Vutrina → rework идеологии → Onion-
+рефакторинг → атомарность и настройки → Buyer storefront → Каталог → Inventory/Cart → Orders →
+Dashboard/i18n/боты → текущий WIP entry-bot/buyer-stores), сводная таблица 28 коммитов, параллельная
+история документации, поперечные линии (архитектура, атомарность, read-модели, hardening-волны,
+миграции, тесты, Telegram-платформа, i18n) и журнал инцидентов/уроков (дубли номеров миграций,
+регрессия price axes, checkout-гонка, дедлайн opt-in уведомлений, REVOKE order-RPC, окно
+`initData`). Остаток работ смотреть в `16`/`11`/`08`.
+
+**Актуализация (2026-10-14) — партия 4 (`06`, `07`, `09` — Inventory):** сверено с фактическим
+кодом экрана. `06`: ADR-06 получили статус реализации — ✅ 06.1/06.2/06.3/06.6/06.7/06.8; ⚠️ 06.4
+(SKU: колонка есть, использования/unique-индекса нет), 06.9 («Без категории» реализовано
+**виртуально** — `UNCATEGORIZED_ID`, колонка `is_system` не добавлялась), 06.5 (edit-маршрут
+`/product/:id/edit` всё же появился); маршруты/компоненты/данные приведены к реальности (секции
+«Товары»/«Категории», Zustand + ленивая догрузка вместо TanStack Query, `held → available` через
+`inventory_reconcile`, мутации через `catalog-actions` + atomic RPC), таблица фактических миграций
+(`0009`/`0010`/`0027`/`0037`/`0043`). `07`: структура экрана (header + mode switcher + секции),
+interaction map, component tree и data contracts обновлены; поиск в шапке помечен удалённым.
+`09`: Phase 8 исправлен (`held → available` через `inventory_reconcile`, отзывы/вопросы
+подключены), добавлены Phase 10/11/12 (реконструкция `19`, hardening `20`, копирование `23`).
+Следующая партия — `10`+`12` (настройки магазина).
+
+**Актуализация (2026-10-14) — партия 5 (`10`, `11`, `12` — Store Settings / Hardening Backlog):**
+`10` дополнен §1.1 — фактическая структура настроек (Hub + дочерние экраны профиль / локализация /
+контакт / поделиться, inline-статус и язык интерфейса); все блоки помечены реализованными. `12`
+актуализирован: статус `S-00…S-11` закрыт, исправлена карта файлов (Hub/child views), обновлена
+модель магазина (убрано «0 строк»), добавлено примечание о Hub-структуре. `11` переписан: журнал
+закрытого (атомарный каталог/settings, harness Test 1–34, lint 0/0, placeholder-экраны, PD-R) и
+актуальный остаток — S1 RLS (главный гейт перед продом), notification-delivery таблица, rate
+limiting, серверная upload-валидация, `useAppInit`/valibot/SQL-хелпер/версии, CSS-чистка.
+Следующая партия — `08` (divergence) и далее `13`–`25`.
+
+**Актуализация (2026-10-14) — партия 6 (`08`, divergence):** реестр приведён к фактическому
+остатку после сверки `01`–`12`. Удалены закрытые/устаревшие пункты (pause-экран, buyer storefront,
+reviews/questions, deep links, opt-in; «cart/favorite в БД» снято как **решение** `01 D14`; «поиска
+нет» — устарело; placeholder-экраны реализованы). Открытые: **S1** RLS (гейт перед продом),
+**S2** таблица `NotificationDelivery`, **S3** серверный image pipeline и scope поиска
+`title`/`description`, **S4/DECIDE** — `products.sku`, `product_groups`, legacy-колонки/dev-пути,
+buyer post-delivery feedback, `useAppInit`/`window.Telegram`. Следующая партия — feature-доки
+`13`–`25`.
+
+**Актуализация (2026-10-14) — партия 7 (`13`, `14` — Buyer Home / Product Detail):** `13` —
+исправлены точечные несоответствия: профиль в шапке — аватар/имя **покупателя** (§1/§4), убран
+`originalPrice` из Home ProductCard, related — через `product_links` (не `ProductGroup`), ссылка на
+`01 D14` вместо устаревшего `08 §2.2`. `14` — обновлён раздел «Следующие блоки» (Cart/Favorites/
+Orders реализованы; остаток — social-пагинация/фильтры, удаление ответов, RLS), добавлено
+примечание о viewer-aware read-RPC (`0016`/`0019`). Обе — с отметкой ревизии. Следующая партия —
+`15`+`16` (Home hardening + remaining work).
+
+**Актуализация (2026-10-14) — партия 8 (`15`, `16` — Home Hardening / Remaining Work):** `15`
+подтверждён актуальным (HOME-HARDEN-01…11 закрыт; ручные браузер/Telegram-проверки — за человеком);
+обновлены cross-ссылки на перенумерованный `08` (RLS `§1.1`, legacy `§4.3`), «2 read на холодном
+старте» помечен как осознанная модель (§5.8, не divergence), favorites — `01 D14`. `16` — сверен с
+кодом: графы FD-3 (Cart/Favorites/Orders), AR (Каталог, Главная продавца) закрыты; ссылки на `08`
+обновлены. Остаётся `TODO/DEFERRED/DECIDE`: linking-атрибуты (FD-1), seller preview (FD-2),
+social follow-up'ы (FD-4), `product_groups` (FD-5), blur-up/prefetch (FD-6). Следующая партия —
+`17`+`18` (Catalog + Cart).
+
+**Актуализация (2026-10-14) — партия 9 (`17`, `18` — Catalog / Cart):** `17` подтверждён
+реализованным (CAT-00…CAT-16); обновлён номер миграции этапа (`0026`; проект уже на `0056`,
+каталожный hardening — `0033`) и диапазон этапов. `18` подтверждён (CART-01…06 + commerce hardening);
+обновлены ссылки на перенумерованный `08` и число harness-тестов (**Test 1–34**). В `16` добавлен
+отсутствовавший follow-up **`CATALOG-20`** (фильтр цены по всем вариациям — `DEFERRED`), на который
+ссылается `17`. Следующая партия — `19`+`20` (Inventory reconstruction + hardening audit).
+
+**Актуализация (2026-10-14) — партия 10 (`19`, `20` — Inventory reconstruction/hardening):**
+оба аудита подтверждены завершёнными (`INV-R-01…37`, `INV-HARDEN-01…09` — LOCAL). Упоминания
+`08 §2.1/§2.11` (пункты реестра, закрытые и удалённые в партии 6) помечены как исторические;
+в шапки добавлены отметки ревизии. Следующая партия — `21`+`24` (Commerce / Orders hardening).
+
+**Актуализация (2026-10-14) — партия 11 (`21`, `24` — hardening audits):** оба закрыты
+(`CART-HARDEN-01…12`, `ORD-HARDEN-00…12`); добавлены отметки ревизии. В `21` пояснено, что
+«Test 1–9 / 24/24 / `0001..0039`» — момент этапа (harness позже расширен до Test 1–34, миграции до
+`0056`). В `24` убрана ссылка на удалённый `08 §2.11`. Следующая партия — `22`+`23` (Orders
+technical plan + Product Copy).
+
+**Актуализация (2026-10-14) — партия 12 (`22`, `23` — Orders / Product Copy):** подтверждены
+закрытыми (`ORD-00…13` + `ORD-14` realtime, `PC-00…08` — LOCAL); добавлены отметки ревизии; в `22`
+диапазон приведён к `ORD-HARDEN-00…12`; в `23` отмечено, что число тестов (`1011/1011`) — снимок
+этапа. Следующая партия — `25` (Seller Dashboard).
+
+**Актуализация (2026-10-14) — партия 13 (`25` — Seller Dashboard):** подтверждён закрытым
+(`SDB-00…SDB-10`; ручная `LOCAL`/`TELEGRAM`-свёрка за человеком); добавлена отметка ревизии. Этим
+завершена сквозная ревизия всего набора; ниже — обновлённый полный индекс документов.
+
 ## Документы
-1. `01_SHOPPIS_PROJECT_CONSTITUTION_v0.3.md` — принципы, границы MVP и правила.
-2. `02_SHOPPIS_PRODUCT_SPEC_v0.3.md` — точное поведение продукта и UX.
-3. `03_SHOPPIS_DOMAIN_DATABASE_SPEC_v0.3.md` — сущности, БД, состояния, инварианты, транзакции и RLS.
-4. `04_SHOPPIS_TECHNICAL_SPEC_v0.3.md` — React/Vite, InsForge, Telegram, auth, storage, security.
-5. `05_SHOPPIS_OPENCODE_IMPLEMENTATION_PLAN_v0.3.md` — маленькие независимые engineering tasks.
-6. `08_SHOPPIS_DOCS_CODE_DIVERGENCE_v0.3.md` — незакрытые расхождения кода и документации.
-7. `10_SHOPPIS_STORE_SETTINGS_PLAN.md` — настройки магазина: product/UX spec (ЧТО).
-8. `11_SHOPPIS_HARDENING_BACKLOG.md` — отложенный hardening (RLS, тесты, косметика).
-9. `12_SHOPPIS_STORE_SETTINGS_IMPLEMENTATION_PLAN.md` — настройки магазина: реализация (КАК), этапы S-00…S-10.
-10. `13_SHOPPIS_BUYER_HOME_PLAN.md` — покупательская часть: Главная/Каталог/карточка/навигация, storefront-модель и read layer, этапы H-01…H-11 (ЧТО+КАК).
-11. `14_SHOPPIS_PRODUCT_DETAIL_PLAN.md` — карточка товара покупателя: экран/галерея/варианты/цена/наличие/избранное/корзина, отзывы и вопросы (чтение), related (ProductGroup), публичный read layer `0015`, seller mini-stage; этапы PD-01…PD-14 (ЧТО+КАК).
-12. `15_SHOPPIS_BUYER_HOME_HARDENING_AUDIT.md` — hardening Главной покупателя: разбор аудита против кода, public store boundary, buyer avatar, progressive/cursor product loading, семантика `ProductCard`, image hardening, убрать `originalPrice` из Home; этапы HOME-HARDEN-01…11. Переопределяет `13` §3/§5/§9-10/§19/§28 — см. Приложение C.
-13. `16_SHOPPIS_REMAINING_WORK.md` — реестр незавершённого/отложенного (product follow-up'ы, roadmap, ссылки на hardening `11` и divergence `08`). Сюда перенесён редактор linking attributes (из `14` PD-14).
-14. `17_SHOPPIS_CATALOG_PLAN.md` — Каталог покупателя (server-driven): план реализации, единый контракт read-model/URL/React Query, переиспользование Home-фундамента; этапы CAT-00…CAT-16 (ЧТО+КАК).
-15. `18_SHOPPIS_CART_PLAN.md` — Корзина покупателя (`/cart`) + граница до checkout: единый источник истины (inventory), buy-side read-model `CartItemView`, реконсиляция, selection/select-all, inline-удаление, один итог, checkout-форма (ФИО / телефон / **адрес доставки**, не email); этапы CART-01…CART-06 (ЧТО+КАК).
-16. `19_SHOPPIS_SELLER_INVENTORY_RECONSTRUCTION_SPEC_v0.1.md` — реконструкция Seller Inventory: план исправлений и рефакторинга (секции Товары/Категории, explicit variant inheritance, mutation lifecycle, чистка ProductView, полноширинные строки категорий); этапы INV-R-01…INV-R-37, Приложение A — разбор относительно кода.
-17. `20_SHOPPIS_SELLER_INVENTORY_HARDENING_AUDIT.md` — повторный hardening-audit Seller Inventory после `19`: независимые оси custom-цены/скидки (JS + 7 живых SQL-функций + checkout; `INV-HARDEN-01/02` ✅, миграция `0037` применена), единый mutation API (throw), тесты категорий/responsive, переименование `CategoryGrid/CategoryCard` → `InventoryCategoryList`/`InventoryCategoryRow` (`INV-HARDEN-06` ✅), derived data, lint-гигиена; этапы INV-HARDEN-01…09, deferred-производительность 100+ с триггером.
-18. `21_SHOPPIS_CART_COMMERCE_HARDENING_AUDIT.md` — commerce hardening Cart/Checkout/Order: idempotency (retry + SQL reserve-before-order), серверный quantity-contract, `held_quantity` custody, SQL/integration/concurrency тесты, checkout-error → reconciliation, `MAX_CART_ITEMS`, split `cart-rules`/`checkout-rules`; этапы CART-HARDEN-01…12, deferred realtime с триггером. Владелец P0 независимых осей цены — `20` INV-HARDEN-02 (общая зависимость).
-19. `22_SHOPPIS_ORDERS_TECHNICAL_PLAN.md` — Заказы и Детали заказа (покупатель + продавец): перенос внешнего технического плана в формат проекта — аудит фундамента по коду, разбор внешнего плана (что уже закрыто `21`, что остаётся), целевая архитектура read/command (`order-queries` + миграция `0042`, cursor-пагинация, store-scope), read models `OrderListItem`/`OrderDetails`, security/PII, контакты, shared UI, матрица lifecycle-действий, тесты и DoD; этапы ORD-00…ORD-13 (ЧТО+КАК).
-20. `23_SHOPPIS_PRODUCT_COPY_TECHNICAL_PLAN.md` — Копирование карточки товара (независимые черновики): «+ Создать копию» поверх существующих форм создания/редактирования — сессия независимых черновиков, переключение, независимое сохранение, лимит 6, сброс фото/остатков, независимые цены/опции, отсутствие связи карточек; Stage 0 — карта кода (`файл:строка`) и расхождения ТЗ с кодом (R1–R9), этапы PC-00…PC-08, тестовая матрица, DoD; этап PC-00 (подтверждение) — до кода.
-21. `24_SHOPPIS_ORDERS_HARDENING_AUDIT.md` — hardening блока заказов (второй слой поверх `22`): P0 прямой доступ к защищённым order-RPC (`0048`), терминальность delivery outcome (`0049`), исторический символ валюты (`0050`), кэш↔личность, enum-safety (`0051`), `pg_temp`/HMAC (`0052`), дедуп/a11y, интеграционные RPC-тесты; этапы ORD-HARDEN-00…12.
-22. `25_SHOPPIS_SELLER_DASHBOARD_PLAN.md` — Главная продавца и вкладка **Продажи**: 4 блока (Продажи/Заказы/Инвентарь/Требует внимания), серверная сводка `seller_dashboard_read` + `seller_sales_list_read` (миграция `0053`), edge `seller-dashboard` и `order-queries` action `sales`, read-модели/хуки/кэш, экран `/seller/sales` (секции «Заработано»/«Потенциальные»); этапы SDB-00…SDB-10 (ЧТО+КАК).
+
+Полный индекс набора (`docs/`). `[LAN]` — заход закрыт как LOCAL-этап (осталась ручная
+`LOCAL`/`TELEGRAM`-свёрка за человеком). Source of truth: продукт — `02`, данные — `03`,
+инфраструктура — `04`, принципы — `01`, конкретная реализация — код.
+
+### Core
+- `00` — этот README: индекс, принцип двух сред, locked decisions, changelog ревизий.
+- `01` — Constitution: принципы, границы MVP, non-negotiable rules; **§10 — реестр решений (D1–D24)** с обоснованием.
+- `02` — Product Spec: поведение продукта и UX (навигация, inventory, заказы, entry points/боты, i18n).
+- `03` — Domain & Database Spec: фактическая схема (23 таблицы), инварианты, RPC/grants, storefront-проекции.
+- `04` — Technical Spec: стек, edge/RPC, auth, storage, security, testing, deployment.
+- `05` — Development History: этапы 0–8, хронология 28 коммитов, решения и инциденты.
+
+### Seller
+- `06` — Seller Inventory Spec: домен/UX/данные Inventory, ADR-06 со статусом реализации.
+- `07` — Inventory UX Spec: что видит/делает продавец (секции Товары/Категории).
+- `09` — Inventory Implementation Plan: этапы и статус (+ реконструкция и hardening).
+- `10` — Store Settings Plan (ЧТО); §1.1 — фактическая Hub-структура.
+- `12` — Store Settings Implementation Plan (КАК), этапы `S-00…S-11` `[LAN]`.
+- `19` — Inventory Reconstruction (`INV-R-01…37`) `[LAN]`.
+- `20` — Inventory Hardening Audit (`INV-HARDEN-01…09`) `[LAN]`.
+- `25` — Seller Dashboard Plan: главная + «Продажи» (`SDB-00…SDB-10`) `[LAN]`.
+
+### Buyer
+- `13` — Buyer Home Plan: Главная/Каталог/карточка/навигация, storefront-модель (`H-01…H-11`).
+- `14` — Product Detail Plan: карточка товара, отзывы/вопросы (чтение+запись), related (`PD-01…PD-14`).
+- `15` — Buyer Home Hardening Audit (`HOME-HARDEN-01…11`, + `HOME-FIX-01…05`); переопределяет части `13`.
+- `17` — Catalog Plan (server-driven) `CAT-00…CAT-16` `[LAN]`.
+- `18` — Cart Plan + граница checkout `CART-01…CART-06` `[LAN]`.
+- `22` — Orders Technical Plan: заказы покупателя и продавца `ORD-00…ORD-14` `[LAN]`.
+- `23` — Product Copy Plan: независимые черновики карточки `PC-00…PC-08` `[LAN]`.
+
+### Cross-cutting
+- `08` — Docs/Code Divergence: открытые расхождения (S1 RLS, notifications, search scope, SKU, …).
+- `11` — Hardening Backlog: тех-долг (журнал закрытого + актуальный остаток, RLS-гейт).
+- `16` — Remaining Work: продуктовые follow-up'ы (`FD-1…FD-6`, `CATALOG-20`).
+- `21` — Cart/Commerce Hardening Audit (`CART-HARDEN-01…12`) `[LAN]`.
+- `24` — Orders Hardening Audit (`ORD-HARDEN-00…12`) `[LAN]`.
+
+### Source material (не пронумеровано)
+- `Списки и детали товара.md` / `.txt` — исходные пожелания заказчика по карточке товара (основа `14`).
+- `inventory_real_backend_migration_plan.md` — исторический план перехода Inventory на реальный backend (`09` Phase 7).
 
 ## Принцип двух сред проверки
 Telegram — не финальная интеграция, а целевая среда исполнения и проверки с первых этапов. Каждый глобальный этап имеет два состояния: `LOCAL VERIFIED` (браузер / локальный контур) и `TELEGRAM VERIFIED` (реальный Telegram Mini App на development-окружении). Этап не закрывается без обоих.
@@ -213,13 +350,19 @@ Telegram — не финальная интеграция, а целевая с�
 ## Domain foundation
 `User → Shop → Product → Variant → Inventory → Order → OrderItem`
 
-Supporting: `Category, ProductGroup, ProductImage, ProductAttribute, ProductLinkAttribute, Cart, CartItem, Favorite, Review, Question, QuestionAnswer, OrderStatusHistory, InventoryMovement, NotificationDelivery, TelegramIdentity`.
+Supporting (фактически в БД): `TelegramIdentity, Category, ProductImage, ProductAttribute,
+ProductLinkAttribute, ProductLink, Review, ReviewReply, Question, QuestionAnswer, OrderStatusHistory,
+InventoryMovement, OrderIdempotency, BuyerStoreVisit, SchemaMigration`.  
+**Не в БД:** `Cart`/`CartItem` и `Favorite` — локально (Zustand persist, per-store); `NotificationDelivery`
+— `ПЛАН` (`08 §2.1`); `ProductGroup` — зарезервирован, не используется (`16 FD-5`). Детали — `03`.
 
 ## Locked decisions
 - Один пользователь может быть и покупателем, и продавцом.
 - В MVP UI один магазин на продавца; БД сразу поддерживает несколько.
-- Один Mini App/frontend и два Telegram-бота как entry points.
-- Разные цвета/формы одного товара — отдельные Product, связанные через ProductGroup.
+- Один Mini App/frontend; два пользовательских бота как entry points (buyer/seller) + операционный
+  admin-edge (`telegram-bot-admin`).
+- Разные цвета/формы одного товара — отдельные Product, связанные **явными двусторонними связями
+  `product_links`**; `ProductGroup` зарезервирован и не используется.
 - Variant — покупаемая опция внутри Product: Size/Volume/Capacity и т.п.
 - Одна Product в MVP имеет одну dimension вариантов, без Color × Size матрицы.
 - Product attributes разделены на обычные и linking/differentiating.
