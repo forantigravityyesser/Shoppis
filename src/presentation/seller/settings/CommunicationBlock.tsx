@@ -97,10 +97,10 @@ export default function CommunicationBlock({ store, suggestedUsername, onSave }:
   return (
     <section className="card">
       <div className="card__title">{t('seller.settings.communication.title')}</div>
-      <p style={styles.hint}>{t('seller.settings.communication.hint')}</p>
+      <p className="settings-hint">{t('seller.settings.communication.hint')}</p>
 
-      <div style={styles.inputRow}>
-        <span style={styles.icon} aria-hidden="true">
+      <div className="settings-input-row">
+        <span className="settings-input-row__icon" aria-hidden="true">
           <Send size={18} />
         </span>
         <input
@@ -113,14 +113,14 @@ export default function CommunicationBlock({ store, suggestedUsername, onSave }:
             setError(null);
           }}
           onBlur={handleBlur}
-          style={styles.input}
+          className="settings-input-row__input"
         />
         {handle ? (
           <button
             type="button"
             onClick={clear}
             aria-label={t('seller.settings.communication.clearAria')}
-            style={styles.clearButton}
+            className="settings-input-row__clear"
           >
             <X size={16} />
           </button>
@@ -131,7 +131,7 @@ export default function CommunicationBlock({ store, suggestedUsername, onSave }:
         type="button"
         onClick={prefill}
         disabled={saving || !suggestedUsername}
-        style={{ ...styles.prefill, ...(suggestedUsername ? null : styles.prefillDisabled) }}
+        className={`settings-prefill${suggestedUsername ? '' : ' settings-prefill--disabled'}`}
       >
         {suggestedUsername
           ? t('seller.settings.communication.prefillWith', { username: suggestedUsername })
@@ -139,15 +139,15 @@ export default function CommunicationBlock({ store, suggestedUsername, onSave }:
       </button>
 
       {valid && draftValue ? (
-        <div style={styles.previewRow}>
-          <span style={styles.preview}>
+        <div className="settings-preview-row">
+          <span className="settings-preview">
             {t('seller.settings.communication.linkLabel')}{' '}
             <a
               href={`https://t.me/${draftValue}`}
               target="_blank"
               rel="noopener noreferrer"
               aria-label={t('seller.settings.communication.openAria')}
-              style={styles.link}
+              className="settings-link"
             >
               t.me/{draftValue}
             </a>
@@ -156,7 +156,7 @@ export default function CommunicationBlock({ store, suggestedUsername, onSave }:
             type="button"
             onClick={() => void copy()}
             aria-label={t('seller.settings.communication.copyAria')}
-            style={styles.copyButton}
+            className="settings-copy"
           >
             {copied ? t('common.copied') : t('common.copy')}
           </button>
@@ -164,7 +164,7 @@ export default function CommunicationBlock({ store, suggestedUsername, onSave }:
       ) : null}
 
       {error ? (
-        <div role="alert" style={styles.error}>
+        <div role="alert" className="settings-block-error">
           {error}
         </div>
       ) : null}
@@ -173,69 +173,3 @@ export default function CommunicationBlock({ store, suggestedUsername, onSave }:
     </section>
   );
 }
-
-const styles: Record<string, React.CSSProperties> = {
-  hint: { fontSize: 12, color: 'var(--color-text-secondary, #8E8E93)', margin: '0 0 10px' },
-  inputRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    padding: '4px 12px',
-    borderRadius: 14,
-    border: '2px solid #EEE',
-    background: '#FFFFFF',
-  },
-  icon: { display: 'flex', color: '#2AABEE' },
-  input: {
-    flex: 1,
-    padding: '12px 0',
-    border: 'none',
-    outline: 'none',
-    fontSize: 16,
-    fontWeight: 600,
-    background: 'transparent',
-    color: '#000',
-  },
-  prefill: {
-    marginTop: 8,
-    alignSelf: 'flex-start',
-    padding: '8px 12px',
-    borderRadius: 10,
-    border: 'none',
-    background: 'var(--color-input-bg, #F2F2F7)',
-    color: '#6C5DD3',
-    fontSize: 13,
-    fontWeight: 700,
-    cursor: 'pointer',
-  },
-  prefillDisabled: { color: 'var(--color-text-secondary, #8E8E93)', cursor: 'default' },
-  clearButton: {
-    display: 'flex',
-    border: 'none',
-    background: 'transparent',
-    color: 'var(--color-text-secondary, #8E8E93)',
-    cursor: 'pointer',
-    padding: 4,
-  },
-  previewRow: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-    marginTop: 8,
-  },
-  preview: { fontSize: 12, color: 'var(--color-text-secondary, #8E8E93)' },
-  link: { color: '#2AABEE', fontWeight: 700, textDecoration: 'none' },
-  copyButton: {
-    flexShrink: 0,
-    border: 'none',
-    background: 'var(--color-input-bg, #F2F2F7)',
-    color: '#6C5DD3',
-    borderRadius: 10,
-    padding: '6px 10px',
-    fontSize: 12,
-    fontWeight: 700,
-    cursor: 'pointer',
-  },
-  error: { marginTop: 8, color: '#FF3B30', fontSize: 13 },
-};

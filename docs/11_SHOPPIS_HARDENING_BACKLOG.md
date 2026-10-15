@@ -50,7 +50,11 @@ Severity: **S1** критично · **S2** высоко · **S3** средне 
     а не прямые `select('*')`;
   - защищённые order/dashboard/sales/buyer-stores RPC `REVOKE`-нуты у `public`/`anon`/
     `authenticated` (`0048`, `0053`, `0054`) — вызываются только из edge через admin-клиент;
-  - **осталось:** часть seller-чтений всё ещё идёт прямыми SDK-select через PostgREST с anon-ключом.
+  - `fetchCurrentStore` (настройки продавца) переведён на owner-scoped `store_read_owned` (`0061`)
+    через edge `store-actions` (action `read`): actor из сессии, узкая проекция `_store_projection`
+    вместо `select('*')` (R1, 2026-10-15);
+  - **осталось:** `loadSellerStore` (`fetchStoresByOwnerUser/Telegram`) и `checkOwnership`
+    (`store-repository.ts`) всё ещё читают `stores` прямыми SDK-select через PostgREST с anon-ключом.
 - **Блокер:** кастомная Telegram-сессия не распознаётся PostgREST, поэтому RLS не может опираться
   на `auth.uid()`.
 - **Варианты:**

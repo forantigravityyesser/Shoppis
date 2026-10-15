@@ -118,10 +118,24 @@ describe('SellerDashboard (docs/25 SDB-06)', () => {
     expect(h.refetch).toHaveBeenCalledTimes(1);
   });
 
-  it('disabled → пустое состояние (нет магазина)', () => {
+  it('no-store → пустое состояние (нет магазина)', () => {
     h.dash.disabledReason = 'no-store';
     render(<SellerDashboard />);
     expect(screen.getByTestId('dashboard-empty')).toHaveTextContent('Нет данных магазина');
+  });
+
+  it('no-session → состояние сессии с кнопкой обновления', () => {
+    h.dash.disabledReason = 'no-session';
+    render(<SellerDashboard />);
+    const empty = screen.getByTestId('dashboard-empty');
+    expect(empty).toHaveTextContent('Сессия недоступна');
+    expect(within(empty).getByRole('button', { name: 'Обновить' })).toBeInTheDocument();
+  });
+
+  it('disabled → «Сводка отключена»', () => {
+    h.dash.disabledReason = 'disabled';
+    render(<SellerDashboard />);
+    expect(screen.getByTestId('dashboard-empty')).toHaveTextContent('Сводка отключена');
   });
 
   it('success без сводки → «Сводка недоступна»', () => {

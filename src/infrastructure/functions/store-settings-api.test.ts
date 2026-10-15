@@ -1,12 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { invokeFunction, updateStoreProfileDev, updateStoreStatusDev, updateStoreTutorialStateDev } =
-  vi.hoisted(() => ({
-    invokeFunction: vi.fn(),
-    updateStoreProfileDev: vi.fn(),
-    updateStoreStatusDev: vi.fn(),
-    updateStoreTutorialStateDev: vi.fn(),
-  }));
+const {
+  invokeFunction,
+  readStoreDev,
+  updateStoreProfileDev,
+  updateStoreStatusDev,
+  updateStoreTutorialStateDev,
+} = vi.hoisted(() => ({
+  invokeFunction: vi.fn(),
+  readStoreDev: vi.fn(),
+  updateStoreProfileDev: vi.fn(),
+  updateStoreStatusDev: vi.fn(),
+  updateStoreTutorialStateDev: vi.fn(),
+}));
 
 vi.mock('../insforge/functions-gateway', () => ({ invokeFunction }));
 vi.mock('../insforge/config', () => ({
@@ -16,12 +22,13 @@ vi.mock('../insforge/config', () => ({
   MEDIA_BUCKET: 'shoppis-media',
 }));
 vi.mock('./store-settings-api.dev', () => ({
+  readStoreDev,
   updateStoreProfileDev,
   updateStoreStatusDev,
   updateStoreTutorialStateDev,
 }));
 
-import { updateProfile, updateStatus, updateTutorialState } from './store-settings-api';
+import { readStore, updateProfile, updateStatus, updateTutorialState } from './store-settings-api';
 import type { StoreRow } from '../repositories/store-repository';
 
 const ROW: StoreRow = {
@@ -47,9 +54,46 @@ function ok(row: StoreRow = ROW) {
 
 beforeEach(() => {
   invokeFunction.mockReset();
+  readStoreDev.mockReset();
   updateStoreProfileDev.mockReset();
   updateStoreStatusDev.mockReset();
   updateStoreTutorialStateDev.mockReset();
+});
+
+describe('store-settings-api.readStore (R1)', () => {
+  it('с сессией читает owner-scoped через store-actions action read', async () => {
+    invokeFunction.mockResolvedValue(ok());
+
+    const store = await readStore('tok', 'pub1');
+
+    expect(invokeFunction).toHaveBeenCalledWith('store-actions', {
+      token: 'tok',
+      body: { action: 'read', storeRef: 'pub1' },
+    });
+    expect(store).toMatchObject({ id: 's1', publicId: 'pub1' });
+  });
+
+  it('чужой/несуществующий магазин → null, не ошибка', async () => {
+    invokeFunction.mockResolvedValue({ data: { success: true, store: null }, error: null });
+
+    await expect(readStore('tok', 'other')).resolves.toBeNull();
+  });
+
+  it('бросает код серверной ошибки', async () => {
+    invokeFunction.mockResolvedValue({ data: { success: false, error: 'FORBIDDEN' }, error: null });
+    await expect(readStore('tok', 'pub1')).rejects.toThrow('FORBIDDEN');
+  });
+
+  it('бросает ошибку транспорта', async () => {
+    invokeFunction.mockResolvedValue({ data: null, error: { message: 'Unauthorized' } });
+    await expect(readStore('tok', 'pub1')).rejects.toThrow('Unauthorized');
+  });
+
+  it('без токена и без DEV_AUTH_MODE не ходит на сервер', async () => {
+    await expect(readStore(null, 'pub1')).rejects.toThrow('Unauthorized');
+    expect(invokeFunction).not.toHaveBeenCalled();
+    expect(readStoreDev).not.toHaveBeenCalled();
+  });
 });
 
 describe('store-settings-api.updateStoreProfile', () => {

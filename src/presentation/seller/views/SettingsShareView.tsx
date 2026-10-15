@@ -1,8 +1,8 @@
-import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useStore } from '../../../application/store';
+import { useCurrentStore } from '../../../application/hooks/useCurrentStore';
 import { useStorefrontLink } from '../../../application/hooks/useStorefrontLink';
 import BackButton from '../../shared/components/BackButton';
+import StoreLoadState from '../../shared/components/StoreLoadState';
 import SharePreviewBlock from '../settings/SharePreviewBlock';
 
 /**
@@ -13,14 +13,8 @@ import SharePreviewBlock from '../settings/SharePreviewBlock';
  */
 export default function SettingsShareView() {
   const { t } = useTranslation();
-  const currentStore = useStore((s) => s.currentStore);
-  const fetchCurrentStore = useStore((s) => s.fetchCurrentStore);
-  const authLoading = useStore((s) => s.authLoading);
+  const { store: currentStore, loading, error, notFound, retry } = useCurrentStore();
   const storefrontUrl = useStorefrontLink(currentStore?.publicId ?? '');
-
-  useEffect(() => {
-    if (!currentStore) void fetchCurrentStore();
-  }, [currentStore, fetchCurrentStore]);
 
   return (
     <div className="screen">
@@ -29,17 +23,9 @@ export default function SettingsShareView() {
         <h1 className="screen__title">{t('seller.settings.shareTitle')}</h1>
       </div>
 
-      {authLoading && !currentStore ? (
-        <div className="card card__muted" style={{ textAlign: 'center' }}>
-          {t('seller.settings.loading')}
-        </div>
-      ) : !currentStore ? (
-        <div className="card card__muted" style={{ textAlign: 'center' }}>
-          {t('seller.settings.notFound')}
-        </div>
-      ) : (
-        <SharePreviewBlock url={storefrontUrl} showPreview={false} />
-      )}
+      <StoreLoadState loading={loading} error={error} notFound={notFound} onRetry={retry}>
+        {currentStore ? <SharePreviewBlock url={storefrontUrl} showPreview={false} /> : null}
+      </StoreLoadState>
     </div>
   );
 }

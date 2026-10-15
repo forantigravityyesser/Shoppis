@@ -15,10 +15,15 @@ export interface ShopApi {
 }
 
 /**
- * store-actions: мутации настроек магазина по валидной сессии.
+ * store-actions: чтение/мутации настроек магазина по валидной сессии.
  * `token === null` — только DEV-путь (DEV_AUTH_MODE).
  */
 export interface StoreSettingsApi {
+  /**
+   * Owner-scoped чтение магазина. `storeRef` — канон `public_id` (legacy внутренний
+   * id резолвится сервером). `null` — чужой/несуществующий магазин, не ошибка сети.
+   */
+  readStore(token: string | null, storeRef: string): Promise<Store | null>;
   updateProfile(token: string | null, storeId: string, patch: StoreProfilePatch): Promise<Store>;
   updateStatus(token: string | null, storeId: string, status: StoreStatus): Promise<Store>;
   updateTutorialState(

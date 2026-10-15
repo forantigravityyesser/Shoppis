@@ -129,7 +129,7 @@ export default function StoreIdentityBlock({ store, onSave, onUploadBanner }: Pr
           setName(e.target.value);
           setError(null);
         }}
-        style={styles.input}
+        className="settings-input"
       />
 
       <textarea
@@ -142,14 +142,14 @@ export default function StoreIdentityBlock({ store, onSave, onUploadBanner }: Pr
           setDescription(e.target.value);
           setError(null);
         }}
-        style={styles.textarea}
+        className="settings-textarea"
       />
-      <div style={styles.counter}>
+      <div className="settings-counter">
         {description.length}/{STORE_DESCRIPTION_MAX}
       </div>
 
       {error ? (
-        <div role="alert" style={styles.error}>
+        <div role="alert" className="settings-block-error">
           {error}
         </div>
       ) : null}
@@ -168,43 +168,3 @@ export default function StoreIdentityBlock({ store, onSave, onUploadBanner }: Pr
     </section>
   );
 }
-
-const styles: Record<string, React.CSSProperties> = {
-  input: {
-    width: '100%',
-    padding: '14px 16px',
-    borderRadius: 14,
-    border: '2px solid #EEE',
-    fontSize: 16,
-    fontWeight: 600,
-    outline: 'none',
-    background: '#FFFFFF',
-    color: '#000',
-    boxSizing: 'border-box',
-  },
-  textarea: {
-    width: '100%',
-    marginTop: 12,
-    padding: '14px 16px',
-    borderRadius: 14,
-    border: '2px solid #EEE',
-    fontSize: 15,
-    fontWeight: 500,
-    lineHeight: 1.4,
-    outline: 'none',
-    background: '#FFFFFF',
-    color: '#000',
-    boxSizing: 'border-box',
-    resize: 'vertical',
-    minHeight: 84,
-    fontFamily: 'inherit',
-  },
-  counter: {
-    marginTop: 6,
-    textAlign: 'right',
-    fontSize: 12,
-    fontWeight: 600,
-    color: '#8E8E93',
-  },
-  error: { marginTop: 8, color: '#FF3B30', fontSize: 13 },
-};

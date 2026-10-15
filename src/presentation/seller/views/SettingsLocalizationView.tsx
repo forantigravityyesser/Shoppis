@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useStore } from '../../../application/store';
+import { useCurrentStore } from '../../../application/hooks/useCurrentStore';
 import BackButton from '../../shared/components/BackButton';
+import StoreLoadState from '../../shared/components/StoreLoadState';
 import LocalizationBlock from '../settings/LocalizationBlock';
 
 /**
@@ -10,14 +11,8 @@ import LocalizationBlock from '../settings/LocalizationBlock';
  */
 export default function SettingsLocalizationView() {
   const { t } = useTranslation();
-  const currentStore = useStore((s) => s.currentStore);
-  const fetchCurrentStore = useStore((s) => s.fetchCurrentStore);
+  const { store: currentStore, loading, error, notFound, retry } = useCurrentStore();
   const updateStoreProfile = useStore((s) => s.updateStoreProfile);
-  const authLoading = useStore((s) => s.authLoading);
-
-  useEffect(() => {
-    if (!currentStore) void fetchCurrentStore();
-  }, [currentStore, fetchCurrentStore]);
 
   return (
     <div className="screen">
@@ -26,17 +21,11 @@ export default function SettingsLocalizationView() {
         <h1 className="screen__title">{t('seller.settings.localizationTitle')}</h1>
       </div>
 
-      {authLoading && !currentStore ? (
-        <div className="card card__muted" style={{ textAlign: 'center' }}>
-          {t('seller.settings.loading')}
-        </div>
-      ) : !currentStore ? (
-        <div className="card card__muted" style={{ textAlign: 'center' }}>
-          {t('seller.settings.notFound')}
-        </div>
-      ) : (
-        <LocalizationBlock store={currentStore} onSave={updateStoreProfile} />
-      )}
+      <StoreLoadState loading={loading} error={error} notFound={notFound} onRetry={retry}>
+        {currentStore ? (
+          <LocalizationBlock store={currentStore} onSave={updateStoreProfile} />
+        ) : null}
+      </StoreLoadState>
     </div>
   );
 }

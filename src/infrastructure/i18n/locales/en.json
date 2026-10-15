@@ -285,7 +285,12 @@
         "noStoreTitle": "No store data",
         "noStoreText": "Open a store to see the summary.",
         "noSummaryTitle": "Summary unavailable",
-        "noSummaryText": "Please try refreshing later."
+        "noSummaryText": "Please try refreshing later.",
+        "noSessionTitle": "Session unavailable",
+        "noSessionText": "Sign in again to see the summary.",
+        "retry": "Refresh",
+        "disabledTitle": "Summary disabled",
+        "disabledText": "Summary refresh is paused."
       },
       "error": {
         "title": "Could not load the summary",
@@ -661,6 +666,8 @@
       "title": "Settings",
       "loading": "Loading store…",
       "notFound": "Store not found",
+      "loadErrorTitle": "Couldn't load the store",
+      "loadErrorText": "Check your connection and try again.",
       "groupStore": "Store",
       "groupBuyers": "For buyers",
       "groupInterface": "Interface",

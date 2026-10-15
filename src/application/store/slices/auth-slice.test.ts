@@ -2,11 +2,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const storeRepository = {
+  fetchStore: vi.fn(),
   fetchStoresByOwnerUser: vi.fn(),
   fetchStoresByOwnerTelegram: vi.fn(),
 };
 
 const storeSettingsApi = {
+  readStore: vi.fn(),
   updateProfile: vi.fn(),
   updateStatus: vi.fn(),
   updateTutorialState: vi.fn(),
@@ -49,8 +51,10 @@ const PAGE = { pages: [{ orders: [], nextCursor: null }], pageParams: [null] };
 beforeEach(() => {
   useStore.setState({ sessionToken: null, serverUser: null });
   queryClient.clear();
+  storeRepository.fetchStore.mockReset();
   storeRepository.fetchStoresByOwnerUser.mockReset();
   storeRepository.fetchStoresByOwnerTelegram.mockReset();
+  storeSettingsApi.readStore.mockReset();
   storeSettingsApi.updateProfile.mockReset();
   storeSettingsApi.updateStatus.mockReset();
   storeSettingsApi.updateTutorialState.mockReset();
@@ -253,5 +257,49 @@ describe('tutorial state (docs/26 §3.2/§3.6, TUT-02)', () => {
         }),
     ).rejects.toThrow('Store is not selected');
     expect(storeSettingsApi.updateTutorialState).not.toHaveBeenCalled();
+  });
+});
+
+describe('fetchCurrentStore — owner-scoped read (R1)', () => {
+  it('с сессией читает через серверный readStore', async () => {
+    useStore.setState({ storeId: 's1', sessionToken: 'tok', currentStore: null });
+    storeSettingsApi.readStore.mockResolvedValue(store('s1'));
+
+    await useStore.getState().fetchCurrentStore();
+
+    expect(storeSettingsApi.readStore).toHaveBeenCalledWith('tok', 's1');
+    expect(storeRepository.fetchStore).not.toHaveBeenCalled();
+    expect(useStore.getState().currentStore?.id).toBe('s1');
+  });
+
+  it('без сессии — прямой fetchStore (dev)', async () => {
+    useStore.setState({ storeId: 's1', sessionToken: null, currentStore: null });
+    storeRepository.fetchStore.mockResolvedValue(store('s1'));
+
+    await useStore.getState().fetchCurrentStore();
+
+    expect(storeRepository.fetchStore).toHaveBeenCalledWith('s1');
+    expect(storeSettingsApi.readStore).not.toHaveBeenCalled();
+    expect(useStore.getState().currentStore?.id).toBe('s1');
+  });
+
+  it('null (чужой/удалён) → сброс scope, не ошибка', async () => {
+    useStore.setState({ storeId: 's1', sessionToken: 'tok', currentStore: store('s1') });
+    storeSettingsApi.readStore.mockResolvedValue(null);
+
+    await useStore.getState().fetchCurrentStore();
+
+    expect(useStore.getState().storeId).toBeNull();
+    expect(useStore.getState().currentStore).toBeNull();
+    expect(useStore.getState().authLoading).toBe(false);
+  });
+
+  it('ошибка чтения → authError и проброс', async () => {
+    useStore.setState({ storeId: 's1', sessionToken: 'tok', currentStore: null });
+    storeSettingsApi.readStore.mockRejectedValue(new Error('network'));
+
+    await expect(useStore.getState().fetchCurrentStore()).rejects.toThrow('network');
+    expect(useStore.getState().authError).toBe('network');
+    expect(useStore.getState().authLoading).toBe(false);
   });
 });

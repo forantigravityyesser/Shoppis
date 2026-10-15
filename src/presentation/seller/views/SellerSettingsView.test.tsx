@@ -224,6 +224,23 @@ describe('SellerSettingsView (Hub)', () => {
     expect(screen.getByText('Магазин не найден')).toBeInTheDocument();
   });
 
+  it('ошибка загрузки → состояние ошибки с повтором, не «магазин не найден»', async () => {
+    mockState.currentStore = null;
+    mockState.authLoading = false;
+    const fetchMock = vi.fn().mockRejectedValue(new Error('network'));
+    mockState.fetchCurrentStore = fetchMock;
+
+    render(<SellerSettingsView />);
+
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent('Не удалось загрузить магазин'),
+    );
+    expect(screen.queryByText('Магазин не найден')).toBeNull();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Повторить' }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+  });
+
   it('строка «Пройти обучение» запускает обучение и уводит на главную', async () => {
     const user = userEvent.setup();
     render(<SellerSettingsView />);

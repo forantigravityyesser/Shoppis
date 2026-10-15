@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import {
@@ -11,12 +11,14 @@ import {
   Store as StoreIcon,
 } from 'lucide-react';
 import { useStore } from '../../../application/store';
+import { useCurrentStore } from '../../../application/hooks/useCurrentStore';
 import { useStorefrontLink } from '../../../application/hooks/useStorefrontLink';
 import { useOpenTelegramLink } from '../../../application/hooks/useOpenTelegramLink';
-import { useSellerTutorial } from '../../../application/hooks/useSellerTutorial';
+import { useStartTutorial } from '../../../application/hooks/useStartTutorial';
 import type { StoreStatus } from '../../../domain/models/store';
 import BackButton from '../../shared/components/BackButton';
 import LanguageSwitcher from '../../shared/components/LanguageSwitcher';
+import StoreLoadState from '../../shared/components/StoreLoadState';
 import SettingsRow from '../settings/components/SettingsRow';
 import BlockSaveButton from '../settings/components/BlockSaveButton';
 
@@ -111,7 +113,7 @@ function HubStatusToggle({
           </div>
         </div>
       ) : (
-        <div style={{ padding: isDirty ? '0 16px 16px' : undefined }}>
+        <div className={isDirty ? 'settings-save-row' : undefined}>
           <BlockSaveButton visible={isDirty} saving={saving} onClick={save} />
         </div>
       )}
@@ -127,47 +129,11 @@ function HubStatusToggle({
 export default function SellerSettingsView() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const currentStore = useStore((s) => s.currentStore);
-  const fetchCurrentStore = useStore((s) => s.fetchCurrentStore);
+  const { store: currentStore, loading, error, notFound, retry } = useCurrentStore();
   const updateStoreStatus = useStore((s) => s.updateStoreStatus);
-  const authLoading = useStore((s) => s.authLoading);
   const storefrontUrl = useStorefrontLink(currentStore?.publicId ?? '');
   const openTelegramLink = useOpenTelegramLink();
-  const tutorial = useSellerTutorial();
-
-  useEffect(() => {
-    if (!currentStore) void fetchCurrentStore();
-  }, [currentStore, fetchCurrentStore]);
-
-  if (authLoading && !currentStore) {
-    return (
-      <div className="screen">
-        <div className="screen__header screen__header--row screen__header--center">
-          <BackButton fallback="/seller/dashboard" />
-          <h1 className="screen__title">{t('seller.settings.title')}</h1>
-        </div>
-        <div className="card card__muted" style={{ textAlign: 'center' }}>
-          {t('seller.settings.loading')}
-        </div>
-      </div>
-    );
-  }
-
-  if (!currentStore) {
-    return (
-      <div className="screen">
-        <div className="screen__header screen__header--row screen__header--center">
-          <BackButton fallback="/seller/dashboard" />
-          <h1 className="screen__title">{t('seller.settings.title')}</h1>
-        </div>
-        <div className="card card__muted" style={{ textAlign: 'center' }}>
-          {t('seller.settings.notFound')}
-        </div>
-      </div>
-    );
-  }
-
-  const languageLabel = t(`language.${currentStore.language}`);
+  const startTutorial = useStartTutorial();
 
   return (
     <div className="screen">
@@ -176,81 +142,78 @@ export default function SellerSettingsView() {
         <h1 className="screen__title">{t('seller.settings.title')}</h1>
       </div>
 
-      <div className="settings-group__label">{t('seller.settings.groupStore')}</div>
-      <section className="settings-group" aria-label={t('seller.settings.groupStore')}>
-        <SettingsRow
-          title={t('seller.settings.rowProfile')}
-          value={currentStore.name}
-          icon={StoreIcon}
-          onClick={() => navigate('/seller/settings/profile')}
-        />
-        <SettingsRow
-          title={t('seller.settings.rowLocalization')}
-          value={`${languageLabel} · ${currentStore.currencyCode}`}
-          icon={Languages}
-          onClick={() => navigate('/seller/settings/localization')}
-        />
-        <SettingsRow
-          title={t('seller.settings.rowContacts')}
-          value={
-            currentStore.supportHandle
-              ? `@${currentStore.supportHandle}`
-              : t('seller.settings.valueNotSpecified')
-          }
-          icon={Send}
-          onClick={() => navigate('/seller/settings/contact')}
-        />
-        <HubStatusToggle
-          key={currentStore.status}
-          initialStatus={currentStore.status}
-          onSaveStatus={updateStoreStatus}
-        />
-      </section>
+      <StoreLoadState loading={loading} error={error} notFound={notFound} onRetry={retry}>
+        {currentStore ? (
+          <>
+            <div className="settings-group__label">{t('seller.settings.groupStore')}</div>
+            <section className="settings-group" aria-label={t('seller.settings.groupStore')}>
+              <SettingsRow
+                title={t('seller.settings.rowProfile')}
+                value={currentStore.name}
+                icon={StoreIcon}
+                onClick={() => navigate('/seller/settings/profile')}
+              />
+              <SettingsRow
+                title={t('seller.settings.rowLocalization')}
+                value={`${t(`language.${currentStore.language}`)} · ${currentStore.currencyCode}`}
+                icon={Languages}
+                onClick={() => navigate('/seller/settings/localization')}
+              />
+              <SettingsRow
+                title={t('seller.settings.rowContacts')}
+                value={
+                  currentStore.supportHandle
+                    ? `@${currentStore.supportHandle}`
+                    : t('seller.settings.valueNotSpecified')
+                }
+                icon={Send}
+                onClick={() => navigate('/seller/settings/contact')}
+              />
+              <HubStatusToggle
+                key={currentStore.status}
+                initialStatus={currentStore.status}
+                onSaveStatus={updateStoreStatus}
+              />
+            </section>
 
-      <div className="settings-group__label">{t('seller.settings.groupBuyers')}</div>
-      <section className="settings-group" aria-label={t('seller.settings.groupBuyers')}>
-        <SettingsRow
-          title={t('seller.settings.rowShare')}
-          icon={Share2}
-          dataTour="settings-share"
-          onClick={() => navigate('/seller/settings/share')}
-        />
-        <SettingsRow
-          title={t('seller.settings.rowPreview')}
-          icon={Eye}
-          action
-          onClick={() => openTelegramLink(storefrontUrl)}
-        />
-      </section>
+            <div className="settings-group__label">{t('seller.settings.groupBuyers')}</div>
+            <section className="settings-group" aria-label={t('seller.settings.groupBuyers')}>
+              <SettingsRow
+                title={t('seller.settings.rowShare')}
+                icon={Share2}
+                dataTour="settings-share"
+                onClick={() => navigate('/seller/settings/share')}
+              />
+              <SettingsRow
+                title={t('seller.settings.rowPreview')}
+                icon={Eye}
+                action
+                onClick={() => openTelegramLink(storefrontUrl)}
+              />
+            </section>
 
-      <div className="settings-group__label">{t('seller.settings.groupInterface')}</div>
-      <section className="settings-group" aria-label={t('seller.settings.groupInterface')}>
-        <div style={{ padding: 14 }}>
-          <div
-            style={{
-              fontSize: 13,
-              fontWeight: 700,
-              color: 'var(--color-text-secondary, #8E8E93)',
-              marginBottom: 10,
-            }}
-          >
-            {t('language.label')}
-          </div>
-          <LanguageSwitcher />
-        </div>
-      </section>
+            <div className="settings-group__label">{t('seller.settings.groupInterface')}</div>
+            <section className="settings-group" aria-label={t('seller.settings.groupInterface')}>
+              <div className="settings-interface">
+                <div className="settings-interface__label">{t('language.label')}</div>
+                <LanguageSwitcher />
+              </div>
+            </section>
 
-      <div className="settings-group__label">{t('seller.settings.groupHelp')}</div>
-      <section className="settings-group" aria-label={t('seller.settings.groupHelp')}>
-        <SettingsRow
-          title={t('seller.settings.rowTutorial')}
-          icon={GraduationCap}
-          onClick={() => {
-            void tutorial.accept();
-            navigate('/seller/dashboard');
-          }}
-        />
-      </section>
+            <div className="settings-group__label">{t('seller.settings.groupHelp')}</div>
+            <section className="settings-group" aria-label={t('seller.settings.groupHelp')}>
+              <SettingsRow
+                title={t('seller.settings.rowTutorial')}
+                icon={GraduationCap}
+                onClick={() => {
+                  startTutorial();
+                  navigate('/seller/dashboard');
+                }}
+              />
+            </section>
+          </>
+        ) : null}
+      </StoreLoadState>
     </div>
   );
 }

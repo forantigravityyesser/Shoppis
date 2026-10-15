@@ -794,6 +794,57 @@ button.settings-row:disabled {
   font-size: var(--font-size-sm);
 }
 
+/* ---- Store load state (seller settings: loading / error / not found) ---- */
+.store-state {
+  text-align: center;
+}
+
+.store-state--error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+
+.store-state__title {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.store-state__text {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.store-state__retry {
+  margin-top: var(--spacing-2);
+  padding: 11px 22px;
+  border: none;
+  border-radius: var(--radius-full);
+  background: #efeaff;
+  color: var(--color-accent);
+  font-family: inherit;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    transform 0.12s ease;
+}
+
+.store-state__retry:active {
+  transform: scale(0.96);
+  background: #e5ddff;
+}
+
+.store-state__retry:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
 /* ---- Skeleton (shimmer) ---- */
 .skeleton {
   background: linear-gradient(
@@ -929,4 +980,168 @@ button.settings-row:disabled {
 
 .btn-primary--wide {
   width: 100%;
+}
+
+/* ---- Seller settings blocks (единые стили полей/ошибок, R5) ---- */
+.settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.settings-field__label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-text-secondary, #8e8e93);
+}
+
+.settings-input {
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 2px solid #eee;
+  font-size: 16px;
+  font-weight: 600;
+  outline: none;
+  background: #ffffff;
+  color: #000000;
+  box-sizing: border-box;
+}
+
+.settings-textarea {
+  width: 100%;
+  margin-top: 12px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 2px solid #eee;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.4;
+  outline: none;
+  background: #ffffff;
+  color: #000000;
+  box-sizing: border-box;
+  resize: vertical;
+  min-height: 84px;
+  font-family: inherit;
+}
+
+.settings-counter {
+  margin-top: 6px;
+  text-align: right;
+  font-size: 12px;
+  font-weight: 600;
+  color: #8e8e93;
+}
+
+.settings-block-error {
+  margin-top: 8px;
+  color: #ff3b30;
+  font-size: 13px;
+}
+
+.settings-save-row {
+  padding: 0 var(--spacing-4) var(--spacing-3);
+}
+
+.settings-interface {
+  padding: 14px;
+}
+
+.settings-interface__label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-text-secondary, #8e8e93);
+  margin-bottom: 10px;
+}
+
+.settings-hint {
+  font-size: 12px;
+  color: var(--color-text-secondary, #8e8e93);
+  margin: 0 0 10px;
+}
+
+.settings-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  border-radius: 14px;
+  border: 2px solid #eee;
+  background: #ffffff;
+}
+
+.settings-input-row__icon {
+  display: flex;
+  color: #2aabee;
+}
+
+.settings-input-row__input {
+  flex: 1;
+  padding: 12px 0;
+  border: none;
+  outline: none;
+  font-size: 16px;
+  font-weight: 600;
+  background: transparent;
+  color: #000000;
+}
+
+.settings-input-row__clear {
+  display: flex;
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary, #8e8e93);
+  cursor: pointer;
+  padding: 4px;
+}
+
+.settings-prefill {
+  margin-top: 8px;
+  align-self: flex-start;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: none;
+  background: var(--color-input-bg, #f2f2f7);
+  color: #6c5dd3;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.settings-prefill--disabled {
+  color: var(--color-text-secondary, #8e8e93);
+  cursor: default;
+}
+
+.settings-preview-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.settings-preview {
+  font-size: 12px;
+  color: var(--color-text-secondary, #8e8e93);
+}
+
+.settings-link {
+  color: #2aabee;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.settings-copy {
+  flex-shrink: 0;
+  border: none;
+  background: var(--color-input-bg, #f2f2f7);
+  color: #6c5dd3;
+  border-radius: 10px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
 }

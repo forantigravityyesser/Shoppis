@@ -1,5 +1,5 @@
 import { insforge } from '../insforge/client';
-import { mapStore, type StoreRow } from '../repositories/store-repository';
+import { fetchStore, mapStore, type StoreRow } from '../repositories/store-repository';
 import { currencySymbol } from '../../domain/constants/currencies';
 import {
   isValidCurrency,
@@ -17,6 +17,14 @@ import {
 } from '../../domain/rules/tutorial-rules';
 import type { Store, StoreStatus } from '../../domain/models/store';
 import type { StoreProfilePatch, TutorialStatePatch } from '../../application/contracts/store';
+
+/**
+ * DEV-ONLY чтение магазина без серверной сессии: прямой SDK-read по internal id
+ * (в DEV нет подписанной сессии/owner-check). Только `DEV_AUTH_MODE`.
+ */
+export async function readStoreDev(storeRef: string): Promise<Store | null> {
+  return fetchStore(storeRef);
+}
 
 /**
  * DEV-ONLY путь обновления профиля: прямой SDK-update без серверной сессии.

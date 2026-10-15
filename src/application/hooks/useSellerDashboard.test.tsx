@@ -12,6 +12,7 @@ const h = vi.hoisted(() => ({
   state: {
     sessionToken: 'tok' as string | null,
     storeId: 'store-a' as string | null,
+    currentStore: { publicId: 'pub-a' } as { publicId: string } | null,
     serverUser: { id: 'user-1' } as { id: string } | null,
   },
 }));
@@ -54,6 +55,7 @@ beforeEach(() => {
   h.subscribeStoreOrders.mockReturnValue(() => {});
   h.state.sessionToken = 'tok';
   h.state.storeId = 'store-a';
+  h.state.currentStore = { publicId: 'pub-a' };
   h.state.serverUser = { id: 'user-1' };
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 });
@@ -63,14 +65,14 @@ const wrapper = ({ children }: { children: ReactNode }) => (
 );
 
 describe('useSellerDashboard (docs/25 §3.4)', () => {
-  it('без сессии/сторId не ходит в сеть и отдаёт причину', () => {
-    h.state.storeId = null;
+  it('без сессии/магазина не ходит в сеть и отдаёт причину', () => {
+    h.state.currentStore = null;
     const noStore = renderHook(() => useSellerDashboard(), { wrapper });
     expect(noStore.result.current.disabledReason).toBe('no-store');
     expect(h.getSummary).not.toHaveBeenCalled();
     noStore.unmount();
 
-    h.state.storeId = 'store-a';
+    h.state.currentStore = { publicId: 'pub-a' };
     h.state.sessionToken = null;
     const noSession = renderHook(() => useSellerDashboard(), { wrapper });
     expect(noSession.result.current.disabledReason).toBe('no-session');
@@ -85,14 +87,14 @@ describe('useSellerDashboard (docs/25 §3.4)', () => {
     expect(ok.result.current.disabledReason).toBeNull();
   });
 
-  it('грузит сводку с текущим storeRef', async () => {
+  it('грузит сводку по каноническому public_id (R3)', async () => {
     h.getSummary.mockResolvedValue(summary());
     const { result } = renderHook(() => useSellerDashboard(), { wrapper });
 
     await waitFor(() => expect(result.current.summary).not.toBeNull());
     expect(result.current.summary?.orders.new).toBe(1);
     expect(result.current.error).toBeNull();
-    expect(h.getSummary).toHaveBeenCalledWith({ sessionToken: 'tok', storeRef: 'store-a' });
+    expect(h.getSummary).toHaveBeenCalledWith({ sessionToken: 'tok', storeRef: 'pub-a' });
   });
 
   it('null-сводка (чужой магазин) сохраняется как null, не ошибка', async () => {
@@ -112,7 +114,7 @@ describe('useSellerDashboard (docs/25 §3.4)', () => {
     expect(result.current.summary).toBeNull();
   });
 
-  it('явный storeRef переопределяет storeId из стора', async () => {
+  it('явный storeRef переопределяет public_id из стора', async () => {
     h.getSummary.mockResolvedValue(summary());
     renderHook(() => useSellerDashboard({ storeRef: 'public-xyz' }), { wrapper });
 

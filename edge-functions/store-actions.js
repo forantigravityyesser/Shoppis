@@ -1,13 +1,16 @@
-// store-actions.js — единый серверный диспетчер мутаций настроек магазина.
+// store-actions.js — единый серверный диспетчер чтения/мутаций настроек магазина.
 //
 // POST body:
+//   { action: 'read', storeRef }
 //   { action: 'update-profile', storeId, patch: {...} }
 //   { action: 'update-status', storeId, status: 'ACTIVE' | 'PAUSED' }
 //   { action: 'tutorial-state', storeId, patch: { welcome_decision?, status?, step? } }
 // Header: Authorization: Bearer <session token from telegram-auth>
 //
-// Авторизация: сессия + проверка владения магазином в БД (stores_assert_owner
-// внутри atomic-функций). owner_user_id берётся из сессии и никогда из клиента.
+// Авторизация: сессия + проверка владения магазином в БД. `read` — owner-scoped
+// (`store_read_owned`), чужой/несуществующий магазин → `store: null`; мутации —
+// `stores_assert_owner` внутри atomic-функций. owner_user_id берётся из сессии и
+// никогда из клиента.
 //
 // Env: INSFORGE_BASE_URL, API_KEY (admin), SESSION_SECRET.
 
@@ -31,6 +34,11 @@ const ERROR_STATUS = {
 
 function dispatch(client, action, session, body) {
   switch (action) {
+    case 'read':
+      return client.database.rpc('store_read_owned', {
+        p_actor_user_id: session.uid,
+        p_store_ref: body.storeRef,
+      });
     case 'update-profile':
       return client.database.rpc('store_update_profile_atomic', {
         p_store_id: body.storeId,
@@ -80,6 +88,8 @@ export default async function (request) {
     const { data, error } = await dispatch(client, action, session, body);
     if (error) return errorToResponse(ERROR_STATUS, error.message || error, 'Store action failed');
     store = Array.isArray(data) ? data[0] : data;
+    // `read` — единственное действие, где null-результат валиден (чужой/нет магазина).
+    if (action === 'read') return json({ success: true, store: store ?? null });
     if (!store?.id) return json({ success: false, error: 'Store action failed' }, 500);
   } catch (e) {
     console.error('[store-actions] rpc error:', e);

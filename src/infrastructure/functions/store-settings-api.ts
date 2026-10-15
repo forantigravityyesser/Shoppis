@@ -2,6 +2,7 @@ import { invokeFunction } from '../insforge/functions-gateway';
 import { DEV_AUTH_MODE } from '../insforge/config';
 import { mapStore, type StoreRow } from '../repositories/store-repository';
 import {
+  readStoreDev,
   updateStoreProfileDev,
   updateStoreStatusDev,
   updateStoreTutorialStateDev,
@@ -10,14 +11,37 @@ import type { Store, StoreStatus } from '../../domain/models/store';
 import type { StoreProfilePatch, TutorialStatePatch } from '../../application/contracts/store';
 
 /**
- * Клиент edge-диспетчера store-actions. Мутации настроек уходят на сервер, где
- * атомарно выполняются PL/pgSQL-функциями (migrations/0012) с проверкой владения
- * магазином по actor из сессии. Без сессии (dev mock) — локальный fallback.
+ * Клиент edge-диспетчера store-actions. Чтение и мутации настроек уходят на
+ * сервер, где выполняются PL/pgSQL-функциями с проверкой владения магазином по
+ * actor из сессии (`store_read_owned` / atomic-мутации). Без сессии (dev mock) —
+ * локальный fallback.
  */
 interface StoreActionResponse {
   success?: boolean;
-  store?: StoreRow;
+  store?: StoreRow | null;
   error?: string;
+}
+
+/**
+ * Owner-scoped чтение магазина (R1). Возвращает узкую проекцию из сервера; чужой/
+ * несуществующий магазин → `null` (не ошибка). Без сессии — DEV-путь по id.
+ */
+export async function readStore(
+  token: string | null,
+  storeRef: string,
+): Promise<Store | null> {
+  if (!token) {
+    if (!DEV_AUTH_MODE) throw new Error('Unauthorized');
+    return readStoreDev(storeRef);
+  }
+
+  const { data, error } = await invokeFunction<StoreActionResponse>('store-actions', {
+    body: { action: 'read', storeRef },
+    token,
+  });
+  if (error) throw new Error(error.message);
+  if (!data?.success) throw new Error(data?.error ?? 'Store read failed');
+  return data.store ? mapStore(data.store) : null;
 }
 
 function toProfilePayload(patch: StoreProfilePatch): Record<string, unknown> {

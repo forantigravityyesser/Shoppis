@@ -56,8 +56,10 @@ export default function LocalizationBlock({ store, onSave }: Props) {
     <section className="card">
       <div className="card__title">{t('seller.settings.localization.cardTitle')}</div>
 
-      <div style={styles.field}>
-        <span style={styles.label}>{t('seller.settings.localization.currency')}</span>
+      <div className="settings-field">
+        <span className="settings-field__label">
+          {t('seller.settings.localization.currency')}
+        </span>
         <SegmentedControl
           options={CURRENCY_OPTIONS}
           value={currency}
@@ -69,8 +71,10 @@ export default function LocalizationBlock({ store, onSave }: Props) {
         />
       </div>
 
-      <div style={styles.field}>
-        <span style={styles.label}>{t('seller.settings.localization.language')}</span>
+      <div className="settings-field">
+        <span className="settings-field__label">
+          {t('seller.settings.localization.language')}
+        </span>
         <SegmentedControl
           options={languageOptions}
           value={language}
@@ -83,7 +87,7 @@ export default function LocalizationBlock({ store, onSave }: Props) {
       </div>
 
       {error ? (
-        <div role="alert" style={styles.error}>
+        <div role="alert" className="settings-block-error">
           {error}
         </div>
       ) : null}
@@ -92,9 +96,3 @@ export default function LocalizationBlock({ store, onSave }: Props) {
     </section>
   );
 }
-
-const styles: Record<string, React.CSSProperties> = {
-  field: { display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 },
-  label: { fontSize: 13, fontWeight: 700, color: 'var(--color-text-secondary, #8E8E93)' },
-  error: { marginTop: 8, color: '#FF3B30', fontSize: 13 },
-};

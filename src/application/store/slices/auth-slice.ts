@@ -275,14 +275,18 @@ export const createAuthSlice: StateCreator<RootStore, [], [], AuthSlice> = (set,
   },
 
   fetchCurrentStore: async () => {
-    const { storeId } = get();
+    const { storeId, sessionToken } = get();
     if (!storeId) {
       set({ currentStore: null });
       return;
     }
     set({ authLoading: true, authError: null });
     try {
-      const store = await deps().storeRepository.fetchStore(storeId);
+      // С сессией — owner-scoped чтение через сервер (R1); без сессии (dev mock) —
+      // прямой read. Возврат `null` — магазин недоступен, не сетевая ошибка.
+      const store = sessionToken
+        ? await deps().storeSettingsApi.readStore(sessionToken, storeId)
+        : await deps().storeRepository.fetchStore(storeId);
       if (!store) {
         // Магазин удалён/недоступен — сбрасываем scope, роутер вернёт онбординг.
         get().resetCatalog();

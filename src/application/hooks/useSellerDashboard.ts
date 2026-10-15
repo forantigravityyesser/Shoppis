@@ -6,7 +6,10 @@ import { DASHBOARD_STALE_TIME_MS, dashboardKeys, invalidateSellerDashboard } fro
 import type { SellerDashboardSummary } from '../read-models/seller-dashboard';
 
 export interface SellerDashboardParams {
-  /** Opaque storefront ref; по умолчанию — текущий `storeId`. */
+  /**
+   * Opaque storefront ref сводки; по умолчанию — канонический `currentStore.publicId`
+   * (R3). Внутренний `storeId` для запроса не используется.
+   */
   storeRef?: string | null;
   enabled?: boolean;
 }
@@ -29,15 +32,20 @@ export interface SellerDashboardState {
  * Сводка главной продавца (docs/25 §3.4): один серверный read (`seller_dashboard_read`)
  * + realtime-инвалидация по изменениям заказов магазина (best-effort). Данные
  * считает сервер; клиент только запрашивает.
+ *
+ * R3: запрос сводки идёт по каноническому `public_id`, а realtime-канал —
+ * `orders:seller:<внутренний storeId>` (имена каналов — infrastructure-контракт).
+ * Поэтому ref запроса и ref подписки разведены.
  */
 export function useSellerDashboard(params: SellerDashboardParams = {}): SellerDashboardState {
   const queryClient = useQueryClient();
   const sessionToken = useStore((s) => s.sessionToken);
   const storeId = useStore((s) => s.storeId);
+  const publicId = useStore((s) => s.currentStore?.publicId ?? null);
   // Identity часть ключа (docs/24 §3.4): чужой кэш не выдаётся как свой.
   const userId = useStore((s) => s.serverUser?.id ?? null);
 
-  const storeRef = params.storeRef !== undefined ? params.storeRef : storeId;
+  const storeRef = params.storeRef !== undefined ? params.storeRef : publicId;
   const disabledReason: DashboardDisabledReason | null = !(params.enabled ?? true)
     ? 'disabled'
     : !sessionToken
@@ -59,18 +67,19 @@ export function useSellerDashboard(params: SellerDashboardParams = {}): SellerDa
     enabled,
   });
 
-  // Realtime: изменение заказа магазина → инвалидация сводки. Сокет best-effort;
-  // без него экран работает (просто без live-обновления).
+  // Realtime: изменение заказа магазина → инвалидация сводки. Канал скоупится
+  // внутренним storeId. Сокет best-effort; без него экран работает (просто без
+  // live-обновления).
   useEffect(() => {
-    if (!enabled || !storeRef) return;
+    if (!enabled || !storeId) return;
     const invalidate = () => {
       void invalidateSellerDashboard(queryClient);
     };
-    return deps().orderRealtime.subscribeStoreOrders(storeRef, {
+    return deps().orderRealtime.subscribeStoreOrders(storeId, {
       onChange: invalidate,
       onResync: invalidate,
     });
-  }, [enabled, storeRef, queryClient]);
+  }, [enabled, storeId, queryClient]);
 
   return {
     summary: enabled ? (query.data ?? null) : null,

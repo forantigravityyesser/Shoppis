@@ -1,9 +1,8 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { useStore } from '../../../application/store';
 import { useSellerDashboard } from '../../../application/hooks/useSellerDashboard';
-import { useSellerTutorial } from '../../../application/hooks/useSellerTutorial';
+import { useDashboardTutorial } from '../../../application/hooks/useDashboardTutorial';
 import { currencySymbol } from '../../../domain/constants/currencies';
 import { computeShopReadiness } from '../../../domain/rules/readiness-rules';
 import DashboardStoreHeader from '../dashboard/components/DashboardStoreHeader';
@@ -29,42 +28,18 @@ export default function SellerDashboard() {
   const navigate = useNavigate();
   const currentStore = useStore((s) => s.currentStore);
   const { summary, loading, error, disabledReason, refetch } = useSellerDashboard();
-  const tutorial = useSellerTutorial();
-  const [welcomeClosed, setWelcomeClosed] = useState(false);
+  const tutorial = useDashboardTutorial();
 
   const symbol = currentStore
     ? currentStore.currencySymbol || currencySymbol(currentStore.currencyCode)
     : '';
 
-  // Предложение обучения: только до первого решения и при наличии магазина (§4.1).
-  const showWelcome = !!currentStore && tutorial.shouldOffer && !welcomeClosed;
-  const startTutorial = async () => {
-    setWelcomeClosed(true);
-    try {
-      await tutorial.accept();
-    } catch {
-      // Не удалось записать состояние — не оставляем тупик, возвращаем предложение.
-      setWelcomeClosed(false);
-    }
-  };
-  const declineTutorial = async () => {
-    setWelcomeClosed(true);
-    try {
-      await tutorial.decline();
-    } catch {
-      setWelcomeClosed(false);
-    }
-  };
-  const openTutorial = () => {
-    void tutorial.accept();
-  };
-
-  // Ручной вход в чек-листе: после отказа — «Пройти обучение», в процессе — «Продолжить».
-  const tutorialCta = tutorial.interrupted
-    ? { label: t('seller.tutorial.resume'), onClick: openTutorial }
-    : tutorial.state.welcomeDecision === 'declined' && tutorial.state.status === 'not_started'
-      ? { label: t('seller.tutorial.start'), onClick: openTutorial }
-      : undefined;
+  // Обучение оркеструется хуком (R5): главная получает готовый CTA, не владея
+  // жизненным циклом. Ручной вход: «Продолжить обучение» / «Пройти обучение».
+  const cta = tutorial.cta;
+  const tutorialCta = cta
+    ? { label: t(`seller.tutorial.${cta.kind}`), onClick: cta.onClick }
+    : undefined;
 
   // Готовность магазина (docs/26 §3.4): derived из `currentStore` + серверных counts.
   const readiness =
@@ -79,14 +54,30 @@ export default function SellerDashboard() {
         })
       : null;
 
+  // Восстановление недоступной сессии: переинициализация приложения (повторный вход).
+  const reloadApp = () => {
+    window.location.reload();
+  };
+
   const body = error ? (
     <DashboardError onRetry={refetch} />
   ) : loading ? (
     <DashboardSkeleton />
-  ) : disabledReason ? (
+  ) : disabledReason === 'no-store' ? (
     <DashboardEmpty
       title={t('seller.dashboard.empty.noStoreTitle')}
       text={t('seller.dashboard.empty.noStoreText')}
+    />
+  ) : disabledReason === 'no-session' ? (
+    <DashboardEmpty
+      title={t('seller.dashboard.empty.noSessionTitle')}
+      text={t('seller.dashboard.empty.noSessionText')}
+      action={{ label: t('seller.dashboard.empty.retry'), onClick: reloadApp }}
+    />
+  ) : disabledReason === 'disabled' ? (
+    <DashboardEmpty
+      title={t('seller.dashboard.empty.disabledTitle')}
+      text={t('seller.dashboard.empty.disabledText')}
     />
   ) : !summary ? (
     <DashboardEmpty
@@ -133,9 +124,9 @@ export default function SellerDashboard() {
       )}
       {body}
       <TutorialWelcomeSheet
-        open={showWelcome}
-        onStart={startTutorial}
-        onDecline={declineTutorial}
+        open={tutorial.welcomeOpen}
+        onStart={tutorial.start}
+        onDecline={tutorial.decline}
       />
     </div>
   );
