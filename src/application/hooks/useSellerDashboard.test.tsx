@@ -35,7 +35,13 @@ function summary(): SellerDashboardSummary {
   return {
     orders: { new: 1, inTransit: 2, delivered: 3, history: 4 },
     sales: { receivedMinor: 1000, frozenMinor: 500 },
-    inventory: { activeProducts: 6, archivedProducts: 1, activeCategories: 2 },
+    inventory: {
+      activeProducts: 6,
+      archivedProducts: 1,
+      activeCategories: 2,
+      buyerAvailableProducts: 4,
+    },
+    growth: { firstOrderAt: null, firstShippedAt: null, firstCompletedAt: null },
   };
 }
 

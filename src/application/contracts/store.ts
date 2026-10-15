@@ -1,4 +1,9 @@
 import type { StoreCurrency, StoreLanguage, StoreStatus } from '../../domain/models/store';
+import type {
+  TutorialStatus,
+  TutorialStepKey,
+  TutorialWelcomeDecision,
+} from '../../domain/models/tutorial';
 
 /** Создание витрины из формы онбординга (локальный/dev путь). */
 export interface CreateStoreInput {
@@ -41,11 +46,19 @@ export interface StoreContactPatch {
   supportHandle?: string;
 }
 
-export type StoreProfilePatch = StoreIdentityPatch &
-  StoreLocalizationPatch &
-  StoreContactPatch;
+export type StoreProfilePatch = StoreIdentityPatch & StoreLocalizationPatch & StoreContactPatch;
 
 /** Операционное изменение статуса — отдельно от profile patch. 12 §4.2 */
 export interface StoreStatusPatch {
   status: StoreStatus;
+}
+
+/**
+ * Полное состояние обучения для записи (PUT-семантика, docs/26 §3.8: запись только
+ * на значимых переходах). Сервер валидирует значения и инвариант status↔step.
+ */
+export interface TutorialStatePatch {
+  welcomeDecision: TutorialWelcomeDecision;
+  status: TutorialStatus;
+  step: TutorialStepKey | null;
 }

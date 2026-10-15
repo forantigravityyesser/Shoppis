@@ -31,6 +31,7 @@ export default function InventorySectionHead({
         <button
           type="button"
           className={`inv-add-btn inv-add-btn--header${stuck ? ' inv-add-btn--floating' : ''}`}
+          data-tour="inventory-add"
           onClick={onAdd}
         >
           <Plus size={16} strokeWidth={2.5} />

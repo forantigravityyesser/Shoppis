@@ -14,6 +14,7 @@ const mockState = {
   authLoading: false,
   fetchCurrentStore: vi.fn(),
   updateStoreStatus: vi.fn(),
+  updateTutorialState: vi.fn(),
   userSettings: { language: 'ru' as const },
   setLanguage: vi.fn(),
 };
@@ -23,9 +24,13 @@ vi.mock('react-router', async (importOriginal) => {
   return { ...actual, useNavigate: () => mockNavigate };
 });
 
-vi.mock('../../../application/store', () => ({
-  useStore: (selector: (s: typeof mockState) => unknown) => selector(mockState),
-}));
+vi.mock('../../../application/store', () => {
+  const useStore = Object.assign(
+    (selector: (s: typeof mockState) => unknown) => selector(mockState),
+    { getState: () => mockState },
+  );
+  return { useStore };
+});
 
 vi.mock('../../../application/hooks/useStorefrontLink', () => ({
   useStorefrontLink: () => STOREFRONT_URL,
@@ -55,6 +60,10 @@ function makeStore(overrides: Partial<Store> = {}): Store {
     status: 'ACTIVE',
     publicId: 'pub1',
     createdAt: '2026-09-30T00:00:00.000Z',
+    tutorialWelcomeDecision: 'unknown',
+    tutorialStatus: 'not_started',
+    tutorialStep: null,
+    tutorialUpdatedAt: null,
     ...overrides,
   };
 }
@@ -73,6 +82,7 @@ beforeEach(() => {
   mockState.authLoading = false;
   mockState.fetchCurrentStore = vi.fn();
   mockState.updateStoreStatus = vi.fn().mockResolvedValue(undefined);
+  mockState.updateTutorialState = vi.fn().mockResolvedValue(undefined);
 });
 
 describe('SellerSettingsView (Hub)', () => {
@@ -212,5 +222,20 @@ describe('SellerSettingsView (Hub)', () => {
     mockState.authLoading = false;
     render(<SellerSettingsView />);
     expect(screen.getByText('Магазин не найден')).toBeInTheDocument();
+  });
+
+  it('строка «Пройти обучение» запускает обучение и уводит на главную', async () => {
+    const user = userEvent.setup();
+    render(<SellerSettingsView />);
+
+    expect(screen.getByText('Помощь')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /Пройти обучение/ }));
+
+    expect(mockState.updateTutorialState).toHaveBeenCalledWith({
+      welcomeDecision: 'accepted',
+      status: 'in_progress',
+      step: 'orientation',
+    });
+    expect(mockNavigate).toHaveBeenCalledWith('/seller/dashboard');
   });
 });

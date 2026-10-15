@@ -65,6 +65,7 @@ export default function SharePreviewBlock({
       <div style={styles.actions}>
         <button
           type="button"
+          data-tour="share-copy"
           onClick={() => void copy()}
           aria-label={t('seller.settings.share.copyAria')}
           style={{ ...styles.button, ...styles.copyButton }}

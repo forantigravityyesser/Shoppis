@@ -47,6 +47,10 @@ function makeStore(overrides: Partial<Store> = {}): Store {
     status: 'ACTIVE',
     publicId: 'pub1',
     createdAt: '2026-09-30T00:00:00.000Z',
+    tutorialWelcomeDecision: 'unknown',
+    tutorialStatus: 'not_started',
+    tutorialStep: null,
+    tutorialUpdatedAt: null,
     ...overrides,
   };
 }

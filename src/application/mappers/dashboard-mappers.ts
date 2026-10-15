@@ -26,12 +26,18 @@ function parseCount(value: unknown): number {
   return n !== null && n >= 0 ? n : 0;
 }
 
+/** Непустая строка или null (timestamp-факт). */
+function parseIsoOrNull(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() !== '' ? value : null;
+}
+
 /** `null` — нет валидного объекта сводки (чужой/несуществующий магазин). */
 export function mapSellerDashboardSummary(raw: unknown): SellerDashboardSummary | null {
   if (!isRecord(raw)) return null;
   const orders = isRecord(raw.orders) ? raw.orders : {};
   const sales = isRecord(raw.sales) ? raw.sales : {};
   const inventory = isRecord(raw.inventory) ? raw.inventory : {};
+  const growth = isRecord(raw.growth) ? raw.growth : {};
   return {
     orders: {
       new: parseCount(orders.new),
@@ -47,6 +53,12 @@ export function mapSellerDashboardSummary(raw: unknown): SellerDashboardSummary 
       activeProducts: parseCount(inventory.activeProducts),
       archivedProducts: parseCount(inventory.archivedProducts),
       activeCategories: parseCount(inventory.activeCategories),
+      buyerAvailableProducts: parseCount(inventory.buyerAvailableProducts),
+    },
+    growth: {
+      firstOrderAt: parseIsoOrNull(growth.firstOrderAt),
+      firstShippedAt: parseIsoOrNull(growth.firstShippedAt),
+      firstCompletedAt: parseIsoOrNull(growth.firstCompletedAt),
     },
   };
 }

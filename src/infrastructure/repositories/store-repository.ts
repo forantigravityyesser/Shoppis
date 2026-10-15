@@ -1,6 +1,11 @@
 import { insforge } from '../insforge/client';
 import type { Store, StoreCurrency, StoreLanguage, StoreStatus } from '../../domain/models/store';
 import type { CreateStoreInput } from '../../application/contracts/store';
+import {
+  isTutorialStatus,
+  isTutorialStepKey,
+  isTutorialWelcomeDecision,
+} from '../../domain/rules/tutorial-rules';
 
 const CURRENCY_SYMBOLS: Record<StoreCurrency, string> = {
   USD: '$',
@@ -23,6 +28,10 @@ export interface StoreRow {
   status: string | null;
   public_id: string | null;
   created_at: string;
+  tutorial_welcome_decision?: string | null;
+  tutorial_status?: string | null;
+  tutorial_step?: string | null;
+  tutorial_updated_at?: string | null;
 }
 
 export function mapStore(row: StoreRow): Store {
@@ -41,6 +50,13 @@ export function mapStore(row: StoreRow): Store {
     status: (row.status as StoreStatus) ?? 'ACTIVE',
     publicId: row.public_id ?? '',
     createdAt: row.created_at,
+    // Safe-getters (docs/26 §3.6): неизвестное/отсутствующее значение не ломает рендер.
+    tutorialWelcomeDecision: isTutorialWelcomeDecision(row.tutorial_welcome_decision)
+      ? row.tutorial_welcome_decision
+      : 'unknown',
+    tutorialStatus: isTutorialStatus(row.tutorial_status) ? row.tutorial_status : 'not_started',
+    tutorialStep: isTutorialStepKey(row.tutorial_step) ? row.tutorial_step : null,
+    tutorialUpdatedAt: row.tutorial_updated_at ?? null,
   };
 }
 

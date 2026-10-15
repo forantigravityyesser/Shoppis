@@ -38,6 +38,11 @@ function mapStore(row) {
     status: row.status ?? 'ACTIVE',
     publicId: row.public_id ?? '',
     createdAt: row.created_at,
+    // Новый магазин: предложение обучения ещё не показано (docs/26 §3.3).
+    tutorialWelcomeDecision: row.tutorial_welcome_decision ?? 'unknown',
+    tutorialStatus: row.tutorial_status ?? 'not_started',
+    tutorialStep: row.tutorial_step ?? null,
+    tutorialUpdatedAt: row.tutorial_updated_at ?? null,
   };
 }
 

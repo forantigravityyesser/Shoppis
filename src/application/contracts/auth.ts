@@ -15,8 +15,16 @@ export interface ServerUser {
   notificationsEnabled: boolean;
 }
 
+/** Бот, из которого открыт Mini App (источник входа). null — определить не удалось. */
+export type EntryBot = 'buyer' | 'seller' | null;
+
 /** Серверная runtime-сессия. */
 export interface AuthSession {
   token: string;
   user: ServerUser;
+  /**
+   * Источник входа (подпись initData совпала с токеном этого бота). Используется,
+   * когда Telegram открыл приложение без startapp: главный Mini App / «Open App».
+   */
+  bot: EntryBot;
 }

@@ -30,6 +30,8 @@ interface Props {
    * без chevron, заголовок выделен акцентным цветом.
    */
   action?: boolean;
+  /** Якорь для обучающего оверлея (`data-tour`). */
+  dataTour?: string;
 }
 
 /**
@@ -45,6 +47,7 @@ export default function SettingsRow({
   toggle,
   disabled,
   action,
+  dataTour,
 }: Props) {
   if (toggle) {
     return (
@@ -76,6 +79,7 @@ export default function SettingsRow({
       type="button"
       onClick={onClick}
       disabled={disabled}
+      data-tour={dataTour}
       className={`settings-row${action ? ' settings-row--action' : ''}`}
     >
       {Icon ? (

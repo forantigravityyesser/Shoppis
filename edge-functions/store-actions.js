@@ -3,17 +3,18 @@
 // POST body:
 //   { action: 'update-profile', storeId, patch: {...} }
 //   { action: 'update-status', storeId, status: 'ACTIVE' | 'PAUSED' }
+//   { action: 'tutorial-state', storeId, patch: { welcome_decision?, status?, step? } }
 // Header: Authorization: Bearer <session token from telegram-auth>
 //
 // Авторизация: сессия + проверка владения магазином в БД (stores_assert_owner
 // внутри atomic-функций). owner_user_id берётся из сессии и никогда из клиента.
 //
-// Env: INSFORGE_BASE_URL, ANON_KEY, SESSION_SECRET.
+// Env: INSFORGE_BASE_URL, API_KEY (admin), SESSION_SECRET.
 
-import { createClient } from 'npm:@insforge/sdk';
 import { env } from './_shared/env.js';
 import { bearerToken, json, methodNotAllowed, preflight, readJson } from './_shared/http.js';
 import { verifySession } from './_shared/auth.js';
+import { adminClient } from './_shared/clients.js';
 import { errorToResponse } from './_shared/errors.js';
 
 const ERROR_STATUS = {
@@ -24,6 +25,7 @@ const ERROR_STATUS = {
   INVALID_CURRENCY: 400,
   INVALID_LANGUAGE: 400,
   INVALID_STATUS: 400,
+  INVALID_TUTORIAL_STATE: 400,
   EMPTY_PATCH: 400,
 };
 
@@ -41,6 +43,12 @@ function dispatch(client, action, session, body) {
         p_actor_user_id: session.uid,
         p_status: body.status,
       });
+    case 'tutorial-state':
+      return client.database.rpc('store_set_tutorial_state_atomic', {
+        p_store_id: body.storeId,
+        p_actor_user_id: session.uid,
+        p_patch: body.patch ?? {},
+      });
     default:
       return { data: null, error: { message: 'UNKNOWN_ACTION' } };
   }
@@ -51,9 +59,9 @@ export default async function (request) {
   if (request.method !== 'POST') return methodNotAllowed();
 
   const baseUrl = env('INSFORGE_BASE_URL');
-  const anonKey = env('ANON_KEY');
+  const apiKey = env('API_KEY');
   const sessionSecret = env('SESSION_SECRET');
-  if (!baseUrl || !anonKey || !sessionSecret) {
+  if (!baseUrl || !apiKey || !sessionSecret) {
     return json({ success: false, error: 'Backend is not configured' }, 500);
   }
 
@@ -68,7 +76,7 @@ export default async function (request) {
 
   let store;
   try {
-    const client = createClient({ baseUrl, anonKey });
+    const client = adminClient(baseUrl);
     const { data, error } = await dispatch(client, action, session, body);
     if (error) return errorToResponse(ERROR_STATUS, error.message || error, 'Store action failed');
     store = Array.isArray(data) ? data[0] : data;

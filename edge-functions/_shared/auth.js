@@ -72,12 +72,72 @@ export async function verifySession(token, secret) {
   }
 }
 
+/**
+ * Токены ботов вместе с ролью: `[{ bot: 'buyer'|'seller'|null, token }]`.
+ * Общий fallback `BOT_TOKEN` идёт без роли — по нему источник входа неразличим.
+ */
+export function namedBotTokens() {
+  const entries = [];
+  const buyer = env('BUYER_BOT_TOKEN');
+  const seller = env('SELLER_BOT_TOKEN');
+  if (buyer) entries.push({ bot: 'buyer', token: buyer });
+  if (seller) entries.push({ bot: 'seller', token: seller });
+  const shared = env('BOT_TOKEN');
+  if (shared) entries.push({ bot: null, token: shared });
+  return entries;
+}
+
 export function botTokens() {
-  return [env('BUYER_BOT_TOKEN'), env('SELLER_BOT_TOKEN'), env('BOT_TOKEN')].filter(Boolean);
+  return namedBotTokens().map((entry) => entry.token);
 }
 
 export const AUTH_MAX_AGE_SECONDS = 24 * 60 * 60;
 export const AUTH_CLOCK_SKEW_SECONDS = 60;
+
+/**
+ * Найти токен бота, чьей подписью валиден initData (+ окно свежести auth_date,
+ * docs/24 §2.7 D4). Сравнение подписи — постоянное по времени. Имя бота по
+ * токену позволяет функции входа понять, из какого бота открыт Mini App.
+ * @param {string} initData
+ * @param {string[]} tokens
+ * @param {{ maxAgeSeconds?: number, now?: number }} [options]
+ * @returns {Promise<string|null>} совпавший токен или null
+ */
+export async function matchTelegramInitDataToken(initData, tokens, options = {}) {
+  const maxAgeSeconds = Number.isFinite(options.maxAgeSeconds)
+    ? options.maxAgeSeconds
+    : AUTH_MAX_AGE_SECONDS;
+  const nowSeconds = Math.floor((options.now ?? Date.now()) / 1000);
+
+  const params = new URLSearchParams(initData);
+  const hash = params.get('hash');
+  if (!hash) return null;
+  params.delete('hash');
+  const dataCheckString = [...params.entries()]
+    .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))
+    .map(([k, v]) => `${k}=${v}`)
+    .join('\n');
+
+  let matched = null;
+  for (const token of tokens) {
+    const secretKey = await hmac('WebAppData', token);
+    const computed = hex(await hmac(secretKey, dataCheckString));
+    if (timingSafeEqual(computed, hash)) {
+      matched = token;
+      break;
+    }
+  }
+  if (!matched) return null;
+
+  // Окно свежести: подпись верна, но initData не должен быть просроченным/из будущего.
+  const authDate = Number(params.get('auth_date'));
+  if (!Number.isFinite(authDate) || authDate <= 0) return null;
+  const ageSeconds = nowSeconds - authDate;
+  if (ageSeconds > maxAgeSeconds) return null;
+  if (ageSeconds < -AUTH_CLOCK_SKEW_SECONDS) return null;
+
+  return matched;
+}
 
 /**
  * Валидация подписи Telegram Mini App initData по токенам ботов + окно свежести
@@ -87,37 +147,5 @@ export const AUTH_CLOCK_SKEW_SECONDS = 60;
  * @param {{ maxAgeSeconds?: number, now?: number }} [options]
  */
 export async function isValidTelegramInitData(initData, tokens, options = {}) {
-  const maxAgeSeconds = Number.isFinite(options.maxAgeSeconds)
-    ? options.maxAgeSeconds
-    : AUTH_MAX_AGE_SECONDS;
-  const nowSeconds = Math.floor((options.now ?? Date.now()) / 1000);
-
-  const params = new URLSearchParams(initData);
-  const hash = params.get('hash');
-  if (!hash) return false;
-  params.delete('hash');
-  const dataCheckString = [...params.entries()]
-    .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))
-    .map(([k, v]) => `${k}=${v}`)
-    .join('\n');
-
-  let signatureOk = false;
-  for (const token of tokens) {
-    const secretKey = await hmac('WebAppData', token);
-    const computed = hex(await hmac(secretKey, dataCheckString));
-    if (timingSafeEqual(computed, hash)) {
-      signatureOk = true;
-      break;
-    }
-  }
-  if (!signatureOk) return false;
-
-  // Окно свежести: подпись верна, но initData не должен быть просроченным/из будущего.
-  const authDate = Number(params.get('auth_date'));
-  if (!Number.isFinite(authDate) || authDate <= 0) return false;
-  const ageSeconds = nowSeconds - authDate;
-  if (ageSeconds > maxAgeSeconds) return false;
-  if (ageSeconds < -AUTH_CLOCK_SKEW_SECONDS) return false;
-
-  return true;
+  return (await matchTelegramInitDataToken(initData, tokens, options)) !== null;
 }

@@ -10,8 +10,13 @@ import {
   validateStoreDescription,
   validateStoreName,
 } from '../../domain/rules/store-settings-rules';
+import {
+  isTutorialStatus,
+  isTutorialStepKey,
+  isTutorialWelcomeDecision,
+} from '../../domain/rules/tutorial-rules';
 import type { Store, StoreStatus } from '../../domain/models/store';
-import type { StoreProfilePatch } from '../../application/contracts/store';
+import type { StoreProfilePatch, TutorialStatePatch } from '../../application/contracts/store';
 
 /**
  * DEV-ONLY путь обновления профиля: прямой SDK-update без серверной сессии.
@@ -71,5 +76,38 @@ export async function updateStoreStatusDev(storeId: string, status: StoreStatus)
   if (error) throw error;
   const row = (data ?? [])[0] as StoreRow | undefined;
   if (!row) throw new Error('Store update returned no data');
+  return mapStore(row);
+}
+
+/**
+ * DEV-ONLY запись состояния обучения. Валидация зеркалит серверную (значения enum +
+ * инвариант status↔step), чтобы локальное поведение совпадало с production.
+ */
+export async function updateStoreTutorialStateDev(
+  storeId: string,
+  patch: TutorialStatePatch,
+): Promise<Store> {
+  const invalid = (): never => {
+    throw new Error('INVALID_TUTORIAL_STATE');
+  };
+
+  if (!isTutorialWelcomeDecision(patch.welcomeDecision)) invalid();
+  if (!isTutorialStatus(patch.status)) invalid();
+  if (patch.step !== null && !isTutorialStepKey(patch.step)) invalid();
+  if ((patch.status === 'in_progress') !== (patch.step !== null)) invalid();
+
+  const { data, error } = await insforge.database
+    .from('stores')
+    .update({
+      tutorial_welcome_decision: patch.welcomeDecision,
+      tutorial_status: patch.status,
+      tutorial_step: patch.step,
+      tutorial_updated_at: new Date().toISOString(),
+    })
+    .eq('id', storeId)
+    .select();
+  if (error) throw error;
+  const row = (data ?? [])[0] as StoreRow | undefined;
+  if (!row) throw new Error('Store tutorial update returned no data');
   return mapStore(row);
 }

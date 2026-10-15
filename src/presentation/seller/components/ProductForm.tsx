@@ -109,7 +109,8 @@ export default function ProductForm({
     patch({ images: photos.filter((p) => p !== target) });
   };
 
-  const addCharacteristic = () => patch({ attributes: [...characteristics, { name: '', value: '' }] });
+  const addCharacteristic = () =>
+    patch({ attributes: [...characteristics, { name: '', value: '' }] });
 
   const updateCharacteristic = (index: number, part: Partial<Characteristic>) =>
     patch({
@@ -127,7 +128,8 @@ export default function ProductForm({
 
   const removeVariant = (index: number) => {
     patch({
-      variants: variants.length <= 1 ? variants : syncInherited(variants.filter((_, i) => i !== index)),
+      variants:
+        variants.length <= 1 ? variants : syncInherited(variants.filter((_, i) => i !== index)),
     });
     setExpandedVariant((cur) => {
       if (index === cur) return Math.max(0, index - 1);
@@ -136,7 +138,8 @@ export default function ProductForm({
     });
   };
 
-  const setNameAt = (index: number, v: string) => patch({ variants: setVariantName(variants, index, v) });
+  const setNameAt = (index: number, v: string) =>
+    patch({ variants: setVariantName(variants, index, v) });
   const setValueAt = (index: number, v: string) =>
     patch({ variants: updateVariantField(variants, index, { value: v }) });
   const setQuantityAt = (index: number, v: string) =>
@@ -192,7 +195,7 @@ export default function ProductForm({
 
   return (
     <>
-      <section className="card">
+      <section className="card" data-tour="product-photo">
         <div className="card__title card__title--row">
           <span className="card__title-icon" aria-hidden>
             <ImagePlus size={16} />
@@ -204,10 +207,7 @@ export default function ProductForm({
         </div>
         <div className="photo-grid">
           {photos.map((photo, index) => (
-            <div
-              className={`photo-slot${index === 0 ? ' photo-slot--cover' : ''}`}
-              key={photo.url}
-            >
+            <div className={`photo-slot${index === 0 ? ' photo-slot--cover' : ''}`} key={photo.url}>
               <img
                 className="photo-slot__img"
                 src={photo.thumbUrl ?? photo.url}
@@ -248,9 +248,7 @@ export default function ProductForm({
             </button>
           ) : null}
         </div>
-        <div className="card__muted">
-          {t('seller.product.form.photoHint', { max: MAX_IMAGES })}
-        </div>
+        <div className="card__muted">{t('seller.product.form.photoHint', { max: MAX_IMAGES })}</div>
         {uploadError ? (
           <div className="photo-upload-error" role="alert">
             {uploadError}
@@ -276,7 +274,7 @@ export default function ProductForm({
           </span>
           {t('seller.product.form.sectionMain')}
         </div>
-        <label className="field">
+        <label className="field" data-tour="product-title">
           <span className="field__label">{t('seller.product.form.nameLabel')}</span>
           <input
             className="field__input"
@@ -285,7 +283,7 @@ export default function ProductForm({
             placeholder={t('seller.product.form.namePlaceholder')}
           />
         </label>
-        <label className="field">
+        <label className="field" data-tour="product-description">
           <span className="field__label">{t('seller.product.form.descriptionLabel')}</span>
           <textarea
             className="field__input field__input--area"
@@ -387,7 +385,7 @@ export default function ProductForm({
               {expanded ? (
                 <>
                   <div className="field__row">
-                    <label className="field">
+                    <label className="field" data-tour="product-dimension">
                       <span className="field__label">
                         {t('seller.product.form.dimensionLabel')}
                       </span>
@@ -398,7 +396,7 @@ export default function ProductForm({
                         placeholder={t('seller.product.form.dimensionPlaceholder')}
                       />
                     </label>
-                    <label className="field">
+                    <label className="field" data-tour="product-value">
                       <span className="field__label">{t('seller.product.form.valueLabel')}</span>
                       <input
                         className="field__input"
@@ -408,7 +406,7 @@ export default function ProductForm({
                       />
                     </label>
                   </div>
-                  <label className="field">
+                  <label className="field" data-tour="product-quantity">
                     <span className="field__label">{t('seller.product.form.quantityLabel')}</span>
                     <input
                       className="field__input"
@@ -419,7 +417,7 @@ export default function ProductForm({
                     />
                   </label>
                   <div className="field__row">
-                    <label className="field">
+                    <label className="field" data-tour="product-price">
                       <span className="field__label">{t('seller.product.form.priceLabel')}</span>
                       <input
                         className="field__input"
@@ -495,13 +493,12 @@ export default function ProductForm({
           disabled={!canArchive || submitting || savePending}
           onClick={() => void submit('ARCHIVED')}
         >
-          {pendingStatus === 'ARCHIVED'
-            ? t('common.saving')
-            : t('seller.product.form.archive')}
+          {pendingStatus === 'ARCHIVED' ? t('common.saving') : t('seller.product.form.archive')}
         </button>
         <button
           type="button"
           className="btn-primary"
+          data-tour="product-publish"
           disabled={!canPublish || submitting || savePending}
           onClick={() => void submit('ACTIVE')}
         >
@@ -510,7 +507,7 @@ export default function ProductForm({
             : t('seller.product.form.publish')}
         </button>
       </div>
-      {submitError ?? submissionError ? (
+      {(submitError ?? submissionError) ? (
         <p className="prod-hint prod-hint--error" role="alert">
           {submitError ?? submissionError}
         </p>

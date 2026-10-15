@@ -278,13 +278,260 @@ button.dash-stat:active {
   color: var(--color-warning);
 }
 
-/* ---- Блок «Требует внимания» ---- */
+/* ---- Чек-лист подготовки магазина (docs/26 §4.5) ---- */
 
-.dash-attention__text {
+.dash-checklist {
+  display: block;
+}
+
+.dash-checklist__head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-3);
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: inherit;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+}
+
+.dash-checklist__row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  width: 100%;
+}
+
+.dash-checklist__title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.dash-checklist__count {
+  flex: 0 0 auto;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+}
+
+.dash-checklist--ready .dash-checklist__count {
+  color: var(--color-success);
+}
+
+.dash-checklist__chevron {
+  flex: 0 0 auto;
+  color: var(--color-text-secondary);
+  transition: transform 0.15s ease;
+}
+
+.dash-checklist__chevron--open {
+  transform: rotate(180deg);
+}
+
+/* Заполняющийся по шагам бар: сегмент = пункт чек-листа. */
+.dash-checklist__steps {
+  display: flex;
+  gap: 4px;
+  width: 100%;
+}
+
+.dash-checklist__step {
+  flex: 1 1 0;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: #efeaff;
+  transition: background 0.2s ease;
+}
+
+.dash-checklist__step--done {
+  background: var(--color-accent);
+}
+
+.dash-checklist--ready .dash-checklist__step--done {
+  background: var(--color-success);
+}
+
+.dash-checklist__list {
+  list-style: none;
+  margin: var(--spacing-4) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-3);
+}
+
+.dash-checklist__item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-3);
+}
+
+.dash-checklist__icon {
+  flex: 0 0 auto;
+  margin-top: 1px;
+  color: var(--color-text-secondary);
+}
+
+.dash-checklist__item--completed .dash-checklist__icon {
+  color: var(--color-success);
+}
+
+.dash-checklist__item-main {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.dash-checklist__item-label {
+  font-size: var(--font-size-md);
+  color: var(--color-text-primary);
+}
+
+.dash-checklist__item--completed .dash-checklist__item-label {
+  color: var(--color-text-secondary);
+}
+
+.dash-checklist__item-hint {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.dash-checklist__item-status {
+  flex: 0 0 auto;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+}
+
+.dash-checklist__item--completed .dash-checklist__item-status {
+  color: var(--color-success);
+}
+
+/* Кнопка ручного запуска/продолжения обучения. */
+.dash-checklist__cta {
+  width: 100%;
+  margin-top: var(--spacing-3);
+  padding: 11px 16px;
+  border: 1.5px solid var(--color-accent);
+  border-radius: var(--radius-full);
+  background: none;
+  color: var(--color-accent);
+  font-family: inherit;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    transform 0.12s ease;
+}
+
+.dash-checklist__cta:active {
+  transform: scale(0.98);
+  background: #f6f3ff;
+}
+
+.dash-checklist__cta:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.dash-checklist__head:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 4px;
+  border-radius: var(--radius-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dash-checklist__chevron,
+  .dash-checklist__step {
+    transition: none;
+  }
+}
+
+/* ---- Развитие магазина (docs/26 §4.6) ---- */
+
+.dash-growth {
+  display: block;
+}
+
+.dash-growth__head {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  margin-bottom: var(--spacing-2);
+}
+
+.dash-growth__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-full);
+  background: #efeaff;
+  color: var(--color-accent);
+}
+
+.dash-growth__icon--done {
+  background: #e7f6ec;
+  color: var(--color-success);
+}
+
+.dash-growth__label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.dash-growth__goal-title {
+  margin: 0 0 var(--spacing-1);
+  font-size: var(--font-size-lg);
+  font-weight: 800;
+  color: var(--color-text-primary);
+}
+
+.dash-growth__goal-text {
   margin: 0;
   font-size: var(--font-size-md);
+  line-height: 1.5;
   color: var(--color-text-secondary);
-  line-height: 1.45;
+}
+
+.dash-growth__cta {
+  width: 100%;
+  margin-top: var(--spacing-3);
+  padding: 11px 16px;
+  border: none;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  color: var(--color-text-on-accent);
+  font-family: inherit;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    transform 0.12s ease;
+}
+
+.dash-growth__cta:active {
+  transform: scale(0.98);
+}
+
+.dash-growth__cta:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 
 /* ---- Состояния ---- */

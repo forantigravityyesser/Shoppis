@@ -1,0 +1,330 @@
+/* tutorial.css — презентационный слой обучения продавца (docs/26). Только шиты и
+   карточки обучения; правила переходов и состояние — в domain/application. */
+
+.tutorial-welcome {
+  text-align: center;
+}
+
+.tutorial-welcome__badge {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto var(--spacing-4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  background: linear-gradient(135deg, #efeaff, #ddd4ff);
+  color: var(--color-accent);
+  box-shadow: 0 10px 26px rgba(108, 92, 231, 0.24);
+}
+
+.tutorial-welcome__title {
+  margin: 0 0 var(--spacing-2);
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  color: var(--color-text-primary);
+}
+
+.tutorial-welcome__lead {
+  margin: 0 0 var(--spacing-5);
+  font-size: var(--font-size-md);
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+
+.tutorial-welcome__points {
+  list-style: none;
+  margin: 0 0 var(--spacing-5);
+  padding: var(--spacing-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-3);
+  text-align: left;
+  border-radius: var(--radius-lg);
+  background: #f7f5ff;
+}
+
+.tutorial-welcome__point {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-3);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
+.tutorial-welcome__point-icon {
+  flex: 0 0 auto;
+  color: var(--color-accent);
+}
+
+.tutorial-sheet__text {
+  margin: 0 0 var(--spacing-4);
+  font-size: var(--font-size-md);
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+  text-align: center;
+}
+
+.tutorial-sheet__actions {
+  display: flex;
+  gap: var(--spacing-3);
+}
+
+/* Карточка текущего шага обучения (TUT-05; оверлей-подсветка — TUT-07). */
+.tutorial-step {
+  display: block;
+  padding: var(--spacing-4);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(160deg, #f3efff, #ffffff 70%);
+  border: 1.5px solid #e5ddff;
+  box-shadow: var(--shadow-card);
+}
+
+.tutorial-step__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-2);
+  margin-bottom: var(--spacing-3);
+}
+
+.tutorial-step__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  background: #efeaff;
+  color: var(--color-accent);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+}
+
+.tutorial-step__finish {
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.tutorial-step__finish:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.tutorial-step__title {
+  margin: 0 0 var(--spacing-1);
+  font-size: var(--font-size-lg);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--color-text-primary);
+}
+
+.tutorial-step__text {
+  margin: 0 0 var(--spacing-4);
+  font-size: var(--font-size-md);
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+
+.tutorial-step__actions {
+  display: flex;
+  gap: var(--spacing-3);
+}
+
+/* ---- Оверлей-слой обучения (TUT-05/TUT-07) ---- */
+
+.tutorial-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 35;
+  pointer-events: none;
+}
+
+.tutorial-overlay__scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 17, 29, 0.62);
+}
+
+/* Dim-окно: box-shadow затемняет всё, кроме «дырки» над целью. */
+.tutorial-overlay__spotlight {
+  position: fixed;
+  border-radius: 14px;
+  box-shadow: 0 0 0 9999px rgba(17, 17, 29, 0.62);
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  transition:
+    top 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+    left 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+    width 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+    height 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: tutorial-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes tutorial-pulse {
+  0%,
+  100% {
+    outline-color: rgba(108, 92, 231, 0.9);
+  }
+  50% {
+    outline-color: rgba(108, 92, 231, 0.35);
+  }
+}
+
+.tutorial-overlay__card {
+  position: fixed;
+  z-index: 36;
+  pointer-events: auto;
+  width: calc(100% - 32px);
+  max-width: 340px;
+  padding: var(--spacing-4);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-modal);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
+  transition:
+    top 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+    left 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.tutorial-overlay__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-2);
+  margin-bottom: var(--spacing-2);
+}
+
+.tutorial-overlay__progress {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Точки — декоративный индикатор; смысл несёт текст «Шаг N из M». */
+.tutorial-overlay__dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tutorial-overlay__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--color-input-border);
+}
+
+.tutorial-overlay__dot--done {
+  background: var(--color-accent);
+}
+
+.tutorial-overlay__progress-text {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+}
+
+.tutorial-overlay__controls {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+
+.tutorial-overlay__link {
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.tutorial-overlay__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: var(--radius-full);
+  background: var(--color-input-bg);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.tutorial-overlay__link:focus-visible,
+.tutorial-overlay__close:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.tutorial-overlay__title {
+  margin: 0 0 var(--spacing-1);
+  font-size: var(--font-size-lg);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--color-text-primary);
+}
+
+.tutorial-overlay__text {
+  margin: 0 0 var(--spacing-4);
+  font-size: var(--font-size-md);
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+
+.tutorial-overlay__error {
+  margin: calc(-1 * var(--spacing-2)) 0 var(--spacing-3);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-danger);
+}
+
+.tutorial-overlay__actions {
+  display: flex;
+  gap: var(--spacing-3);
+}
+
+.tutorial-flash {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 37;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: var(--radius-full);
+  background: var(--color-success);
+  color: #fff;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tutorial-overlay__spotlight {
+    animation: none;
+    transition: none;
+  }
+
+  .tutorial-overlay__card {
+    transition: none;
+  }
+
+  .tutorial-flash {
+    animation: none;
+  }
+}

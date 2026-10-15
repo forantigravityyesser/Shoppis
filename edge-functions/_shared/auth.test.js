@@ -3,6 +3,7 @@ import {
   hmac,
   hex,
   isValidTelegramInitData,
+  matchTelegramInitDataToken,
   signSession,
   timingSafeEqual,
   verifySession,
@@ -88,5 +89,30 @@ describe('isValidTelegramInitData (docs/24 §2.7 D4)', () => {
   it('чужой токен → false', async () => {
     const initData = await initDataFor({ auth_date: nowSeconds, user: '{"id":1}' }, 'other-token');
     await expect(isValidTelegramInitData(initData, [TOKEN], { now })).resolves.toBe(false);
+  });
+});
+
+describe('matchTelegramInitDataToken (источник входа)', () => {
+  const now = Date.now();
+  const nowSeconds = Math.floor(now / 1000);
+
+  it('возвращает токен бота, чья подпись совпала', async () => {
+    const initData = await initDataFor({ auth_date: nowSeconds, user: '{"id":1}' }, 'seller-token');
+    await expect(
+      matchTelegramInitDataToken(initData, ['buyer-token', 'seller-token'], { now }),
+    ).resolves.toBe('seller-token');
+  });
+
+  it('невалидная подпись → null', async () => {
+    const initData = await initDataFor({ auth_date: nowSeconds, user: '{"id":1}' }, 'other-token');
+    await expect(matchTelegramInitDataToken(initData, ['buyer-token'], { now })).resolves.toBeNull();
+  });
+
+  it('просроченный initData → null даже при валидной подписи', async () => {
+    const initData = await initDataFor(
+      { auth_date: nowSeconds - 25 * 3600, user: '{"id":1}' },
+      'buyer-token',
+    );
+    await expect(matchTelegramInitDataToken(initData, ['buyer-token'], { now })).resolves.toBeNull();
   });
 });

@@ -4,7 +4,12 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import DashboardInventoryBlock from './DashboardInventoryBlock';
 
-const inventory = { activeProducts: 7, archivedProducts: 2, activeCategories: 3 };
+const inventory = {
+  activeProducts: 7,
+  archivedProducts: 2,
+  activeCategories: 3,
+  buyerAvailableProducts: 3,
+};
 
 describe('DashboardInventoryBlock (docs/25 §4.2)', () => {
   it('карточка «Товары»: значения и тона витрины/архива', () => {
@@ -66,7 +71,12 @@ describe('DashboardInventoryBlock (docs/25 §4.2)', () => {
   it('нулевые значения отображаются', () => {
     render(
       <DashboardInventoryBlock
-        inventory={{ activeProducts: 0, archivedProducts: 0, activeCategories: 0 }}
+        inventory={{
+          activeProducts: 0,
+          archivedProducts: 0,
+          activeCategories: 0,
+          buyerAvailableProducts: 0,
+        }}
         onOpenProducts={() => {}}
         onOpenCategories={() => {}}
       />,

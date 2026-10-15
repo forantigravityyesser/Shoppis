@@ -5,8 +5,23 @@ import { MemoryRouter } from 'react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 vi.mock('./application/store', () => ({
-  useStore: (selector: (state: { context: string; storeId: string | null }) => unknown) =>
-    selector({ context: 'buyer', storeId: null }),
+  useStore: (selector: (state: Record<string, unknown>) => unknown) =>
+    selector({
+      context: 'buyer',
+      storeId: null,
+      animations: [],
+      dropAnimation: vi.fn(),
+      toast: null,
+      clearToast: vi.fn(),
+      pushAnimation: vi.fn(),
+      showToast: vi.fn(),
+      sessionToken: null,
+      viewedStore: null,
+      serverUser: null,
+      authLoading: false,
+      previewReturnPath: null,
+      exitStorePreview: vi.fn(),
+    }),
 }));
 
 vi.mock('./application/hooks/useHaptic', () => ({

@@ -38,6 +38,9 @@
 //   Test 32 Seller Dashboard counters: бакеты зеркалят табы (DELIVERED включает RECEIVED; history = REFUSED+CANCELLED)
 //   Test 33 Seller Dashboard sales sums: received = RECEIVED; frozen = NEW + IN_TRANSIT + DELIVERED-без-исхода; текущая валюта
 //   Test 34 Seller sales list: earned/potential (potential = NEW/IN_TRANSIT/DELIVERED-без-исхода) + totalMinor, keyset-пагинация, отсутствие пересечений (docs/25 SDB-04)
+//   Test 35 tutorial state RPC: authz чужого магазина, валидация значений, инвариант status↔step, дефолты нового магазина, идемпотентность, гранты (docs/26 TUT-02)
+//   Test 36 buyerAvailableProducts: семантика витрины (ACTIVE + ACTIVE-вариант + остаток > 0); архив/нет остатка/нет ACTIVE-варианта не считаются (docs/26 TUT-03)
+//   Test 37 growth facts: firstOrderAt/firstShippedAt/firstCompletedAt; историчность (отмена после отправки), REFUSED≠success, собственный заказ владельца учитывается (docs/26 TUT-08, §8.4 пересмотрено в 0060)
 //
 // Admin raw-SQL маскирует RAISE-сообщения в INTERNAL_ERROR, поэтому вызовы RPC
 // идут через временный `public._harness_try(text)`, который ловит SQL-исключение
@@ -1390,6 +1393,371 @@ async function run() {
       secondPage.orders.length > 0 && secondPage.orders[0].id !== firstPage.orders[0].id,
       `${secondPage.orders[0]?.id} vs ${firstPage.orders[0]?.id}`,
     );
+  }
+
+  // Test 35 — tutorial state RPC (docs/26 §3.6, TUT-02): authz чужого магазина,
+  // валидация значений и инварианта status↔step, дефолты нового магазина,
+  // идемпотентность и гранты (закрыт для anon/authenticated, доступен project_admin).
+  {
+    const patch = (p) => `${q(store)}, ${q(owner)}, ${q(JSON.stringify(p))}::jsonb`;
+
+    const defaults = (await rows(
+      `select tutorial_welcome_decision, tutorial_status, tutorial_step
+       from public.stores where id = ${q(store)}`,
+    ))[0] ?? {};
+    check(
+      'Test 35: новый магазин → welcome=unknown, status=not_started, step=null',
+      defaults.tutorial_welcome_decision === 'unknown' &&
+        defaults.tutorial_status === 'not_started' &&
+        defaults.tutorial_step === null,
+      JSON.stringify(defaults),
+    );
+
+    const foreign = await callFn(
+      'store_set_tutorial_state_atomic',
+      `${q(store)}, ${q(buyerB)}, ${q(JSON.stringify({ status: 'in_progress', step: 'orientation' }))}::jsonb`,
+    );
+    check(
+      'Test 35: чужой магазин → FORBIDDEN',
+      !foreign?.ok && /FORBIDDEN/.test(String(foreign.error)),
+      foreign?.error,
+    );
+
+    const badStatus = await callFn(
+      'store_set_tutorial_state_atomic',
+      patch({ status: 'weird', step: null }),
+    );
+    check(
+      'Test 35: неизвестный status → INVALID_TUTORIAL_STATE',
+      !badStatus?.ok && /INVALID_TUTORIAL_STATE/.test(String(badStatus.error)),
+      badStatus?.error,
+    );
+
+    const badStep = await callFn(
+      'store_set_tutorial_state_atomic',
+      patch({ status: 'in_progress', step: 'nope' }),
+    );
+    check(
+      'Test 35: неизвестный step → INVALID_TUTORIAL_STATE',
+      !badStep?.ok && /INVALID_TUTORIAL_STATE/.test(String(badStep.error)),
+      badStep?.error,
+    );
+
+    const noStep = await callFn('store_set_tutorial_state_atomic', patch({ status: 'in_progress' }));
+    check(
+      'Test 35: in_progress без step → INVALID_TUTORIAL_STATE (инвариант)',
+      !noStep?.ok && /INVALID_TUTORIAL_STATE/.test(String(noStep.error)),
+      noStep?.error,
+    );
+
+    const empty = await callFn('store_set_tutorial_state_atomic', patch({}));
+    check(
+      'Test 35: пустой patch → INVALID_TUTORIAL_STATE',
+      !empty?.ok && /INVALID_TUTORIAL_STATE/.test(String(empty.error)),
+      empty?.error,
+    );
+
+    const accepted = await callFn(
+      'store_set_tutorial_state_atomic',
+      patch({ welcome_decision: 'accepted', status: 'in_progress', step: 'orientation' }),
+    );
+    check(
+      'Test 35: accept → in_progress/orientation',
+      accepted?.ok === true &&
+        accepted.result?.tutorial_welcome_decision === 'accepted' &&
+        accepted.result?.tutorial_status === 'in_progress' &&
+        accepted.result?.tutorial_step === 'orientation',
+      JSON.stringify(accepted?.result ?? accepted?.error),
+    );
+
+    const again = await callFn(
+      'store_set_tutorial_state_atomic',
+      patch({ welcome_decision: 'accepted', status: 'in_progress', step: 'orientation' }),
+    );
+    check(
+      'Test 35: повторный patch идемпотентен',
+      again?.ok === true && again.result?.tutorial_step === 'orientation',
+      again?.error,
+    );
+
+    const moved = await callFn('store_set_tutorial_state_atomic', patch({ step: 'storefront' }));
+    check(
+      'Test 35: step-change сохраняет status/welcome',
+      moved?.ok === true &&
+        moved.result?.tutorial_step === 'storefront' &&
+        moved.result?.tutorial_status === 'in_progress' &&
+        moved.result?.tutorial_welcome_decision === 'accepted',
+      moved?.error,
+    );
+
+    const done = await callFn(
+      'store_set_tutorial_state_atomic',
+      patch({ status: 'completed', step: null }),
+    );
+    check(
+      'Test 35: complete → completed/step=null',
+      done?.ok === true &&
+        done.result?.tutorial_status === 'completed' &&
+        done.result?.tutorial_step === null,
+      done?.error,
+    );
+
+    const grants = await rows(
+      `select p.proname,
+              bool_or(has_function_privilege('anon', p.oid, 'EXECUTE')) as anon_exec,
+              bool_or(has_function_privilege('authenticated', p.oid, 'EXECUTE')) as auth_exec,
+              bool_or(has_function_privilege('project_admin', p.oid, 'EXECUTE')) as admin_exec
+       from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+       where n.nspname = 'public' and p.proname = 'store_set_tutorial_state_atomic'
+       group by p.proname`,
+    );
+    check('Test 35: RPC найден', grants.length === 1, `n=${grants.length}`);
+    check(
+      'Test 35: anon/authenticated не могут вызывать RPC',
+      grants.every((g) => g.anon_exec === false && g.auth_exec === false),
+      JSON.stringify(grants[0]),
+    );
+    check(
+      'Test 35: project_admin сохраняет доступ',
+      grants.every((g) => g.admin_exec === true),
+      JSON.stringify(grants[0]),
+    );
+  }
+
+  // Test 36 — buyerAvailableProducts (docs/26 §1.6/§3.4): счётчик повторяет семантику
+  // витрины (ACTIVE-товар + ACTIVE-вариант с остатком > 0). Архивные товары, товары без
+  // остатка и товары без ACTIVE-варианта не считаются; сверяемся с ручным SQL.
+  {
+    const count = async () => {
+      const s = await json(`select public.seller_dashboard_read(${q(owner)}, ${q(storePublic)})`);
+      return num(s.inventory.buyerAvailableProducts);
+    };
+    const sqlCount = async () =>
+      num(
+        await scalar(
+          `select count(*) from public.products p
+           where p.store_id = ${q(store)}
+             and p.status = 'ACTIVE'
+             and exists (
+               select 1
+               from public.variants v
+               join public.inventory inv on inv.variant_id = v.id
+               where v.product_id = p.id and v.status = 'ACTIVE' and inv.available_quantity > 0
+             )`,
+        ),
+      );
+
+    const base = await count();
+    check(
+      'Test 36: счётчик = ручной SQL-подсчёт (база)',
+      base === (await sqlCount()),
+      `${base} vs ${await sqlCount()}`,
+    );
+
+    await seedProduct({ available: 5 }); // ACTIVE + ACTIVE-вариант + остаток → считается
+    await seedProduct({ available: 0 }); // нет остатка → не считается
+    await seedProduct({ status: 'ARCHIVED', available: 5 }); // архив → не считается
+
+    // ACTIVE-товар с ARCHIVED-вариантом и остатком → не считается (нет ACTIVE-варианта).
+    const archivedVariantProduct = idOf(
+      await rows(
+        `insert into public.products (store_id, title, status, original_amount_minor, discount_percent)
+         values (${q(store)}, ${q(`Harness no-active-variant ${S}`)}, 'ACTIVE', 1000, 0)
+         returning id`,
+      ),
+    );
+    const archivedVariant = idOf(
+      await rows(
+        `insert into public.variants (product_id, name, value, normalized_value, status)
+         values (${q(archivedVariantProduct)}, 'Size', 'L', 'l', 'ARCHIVED')
+         returning id`,
+      ),
+    );
+    await raw(
+      `insert into public.inventory (variant_id, available_quantity, held_quantity)
+       values (${q(archivedVariant)}, 5, 0)`,
+    );
+
+    const after = await count();
+    check('Test 36: прибавился ровно один товар (+1)', after - base === 1, `${base}→${after}`);
+    check(
+      'Test 36: счётчик = ручной SQL-подсчёт после мутаций',
+      after === (await sqlCount()),
+      `${after} vs ${await sqlCount()}`,
+    );
+  }
+
+  // Test 37 — growth facts (docs/26 §3.5, TUT-08): firstOrderAt / firstShippedAt /
+  // firstCompletedAt из реальных заказов; историчность; отказ/отмена не успех;
+  // собственный заказ владельца учитывается (§8.4 пересмотрено, 0060).
+  // Отдельные магазины для изоляции.
+  {
+    const mkStore = async (ownerId, suffix) => {
+      const publicId = `harness_g_${suffix}_${S}`;
+      const sid = idOf(
+        await rows(
+          `insert into public.stores (owner_telegram_id, name, owner_user_id, public_id, status, currency, currency_symbol)
+           values (${q(`tg_${suffix}_${S}`)}, ${q(`Growth ${suffix} ${S}`)}, ${q(ownerId)}, ${q(publicId)}, 'ACTIVE', 'USD', '$')
+           returning id`,
+        ),
+      );
+      return { sid, publicId };
+    };
+    const mkProduct = async (sid) => {
+      const product = idOf(
+        await rows(
+          `insert into public.products (store_id, title, status, original_amount_minor, discount_percent)
+           values (${q(sid)}, ${q(`G ${S}`)}, 'ACTIVE', 1000, 0) returning id`,
+        ),
+      );
+      const variant = idOf(
+        await rows(
+          `insert into public.variants (product_id, name, value, normalized_value, status)
+           values (${q(product)}, 'Size', 'M', 'm', 'ACTIVE') returning id`,
+        ),
+      );
+      await raw(
+        `insert into public.inventory (variant_id, available_quantity, held_quantity)
+         values (${q(variant)}, 5, 0)`,
+      );
+      return variant;
+    };
+    const place = (sid, buyerId, key, variantId) =>
+      callFn(
+        'create_order_atomic',
+        `${q(sid)}, ${q(buyerId)}, ${q(key)}, 'Тест', '+10000000000', 'Адрес 1', null, ${q(
+          JSON.stringify([{ variantId, quantity: 1 }]),
+        )}::jsonb`,
+      );
+    const growthOf = async (ownerId, publicId) =>
+      (await json(`select public.seller_dashboard_read(${q(ownerId)}, ${q(publicId)})`)).growth;
+
+    const cleanups = [];
+    try {
+      const owner2 = await seedUser();
+      const buyer2 = await seedUser();
+      const { sid: s2, publicId: p2 } = await mkStore(owner2, 'main');
+      cleanups.push({ sid: s2, userIds: [owner2, buyer2] });
+
+      const g0 = await growthOf(owner2, p2);
+      check(
+        'Test 37: без заказов → growth-facts null',
+        g0.firstOrderAt === null && g0.firstShippedAt === null && g0.firstCompletedAt === null,
+        JSON.stringify(g0),
+      );
+
+      // Заказ 1: создан и отменён покупателем.
+      const v1 = await mkProduct(s2);
+      const r1 = await place(s2, buyer2, `g37a_${S}`, v1);
+      const id1 = r1.result.orderId;
+      const gOrder = await growthOf(owner2, p2);
+      check(
+        'Test 37: первый заказ → firstOrderAt задан',
+        typeof gOrder.firstOrderAt === 'string',
+        JSON.stringify(gOrder),
+      );
+
+      await callFn('order_cancel', `${q(id1)}, ${q(buyer2)}, 'buyer'`);
+      const gCancelled = await growthOf(owner2, p2);
+      check(
+        'Test 37: отмена не стирает firstOrderAt',
+        gCancelled.firstOrderAt === gOrder.firstOrderAt,
+        JSON.stringify(gCancelled),
+      );
+      check(
+        'Test 37: отмена не создаёт shipped/completed',
+        gCancelled.firstShippedAt === null && gCancelled.firstCompletedAt === null,
+        JSON.stringify(gCancelled),
+      );
+
+      // Заказ 2: IN_TRANSIT, затем отменён продавцом (историчность отправки, §8.5).
+      const v2 = await mkProduct(s2);
+      const r2 = await place(s2, buyer2, `g37b_${S}`, v2);
+      const id2 = r2.result.orderId;
+      await callFn('order_transition', `${q(id2)}, ${q(owner2)}, 'IN_TRANSIT'`);
+      const gShipped = await growthOf(owner2, p2);
+      check(
+        'Test 37: IN_TRANSIT → firstShippedAt задан',
+        typeof gShipped.firstShippedAt === 'string',
+        JSON.stringify(gShipped),
+      );
+      check(
+        'Test 37: отправка не закрывает firstCompletedAt',
+        gShipped.firstCompletedAt === null,
+        JSON.stringify(gShipped),
+      );
+      await callFn('order_cancel', `${q(id2)}, ${q(owner2)}, 'seller'`);
+      const gShippedCancelled = await growthOf(owner2, p2);
+      check(
+        'Test 37: историчность — отмена после отправки сохраняет firstShippedAt',
+        gShippedCancelled.firstShippedAt === gShipped.firstShippedAt,
+        JSON.stringify(gShippedCancelled),
+      );
+
+      // Заказ 3: REFUSED → не completed.
+      const v3 = await mkProduct(s2);
+      const r3 = await place(s2, buyer2, `g37c_${S}`, v3);
+      const id3 = r3.result.orderId;
+      await callFn('order_transition', `${q(id3)}, ${q(owner2)}, 'IN_TRANSIT'`);
+      await callFn('order_transition', `${q(id3)}, ${q(owner2)}, 'DELIVERED'`);
+      await callFn('order_delivery_outcome', `${q(id3)}, ${q(owner2)}, 'REFUSED', 'OTHER'`);
+      const gRefused = await growthOf(owner2, p2);
+      check(
+        'Test 37: REFUSED не пишет firstCompletedAt',
+        gRefused.firstCompletedAt === null,
+        JSON.stringify(gRefused),
+      );
+
+      // Заказ 4: RECEIVED → completed.
+      const v4 = await mkProduct(s2);
+      const r4 = await place(s2, buyer2, `g37d_${S}`, v4);
+      const id4 = r4.result.orderId;
+      await callFn('order_transition', `${q(id4)}, ${q(owner2)}, 'IN_TRANSIT'`);
+      await callFn('order_transition', `${q(id4)}, ${q(owner2)}, 'DELIVERED'`);
+      await callFn('order_delivery_outcome', `${q(id4)}, ${q(owner2)}, 'RECEIVED'`);
+      const gReceived = await growthOf(owner2, p2);
+      check(
+        'Test 37: RECEIVED → firstCompletedAt задан',
+        typeof gReceived.firstCompletedAt === 'string',
+        JSON.stringify(gReceived),
+      );
+
+      // §8.4 (пересмотрено, 0060): собственный заказ владельца учитывается —
+      // первый заказ закрывает цель 1 сразу.
+      const owner3 = await seedUser();
+      const { sid: s3, publicId: p3 } = await mkStore(owner3, 'self');
+      cleanups.push({ sid: s3, userIds: [owner3] });
+      const v5 = await mkProduct(s3);
+      await place(s3, owner3, `g37self_${S}`, v5);
+      const gSelf = await growthOf(owner3, p3);
+      check(
+        'Test 37: собственный заказ владельца учитывается → firstOrderAt задан (§8.4)',
+        typeof gSelf.firstOrderAt === 'string',
+        JSON.stringify(gSelf),
+      );
+
+      const foreign = await json(`select public.seller_dashboard_read(${q(buyer2)}, ${q(p2)})`);
+      check('Test 37: чужой магазин → null', foreign === null, String(foreign));
+    } finally {
+      for (const c of cleanups) {
+        const variants = `select id from public.variants where product_id in (select id from public.products where store_id = ${q(c.sid)})`;
+        const orders = `select id from public.orders where store_id = ${q(c.sid)}`;
+        await raw(`delete from public.inventory_movements where variant_id in (${variants})`);
+        await raw(`delete from public.order_items where order_id in (${orders})`);
+        await raw(`delete from public.order_status_history where order_id in (${orders})`);
+        await raw(`delete from public.orders where store_id = ${q(c.sid)}`);
+        await raw(`delete from public.inventory where variant_id in (${variants})`);
+        await raw(
+          `delete from public.variants where product_id in (select id from public.products where store_id = ${q(c.sid)})`,
+        );
+        await raw(`delete from public.products where store_id = ${q(c.sid)}`);
+        await raw(`delete from public.stores where id = ${q(c.sid)}`);
+        await raw(
+          `delete from public.order_idempotency where buyer_user_id in (${c.userIds.map(q).join(',')})`,
+        );
+        await raw(`delete from public.users where id in (${c.userIds.map(q).join(',')})`);
+      }
+    }
   }
 }
 

@@ -6,6 +6,12 @@ const storeRepository = {
   fetchStoresByOwnerTelegram: vi.fn(),
 };
 
+const storeSettingsApi = {
+  updateProfile: vi.fn(),
+  updateStatus: vi.fn(),
+  updateTutorialState: vi.fn(),
+};
+
 vi.mock('../../composition/container', () => ({
   deps: () => ({
     i18n: {
@@ -14,6 +20,7 @@ vi.mock('../../composition/container', () => ({
       applyStoreDefaultLanguage: () => {},
     },
     storeRepository,
+    storeSettingsApi,
   }),
 }));
 
@@ -44,6 +51,9 @@ beforeEach(() => {
   queryClient.clear();
   storeRepository.fetchStoresByOwnerUser.mockReset();
   storeRepository.fetchStoresByOwnerTelegram.mockReset();
+  storeSettingsApi.updateProfile.mockReset();
+  storeSettingsApi.updateStatus.mockReset();
+  storeSettingsApi.updateTutorialState.mockReset();
 });
 
 describe('orders-кэш ↔ личность (docs/24 §3.4, ORD-HARDEN-04)', () => {
@@ -95,6 +105,10 @@ function store(id: string): Store {
     status: 'ACTIVE',
     publicId: `pub_${id}`,
     createdAt: '',
+    tutorialWelcomeDecision: 'unknown',
+    tutorialStatus: 'not_started',
+    tutorialStep: null,
+    tutorialUpdatedAt: null,
   };
 }
 
@@ -180,5 +194,64 @@ describe('loadSellerStore — scope магазина при старте (01 §5
     await expect(useStore.getState().loadSellerStore()).resolves.toBe('s1');
     expect(useStore.getState().storeId).toBe('s1');
     expect(useStore.getState().currentStore?.id).toBe('s1');
+  });
+});
+
+describe('tutorial state (docs/26 §3.2/§3.6, TUT-02)', () => {
+  it('updateTutorialState пишет состояние и кладёт ответ сервера в currentStore', async () => {
+    useStore.setState({ storeId: 's1', sessionToken: 'tok', currentStore: store('s1') });
+    storeSettingsApi.updateTutorialState.mockResolvedValue({
+      ...store('s1'),
+      tutorialWelcomeDecision: 'accepted',
+      tutorialStatus: 'in_progress',
+      tutorialStep: 'orientation',
+    });
+
+    await useStore.getState().updateTutorialState({
+      welcomeDecision: 'accepted',
+      status: 'in_progress',
+      step: 'orientation',
+    });
+
+    expect(storeSettingsApi.updateTutorialState).toHaveBeenCalledWith('tok', 's1', {
+      welcomeDecision: 'accepted',
+      status: 'in_progress',
+      step: 'orientation',
+    });
+    expect(useStore.getState().currentStore?.tutorialStatus).toBe('in_progress');
+    expect(useStore.getState().currentStore?.tutorialStep).toBe('orientation');
+  });
+
+  it('updateStoreProfile не теряет tutorial-поля (проекция RPC их включает)', async () => {
+    useStore.setState({ storeId: 's1', sessionToken: 'tok', currentStore: store('s1') });
+    storeSettingsApi.updateProfile.mockResolvedValue({
+      ...store('s1'),
+      name: 'New',
+      tutorialWelcomeDecision: 'accepted',
+      tutorialStatus: 'in_progress',
+      tutorialStep: 'storefront',
+    });
+
+    await useStore.getState().updateStoreProfile({ name: 'New' });
+
+    const current = useStore.getState().currentStore;
+    expect(current?.name).toBe('New');
+    expect(current?.tutorialWelcomeDecision).toBe('accepted');
+    expect(current?.tutorialStatus).toBe('in_progress');
+    expect(current?.tutorialStep).toBe('storefront');
+  });
+
+  it('updateTutorialState без выбранного магазина → ошибка', async () => {
+    useStore.setState({ storeId: null, currentStore: null });
+    await expect(
+      useStore
+        .getState()
+        .updateTutorialState({
+          welcomeDecision: 'accepted',
+          status: 'in_progress',
+          step: 'orientation',
+        }),
+    ).rejects.toThrow('Store is not selected');
+    expect(storeSettingsApi.updateTutorialState).not.toHaveBeenCalled();
   });
 });

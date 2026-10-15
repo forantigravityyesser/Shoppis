@@ -2,6 +2,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { queryClient } from './application/queryClient';
 import type { OrderDetails } from './application/read-models/order';
 
 const h = vi.hoisted(() => ({
@@ -29,9 +31,11 @@ import AppRouter from './router';
 
 function renderAt(path: string) {
   return render(
-    <MemoryRouter initialEntries={[path]}>
-      <AppRouter />
-    </MemoryRouter>,
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={[path]}>
+        <AppRouter />
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 

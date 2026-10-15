@@ -24,10 +24,20 @@ export interface SellerDashboardInventory {
   activeProducts: number;
   archivedProducts: number;
   activeCategories: number;
+  /** Товары `ACTIVE` с `ACTIVE`-вариантом и остатком > 0 (семантика витрины). docs/26 §3.4 */
+  buyerAvailableProducts: number;
+}
+
+/** Факты развития магазина из реальных заказов (docs/26 §3.5). */
+export interface SellerDashboardGrowth {
+  firstOrderAt: string | null;
+  firstShippedAt: string | null;
+  firstCompletedAt: string | null;
 }
 
 export interface SellerDashboardSummary {
   orders: SellerDashboardOrderCounts;
   sales: SellerDashboardSales;
   inventory: SellerDashboardInventory;
+  growth: SellerDashboardGrowth;
 }

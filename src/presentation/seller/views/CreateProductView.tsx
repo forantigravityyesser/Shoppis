@@ -1,6 +1,7 @@
 import { useSearchParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { useInventoryHome } from '../../../application/hooks/useInventory';
+import { useSellerTutorial } from '../../../application/hooks/useSellerTutorial';
 import ProductDraftEditor from '../components/ProductDraftEditor';
 import { emptyFormValues } from '../components/product-form-values';
 import '../inventory/inventory.css';
@@ -15,6 +16,7 @@ export default function CreateProductView() {
   const [params] = useSearchParams();
   const initialCategoryId = params.get('categoryId') ?? '';
   const { categories } = useInventoryHome();
+  const tutorial = useSellerTutorial();
 
   return (
     <div className="screen inv-form">
@@ -26,6 +28,10 @@ export default function CreateProductView() {
         exitTo="/seller/inventory"
         // После создания открываем карточку товара для сверки; «назад» оттуда — в инвентарь.
         savedTo={(productId) => `/seller/inventory/product/${productId}`}
+        // Подтверждённое сохранение закрывает шаг обучения product-create (docs/26 TUT-05).
+        onSavedProduct={(productId) => {
+          void tutorial.notifyProductSaved(productId);
+        }}
       />
     </div>
   );

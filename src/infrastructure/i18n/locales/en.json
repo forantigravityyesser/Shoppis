@@ -206,6 +206,75 @@
     "unanswered": "Unanswered"
   },
   "seller": {
+    "tutorial": {
+      "welcome": {
+        "title": "Welcome to Shoppis!",
+        "lead": "A quick tour — and your store is ready to take orders. No boring manuals.",
+        "points": {
+          "product": "Create your first product",
+          "preview": "See your storefront through a buyer's eyes",
+          "share": "Share your store with buyers"
+        },
+        "start": "Start the tour",
+        "decline": "Later"
+      },
+      "start": "Start tutorial",
+      "resume": "Continue tutorial",
+      "next": "Next",
+      "finish": "Finish tutorial",
+      "skip": "Skip step",
+      "stepDone": "Step completed",
+      "done": "Done",
+      "stepLabel": "Step {{index}} of {{total}}",
+      "fieldRequired": "Fill in this field to continue.",
+      "steps": {
+        "orientation": {
+          "title": "Inventory is your control center",
+          "text": "Products and categories live here. Tap “Inventory” below to continue."
+        },
+        "productCreate": {
+          "title": "Open Inventory",
+          "text": "Inventory is your control center for products. Open it to add your first product.",
+          "addTitle": "Add a product",
+          "addText": "Tap “+ Add” to open the product form.",
+          "create": "Create product",
+          "createAnother": "Create another",
+          "viewExisting": "View the existing product",
+          "photoTitle": "Product photo",
+          "photoText": "Add a photo — cards with photos get noticed and sell better. This step is optional.",
+          "descriptionTitle": "Description",
+          "descriptionText": "Tell buyers about the product — this field is optional. You can skip it.",
+          "titleTitle": "Product title",
+          "titleText": "Enter a title — this is what buyers will see.",
+          "dimensionTitle": "Option name",
+          "dimensionText": "The name of your product's attribute: clothing — size, perfume — volume, tech — RAM or storage.",
+          "valueTitle": "Option value",
+          "valueText": "The specific value: e.g. M, 50 ml, 8 GB.",
+          "quantityTitle": "Stock quantity",
+          "quantityText": "How many units you have. Without stock the product won't appear on your storefront.",
+          "priceTitle": "Price",
+          "priceText": "Set a price — this is exactly what buyers see.",
+          "publishTitle": "Publish",
+          "publishText": "Tap “Publish” and the product appears on your storefront."
+        },
+        "productBuyerView": {
+          "title": "See it through a buyer's eyes",
+          "text": "Tap the preview button (the eye icon) to see the product as a buyer. Go back and the tour continues."
+        },
+        "storefront": {
+          "toSettingsTitle": "Settings",
+          "toSettingsText": "Open “Settings” below — that's where you share your store.",
+          "shareTitle": "Share your store",
+          "shareText": "Tap “Share store” to get your storefront link.",
+          "copyTitle": "Copy the link",
+          "copyText": "Tap “Copy” — now you can send the link to buyers."
+        },
+        "finish": {
+          "title": "Congratulations!",
+          "text": "You've completed the tour: you created a product, saw your storefront through a buyer's eyes, and you're ready to share your store. Wishing your business a great journey and steady growth!"
+        }
+      }
+    },
     "dashboard": {
       "title": "Home",
       "store": {
@@ -247,9 +316,47 @@
         "archivedAria": "Archived: {{value}}",
         "activeAria": "Active categories: {{value}}"
       },
-      "attention": {
-        "title": "Needs attention",
-        "text": "Tasks that require action will appear here. In future updates: out-of-stock and low-stock products, new buyer questions and reviews, and order reminders."
+      "checklist": {
+        "title": "Store setup",
+        "readyTitle": "Store is ready",
+        "progress": "{{completed}} of {{total}} done",
+        "items": {
+          "name": "Store name",
+          "appearance": "Store appearance",
+          "availableProduct": "Product available to buyers",
+          "category": "Category",
+          "supportLinks": "Contact for buyers"
+        },
+        "hints": {
+          "appearance": "Add a banner or description",
+          "availableProduct": "Publish a product with stock",
+          "category": "Create at least one category",
+          "supportLinks": "Add a contact link"
+        },
+        "status": {
+          "completed": "Done",
+          "incomplete": "Not done"
+        }
+      },
+      "growth": {
+        "title": "Store growth",
+        "cta": "Share storefront",
+        "allDoneTitle": "All goals achieved!",
+        "allDoneText": "You received, shipped, and completed your first order. Keep it up!",
+        "goals": {
+          "firstOrder": {
+            "title": "Get your first order",
+            "text": "Share your storefront — your first buyers are close."
+          },
+          "firstShipped": {
+            "title": "Ship your first order",
+            "text": "Mark the order as shipped."
+          },
+          "firstCompleted": {
+            "title": "Complete your first order",
+            "text": "Record delivery received to complete it."
+          }
+        }
       }
     },
     "inventory": {
@@ -557,11 +664,13 @@
       "groupStore": "Store",
       "groupBuyers": "For buyers",
       "groupInterface": "Interface",
+      "groupHelp": "Help",
       "rowProfile": "Store profile",
       "rowLocalization": "Language and currency",
       "rowContacts": "Contacts",
       "rowShare": "Share store",
       "rowPreview": "Preview",
+      "rowTutorial": "Start tutorial",
       "valueNotSpecified": "Not specified",
       "profileTitle": "Store profile",
       "contactTitle": "Contacts",

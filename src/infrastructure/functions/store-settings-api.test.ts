@@ -1,10 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { invokeFunction, updateStoreProfileDev, updateStoreStatusDev } = vi.hoisted(() => ({
-  invokeFunction: vi.fn(),
-  updateStoreProfileDev: vi.fn(),
-  updateStoreStatusDev: vi.fn(),
-}));
+const { invokeFunction, updateStoreProfileDev, updateStoreStatusDev, updateStoreTutorialStateDev } =
+  vi.hoisted(() => ({
+    invokeFunction: vi.fn(),
+    updateStoreProfileDev: vi.fn(),
+    updateStoreStatusDev: vi.fn(),
+    updateStoreTutorialStateDev: vi.fn(),
+  }));
 
 vi.mock('../insforge/functions-gateway', () => ({ invokeFunction }));
 vi.mock('../insforge/config', () => ({
@@ -13,9 +15,13 @@ vi.mock('../insforge/config', () => ({
   INSFORGE_ANON_KEY: 'anon',
   MEDIA_BUCKET: 'shoppis-media',
 }));
-vi.mock('./store-settings-api.dev', () => ({ updateStoreProfileDev, updateStoreStatusDev }));
+vi.mock('./store-settings-api.dev', () => ({
+  updateStoreProfileDev,
+  updateStoreStatusDev,
+  updateStoreTutorialStateDev,
+}));
 
-import { updateProfile, updateStatus } from './store-settings-api';
+import { updateProfile, updateStatus, updateTutorialState } from './store-settings-api';
 import type { StoreRow } from '../repositories/store-repository';
 
 const ROW: StoreRow = {
@@ -43,6 +49,7 @@ beforeEach(() => {
   invokeFunction.mockReset();
   updateStoreProfileDev.mockReset();
   updateStoreStatusDev.mockReset();
+  updateStoreTutorialStateDev.mockReset();
 });
 
 describe('store-settings-api.updateStoreProfile', () => {
@@ -97,9 +104,7 @@ describe('store-settings-api.updateStoreProfile', () => {
 
   it('бросает, если ответ без store', async () => {
     invokeFunction.mockResolvedValue({ data: { success: true }, error: null });
-    await expect(updateProfile('tok', 's1', { name: 'X' })).rejects.toThrow(
-      'Store update failed',
-    );
+    await expect(updateProfile('tok', 's1', { name: 'X' })).rejects.toThrow('Store update failed');
   });
 
   it('без токена и без DEV_AUTH_MODE не ходит на сервер', async () => {
@@ -128,5 +133,121 @@ describe('store-settings-api.updateStatus', () => {
       error: null,
     });
     await expect(updateStatus('tok', 's1', 'PAUSED')).rejects.toThrow('INVALID_STATUS');
+  });
+});
+
+describe('store-settings-api.updateTutorialState', () => {
+  it('маппит состояния в snake_case и вызывает store-actions action tutorial-state', async () => {
+    invokeFunction.mockResolvedValue(
+      ok({
+        ...ROW,
+        tutorial_status: 'in_progress',
+        tutorial_step: 'orientation',
+        tutorial_welcome_decision: 'accepted',
+      }),
+    );
+
+    await updateTutorialState('tok', 's1', {
+      welcomeDecision: 'accepted',
+      status: 'in_progress',
+      step: 'orientation',
+    });
+
+    expect(invokeFunction).toHaveBeenCalledWith('store-actions', {
+      token: 'tok',
+      body: {
+        action: 'tutorial-state',
+        storeId: 's1',
+        patch: { welcome_decision: 'accepted', status: 'in_progress', step: 'orientation' },
+      },
+    });
+  });
+
+  it('отправляет step=null для завершённого обучения', async () => {
+    invokeFunction.mockResolvedValue(
+      ok({ ...ROW, tutorial_welcome_decision: 'accepted', tutorial_status: 'completed' }),
+    );
+
+    await updateTutorialState('tok', 's1', {
+      welcomeDecision: 'accepted',
+      status: 'completed',
+      step: null,
+    });
+
+    const [, opts] = invokeFunction.mock.calls[0] as [string, { body: { patch: object } }];
+    expect(opts.body.patch).toEqual({
+      welcome_decision: 'accepted',
+      status: 'completed',
+      step: null,
+    });
+  });
+
+  it('возвращает Store с tutorial-полями из ответа', async () => {
+    invokeFunction.mockResolvedValue(
+      ok({
+        ...ROW,
+        tutorial_welcome_decision: 'accepted',
+        tutorial_status: 'in_progress',
+        tutorial_step: 'storefront',
+      }),
+    );
+
+    const store = await updateTutorialState('tok', 's1', {
+      welcomeDecision: 'accepted',
+      status: 'in_progress',
+      step: 'storefront',
+    });
+
+    expect(store).toMatchObject({
+      id: 's1',
+      tutorialWelcomeDecision: 'accepted',
+      tutorialStatus: 'in_progress',
+      tutorialStep: 'storefront',
+    });
+  });
+
+  it('бросает код серверной ошибки INVALID_TUTORIAL_STATE', async () => {
+    invokeFunction.mockResolvedValue({
+      data: { success: false, error: 'INVALID_TUTORIAL_STATE' },
+      error: null,
+    });
+    await expect(
+      updateTutorialState('tok', 's1', {
+        welcomeDecision: 'accepted',
+        status: 'in_progress',
+        step: null,
+      }),
+    ).rejects.toThrow('INVALID_TUTORIAL_STATE');
+  });
+
+  it('без токена и без DEV_AUTH_MODE не ходит на сервер', async () => {
+    await expect(
+      updateTutorialState(null, 's1', {
+        welcomeDecision: 'accepted',
+        status: 'in_progress',
+        step: 'orientation',
+      }),
+    ).rejects.toThrow('Unauthorized');
+    expect(invokeFunction).not.toHaveBeenCalled();
+    expect(updateStoreTutorialStateDev).not.toHaveBeenCalled();
+  });
+});
+
+describe('store-settings-api — ловушка проекции (docs/26 §3.6)', () => {
+  it('updateProfile сохраняет tutorial-поля из проекции RPC', async () => {
+    invokeFunction.mockResolvedValue(
+      ok({
+        ...ROW,
+        tutorial_welcome_decision: 'accepted',
+        tutorial_status: 'in_progress',
+        tutorial_step: 'product-create',
+      }),
+    );
+
+    const store = await updateProfile('tok', 's1', { name: 'New' });
+
+    expect(store.tutorialWelcomeDecision).toBe('accepted');
+    expect(store.tutorialStatus).toBe('in_progress');
+    expect(store.tutorialStep).toBe('product-create');
   });
 });

@@ -1,10 +1,19 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { Eye, Languages, Power, Send, Share2, Store as StoreIcon } from 'lucide-react';
+import {
+  Eye,
+  GraduationCap,
+  Languages,
+  Power,
+  Send,
+  Share2,
+  Store as StoreIcon,
+} from 'lucide-react';
 import { useStore } from '../../../application/store';
 import { useStorefrontLink } from '../../../application/hooks/useStorefrontLink';
 import { useOpenTelegramLink } from '../../../application/hooks/useOpenTelegramLink';
+import { useSellerTutorial } from '../../../application/hooks/useSellerTutorial';
 import type { StoreStatus } from '../../../domain/models/store';
 import BackButton from '../../shared/components/BackButton';
 import LanguageSwitcher from '../../shared/components/LanguageSwitcher';
@@ -124,6 +133,7 @@ export default function SellerSettingsView() {
   const authLoading = useStore((s) => s.authLoading);
   const storefrontUrl = useStorefrontLink(currentStore?.publicId ?? '');
   const openTelegramLink = useOpenTelegramLink();
+  const tutorial = useSellerTutorial();
 
   useEffect(() => {
     if (!currentStore) void fetchCurrentStore();
@@ -202,6 +212,7 @@ export default function SellerSettingsView() {
         <SettingsRow
           title={t('seller.settings.rowShare')}
           icon={Share2}
+          dataTour="settings-share"
           onClick={() => navigate('/seller/settings/share')}
         />
         <SettingsRow
@@ -227,6 +238,18 @@ export default function SellerSettingsView() {
           </div>
           <LanguageSwitcher />
         </div>
+      </section>
+
+      <div className="settings-group__label">{t('seller.settings.groupHelp')}</div>
+      <section className="settings-group" aria-label={t('seller.settings.groupHelp')}>
+        <SettingsRow
+          title={t('seller.settings.rowTutorial')}
+          icon={GraduationCap}
+          onClick={() => {
+            void tutorial.accept();
+            navigate('/seller/dashboard');
+          }}
+        />
       </section>
     </div>
   );

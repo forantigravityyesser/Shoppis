@@ -1,4 +1,4 @@
-import type { ServerUser } from '../contracts/auth';
+import type { EntryBot, ServerUser } from '../contracts/auth';
 import { deps } from '../composition/container';
 
 /**
@@ -12,6 +12,8 @@ export interface RuntimeSession {
   user: ServerUser;
   /** true — identity подтверждена сервером (HMAC); false — dev mock. */
   serverVerified: boolean;
+  /** Бот, из которого открыт Mini App (для контекста входа без startapp). */
+  bot: EntryBot;
 }
 
 /**
@@ -25,18 +27,18 @@ export async function authenticate(): Promise<RuntimeSession> {
 
   if (rawInitData) {
     try {
-      const { token, user } = await authApi.authenticateTelegram(rawInitData);
-      return { token, user, serverVerified: true };
+      const { token, user, bot } = await authApi.authenticateTelegram(rawInitData);
+      return { token, user, serverVerified: true, bot };
     } catch (e) {
       const dev = identity.getDevServerUser();
       if (!dev) throw e;
       console.warn('[auth] server auth failed, falling back to dev identity:', e);
-      return { token: null, user: dev, serverVerified: false };
+      return { token: null, user: dev, serverVerified: false, bot: null };
     }
   }
 
   const dev = identity.getDevServerUser();
-  if (dev) return { token: null, user: dev, serverVerified: false };
+  if (dev) return { token: null, user: dev, serverVerified: false, bot: null };
 
   throw new Error('Telegram initData is unavailable');
 }

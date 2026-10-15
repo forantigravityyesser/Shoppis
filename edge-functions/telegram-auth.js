@@ -5,6 +5,10 @@
 // Шаги: проверить HMAC-подпись initData по токену бота → резолвить/создать
 // User + TelegramIdentity → выдать подписанную сессию (HMAC, секрет SESSION_SECRET).
 //
+// Ответ содержит `bot: 'buyer' | 'seller' | null` — из какого бота открыт Mini App
+// (по токену, чья подпись совпала). Клиент использует его для выбора контекста,
+// когда Telegram открыл приложение без startapp (главный Mini App / «Open App»).
+//
 // Env: INSFORGE_BASE_URL, ANON_KEY, SESSION_SECRET, SESSION_TTL_SECONDS?,
 //      AUTH_MAX_AGE_SECONDS? (окно свежести auth_date, default 24ч),
 //      BUYER_BOT_TOKEN / SELLER_BOT_TOKEN (fallback BOT_TOKEN).
@@ -16,7 +20,7 @@
 import { createClient } from 'npm:@insforge/sdk';
 import { env } from './_shared/env.js';
 import { json, methodNotAllowed, preflight, readJson } from './_shared/http.js';
-import { botTokens, isValidTelegramInitData, signSession } from './_shared/auth.js';
+import { matchTelegramInitDataToken, namedBotTokens, signSession } from './_shared/auth.js';
 
 export default async function (request) {
   if (request.method === 'OPTIONS') return preflight();
@@ -35,13 +39,20 @@ export default async function (request) {
   const initData = String(body?.initData || '');
   if (!initData) return json({ success: false, error: 'initData is required' }, 400);
 
-  const tokens = botTokens();
+  const tokens = namedBotTokens();
   if (!tokens.length) return json({ success: false, error: 'Bot token is not configured' }, 500);
 
   const maxAgeSeconds = Number(env('AUTH_MAX_AGE_SECONDS')) || undefined;
-  if (!(await isValidTelegramInitData(initData, tokens, { maxAgeSeconds }))) {
+  const matchedToken = await matchTelegramInitDataToken(
+    initData,
+    tokens.map((entry) => entry.token),
+    { maxAgeSeconds },
+  );
+  if (!matchedToken) {
     return json({ success: false, error: 'Invalid Telegram initData' }, 401);
   }
+  // Источник входа: из какого бота открыт Mini App. По подписи initData — доверенно.
+  const entryBot = tokens.find((entry) => entry.token === matchedToken)?.bot ?? null;
 
   const params = new URLSearchParams(initData);
   let tgUser;
@@ -110,6 +121,7 @@ export default async function (request) {
     return json({
       success: true,
       token,
+      bot: entryBot,
       user: {
         id: userId,
         telegramUserId,

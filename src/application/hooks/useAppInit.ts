@@ -9,6 +9,7 @@ import {
   parseStorefrontStartParam,
 } from '../../domain/rules/storefront-link';
 import type { AppContext } from '../../domain/constants/app-context';
+import type { EntryBot } from '../contracts/auth';
 
 /** Минимальная поверхность Telegram WebApp, используемая при инициализации. */
 interface TelegramWebApp {
@@ -62,10 +63,14 @@ export function useAppInit(): void {
         // --- 2. Серверная аутентификация: initData → session/user ---
         let authenticated = false;
         let sessionToken: string | null = null;
+        // Источник входа (подпись initData совпала с токеном бота): нужен для
+        // открытий без startapp — главный Mini App / кнопка «Open App».
+        let entryBot: EntryBot = null;
         try {
           const session = await authenticate();
           useStore.getState().setSession(session.token, session.user);
           sessionToken = session.token;
+          entryBot = session.bot;
           authenticated = true;
         } catch (e) {
           console.warn('[appInit] authentication failed:', e);
@@ -100,9 +105,25 @@ export function useAppInit(): void {
               buyerPublicId = fromLink;
               buyerProductId = productLink?.productId ?? null;
               localStorage.setItem('last_visited_store_public_id', fromLink);
+            } else if (entryBot === 'seller') {
+              // Главный Mini App бота продавца открыт без startapp: это панель,
+              // а не пустая витрина. Источник входа даёт подписанный initData.
+              finalContext = 'seller';
             } else {
-              // Вход без параметра: последняя посещённая витрина
+              // Вход без параметра: последняя посещённая витрина. localStorage
+              // может не делиться между точками входа — тогда спрашиваем сервер.
               buyerPublicId = localStorage.getItem('last_visited_store_public_id');
+              if (!buyerPublicId && sessionToken) {
+                try {
+                  const visited = await deps().storeVisitApi.loadVisitedStores(sessionToken);
+                  buyerPublicId = visited[0]?.publicId ?? null;
+                  if (buyerPublicId) {
+                    localStorage.setItem('last_visited_store_public_id', buyerPublicId);
+                  }
+                } catch (e) {
+                  console.warn('[appInit] visited stores load failed:', e);
+                }
+              }
             }
 
             // Открытие витрины фиксируем на сервере: список магазинов покупателя

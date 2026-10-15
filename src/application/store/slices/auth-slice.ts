@@ -1,7 +1,11 @@
 import type { StateCreator } from 'zustand';
 import type { AppContext } from '../../../domain/constants/app-context';
 import type { Store, StoreStatus } from '../../../domain/models/store';
-import type { CreateStoreInput, StoreProfilePatch } from '../../contracts/store';
+import type {
+  CreateStoreInput,
+  StoreProfilePatch,
+  TutorialStatePatch,
+} from '../../contracts/store';
 import type { ServerUser } from '../../contracts/auth';
 import type { PublicStoreContext } from '../../read-models/public-store';
 import { deps } from '../../composition/container';
@@ -84,6 +88,11 @@ export interface AuthSlice {
   updateStoreProfile: (patch: StoreProfilePatch) => Promise<void>;
   /** Операционная смена статуса витрины (ACTIVE ↔ PAUSED). */
   updateStoreStatus: (status: StoreStatus) => Promise<void>;
+  /**
+   * Запись состояния обучения (docs/26 §3.6) — только на значимых переходах.
+   * Сервер валидирует значения и инвариант; ответ — обновлённый магазин.
+   */
+  updateTutorialState: (patch: TutorialStatePatch) => Promise<void>;
   /** Загрузка баннера в shoppis-media для формы онбординга */
   uploadStoreBanner: (file: File) => Promise<string>;
 }
@@ -300,6 +309,13 @@ export const createAuthSlice: StateCreator<RootStore, [], [], AuthSlice> = (set,
     const { storeId, sessionToken } = get();
     if (!storeId) throw new Error('Store is not selected');
     const store = await deps().storeSettingsApi.updateStatus(sessionToken, storeId, status);
+    set({ currentStore: store });
+  },
+
+  updateTutorialState: async (patch) => {
+    const { storeId, sessionToken } = get();
+    if (!storeId) throw new Error('Store is not selected');
+    const store = await deps().storeSettingsApi.updateTutorialState(sessionToken, storeId, patch);
     set({ currentStore: store });
   },
 

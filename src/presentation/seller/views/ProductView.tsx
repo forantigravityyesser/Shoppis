@@ -136,6 +136,7 @@ export default function ProductView() {
               <button
                 type="button"
                 className="prod-hero__preview"
+                data-tour="product-preview"
                 aria-label={t('seller.product.previewAsBuyer')}
                 title={t('seller.product.previewAsBuyer')}
                 onClick={() => openProductPreview(product.id, base)}

@@ -3,6 +3,7 @@ import { Outlet } from 'react-router';
 import { useStore } from '../../application/store';
 import ScreenLoader from '../shared/components/ScreenLoader';
 import SellerNavBar from '../seller/components/SellerNavBar';
+import TutorialOverlay from '../seller/tutorial/TutorialOverlay';
 import { useScrollToTop } from '../shared/hooks/useScrollToTop';
 
 /**
@@ -24,6 +25,7 @@ export default function SellerLayout() {
         </Suspense>
       </div>
       {storeId && <SellerNavBar />}
+      <TutorialOverlay />
     </div>
   );
 }

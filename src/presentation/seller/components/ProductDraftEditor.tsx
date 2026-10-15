@@ -35,6 +35,8 @@ interface ProductDraftEditorProps {
    * Если задан и товар был сохранён — имеет приоритет над `exitTo`.
    */
   savedTo?: (productId: string) => string;
+  /** Сигнал подтверждённого сохранения товара (для обучения, docs/26 TUT-05). */
+  onSavedProduct?: (productId: string) => void;
 }
 
 /**
@@ -50,6 +52,7 @@ export default function ProductDraftEditor({
   productId = null,
   exitTo,
   savedTo,
+  onSavedProduct,
 }: ProductDraftEditorProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -99,6 +102,8 @@ export default function ProductDraftEditor({
     // Id последнего сохранённого товара — для перехода на его карточку после сверки.
     onSaved: (savedId) => {
       savedProductIdRef.current = savedId;
+      // Подтверждённое сохранение: сигнал обучения (шаг product-create). docs/26 TUT-05.
+      onSavedProduct?.(savedId);
     },
   });
 
@@ -276,9 +281,7 @@ export default function ProductDraftEditor({
             disabled={!canAdd}
             aria-label={t('seller.product.draft.createCopy')}
             title={
-              canAdd
-                ? t('seller.product.draft.createCopy')
-                : t('seller.product.draft.copyLimit')
+              canAdd ? t('seller.product.draft.createCopy') : t('seller.product.draft.copyLimit')
             }
           >
             <Copy size={18} />
@@ -319,9 +322,7 @@ export default function ProductDraftEditor({
 
       {confirmingRemoveId ? (
         <div className="draft-exit-confirm" role="group" aria-label={t('orders.confirmAria')}>
-          <p className="draft-exit-confirm__text">
-            {t('seller.product.draft.removeDraftConfirm')}
-          </p>
+          <p className="draft-exit-confirm__text">{t('seller.product.draft.removeDraftConfirm')}</p>
           <div className="draft-exit-confirm__actions">
             <button
               type="button"

@@ -1,9 +1,13 @@
 import { invokeFunction } from '../insforge/functions-gateway';
 import { DEV_AUTH_MODE } from '../insforge/config';
 import { mapStore, type StoreRow } from '../repositories/store-repository';
-import { updateStoreProfileDev, updateStoreStatusDev } from './store-settings-api.dev';
+import {
+  updateStoreProfileDev,
+  updateStoreStatusDev,
+  updateStoreTutorialStateDev,
+} from './store-settings-api.dev';
 import type { Store, StoreStatus } from '../../domain/models/store';
-import type { StoreProfilePatch } from '../../application/contracts/store';
+import type { StoreProfilePatch, TutorialStatePatch } from '../../application/contracts/store';
 
 /**
  * Клиент edge-диспетчера store-actions. Мутации настроек уходят на сервер, где
@@ -25,6 +29,14 @@ function toProfilePayload(patch: StoreProfilePatch): Record<string, unknown> {
   if (patch.language !== undefined) payload.language = patch.language;
   if (patch.supportHandle !== undefined) payload.support_handle = patch.supportHandle;
   return payload;
+}
+
+function toTutorialPayload(patch: TutorialStatePatch): Record<string, unknown> {
+  return {
+    welcome_decision: patch.welcomeDecision,
+    status: patch.status,
+    step: patch.step,
+  };
 }
 
 export async function updateProfile(
@@ -62,5 +74,25 @@ export async function updateStatus(
   });
   if (error) throw new Error(error.message);
   if (!data?.success || !data.store) throw new Error(data?.error ?? 'Store status update failed');
+  return mapStore(data.store);
+}
+
+/** Запись состояния обучения (docs/26 §3.6); без сессии — только DEV-путь. */
+export async function updateTutorialState(
+  token: string | null,
+  storeId: string,
+  patch: TutorialStatePatch,
+): Promise<Store> {
+  if (!token) {
+    if (!DEV_AUTH_MODE) throw new Error('Unauthorized');
+    return updateStoreTutorialStateDev(storeId, patch);
+  }
+
+  const { data, error } = await invokeFunction<StoreActionResponse>('store-actions', {
+    body: { action: 'tutorial-state', storeId, patch: toTutorialPayload(patch) },
+    token,
+  });
+  if (error) throw new Error(error.message);
+  if (!data?.success || !data.store) throw new Error(data?.error ?? 'Store tutorial update failed');
   return mapStore(data.store);
 }

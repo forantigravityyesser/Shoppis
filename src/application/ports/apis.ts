@@ -2,7 +2,7 @@ import type { DeliveryOutcome, OrderStatus, RefusalReasonCode } from '../../doma
 import type { Store, StoreStatus } from '../../domain/models/store';
 import type { AuthSession } from '../contracts/auth';
 import type { CheckoutPayload, CheckoutResult } from '../contracts/checkout';
-import type { CreateShopPayload, StoreProfilePatch } from '../contracts/store';
+import type { CreateShopPayload, StoreProfilePatch, TutorialStatePatch } from '../contracts/store';
 
 /** telegram-auth: валидация initData → сессия. */
 export interface AuthApi {
@@ -21,6 +21,11 @@ export interface ShopApi {
 export interface StoreSettingsApi {
   updateProfile(token: string | null, storeId: string, patch: StoreProfilePatch): Promise<Store>;
   updateStatus(token: string | null, storeId: string, status: StoreStatus): Promise<Store>;
+  updateTutorialState(
+    token: string | null,
+    storeId: string,
+    patch: TutorialStatePatch,
+  ): Promise<Store>;
 }
 
 /** process-checkout: атомарное оформление заказа. */
@@ -33,15 +38,29 @@ export interface NotificationApi {
   enableTelegramNotifications(token: string, orderId?: string): Promise<void>;
 }
 
-/** store-visit: фиксация открытия витрины покупателем (список магазинов/посетители). */
+/** Посещённая витрина покупателя (buyer-stores). */
+export interface VisitedStore {
+  publicId: string;
+  name: string;
+  lastVisitedAt: string;
+}
+
+/** store-visit / buyer-stores: визиты покупателя (список магазинов, счётчики). */
 export interface StoreVisitApi {
   recordStoreVisit(token: string, storeRef: string): Promise<void>;
+  /** Посещённые витрины, свежие первыми: fallback входа без deep-link (главный Mini App). */
+  loadVisitedStores(token: string): Promise<VisitedStore[]>;
 }
 
 /** share-actions: подготовка карточки товара для нативного шаринга (id для shareMessage). */
 export interface ShareApi {
   /** Возвращает `PreparedInlineMessage.id`; `photoUrl` — публичный JPEG из бакета. */
-  prepareShare(token: string, publicId: string, productId: string, photoUrl: string): Promise<string>;
+  prepareShare(
+    token: string,
+    publicId: string,
+    productId: string,
+    photoUrl: string,
+  ): Promise<string>;
 }
 
 /** review-actions: запись отзывов/ответов по валидной сессии (actor из сессии). */
