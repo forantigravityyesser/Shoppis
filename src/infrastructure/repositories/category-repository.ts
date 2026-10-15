@@ -2,8 +2,11 @@ import { insforge } from '../insforge/client';
 import type { Category, CategoryStatus } from '../../domain/models/category';
 import type { AddCategoryInput, UpdateCategoryPatch } from '../../application/contracts/category';
 import {
+  createCategory as createCategoryViaApi,
   deleteCategory as deleteCategoryViaApi,
   reorderCategory as reorderCategoryViaApi,
+  setCategoryStatus as setCategoryStatusViaApi,
+  updateCategory as updateCategoryViaApi,
 } from '../functions/catalog-api';
 
 interface CategoryRow {
@@ -46,7 +49,14 @@ export async function fetchCategories(storeId: string): Promise<Category[]> {
   return ((data ?? []) as CategoryRow[]).map(mapCategory);
 }
 
-export async function addCategory(storeId: string, input: AddCategoryInput): Promise<Category> {
+export async function addCategory(
+  storeId: string,
+  input: AddCategoryInput,
+  token: string | null,
+): Promise<Category> {
+  if (token) {
+    return mapCategory(await createCategoryViaApi(token, storeId, input));
+  }
   const name = input.name.trim();
   const { data: maxData, error: maxError } = await insforge.database
     .from('categories')
@@ -83,7 +93,11 @@ export async function addCategory(storeId: string, input: AddCategoryInput): Pro
 export async function updateCategory(
   id: string,
   patch: UpdateCategoryPatch,
+  token: string | null,
 ): Promise<string | null> {
+  if (token) {
+    return updateCategoryViaApi(token, id, patch);
+  }
   let previousImageKey: string | null = null;
   if (patch.imageStorageKey !== undefined) {
     const { data, error } = await insforge.database
@@ -152,7 +166,15 @@ export async function setCategoryOrder(
 }
 
 /** Архив категории: товары сохраняют привязку, категория скрывается. 02 §13 */
-export async function setCategoryStatus(id: string, status: CategoryStatus): Promise<void> {
+export async function setCategoryStatus(
+  id: string,
+  status: CategoryStatus,
+  token: string | null,
+): Promise<void> {
+  if (token) {
+    await setCategoryStatusViaApi(token, id, status);
+    return;
+  }
   const { error } = await insforge.database.from('categories').update({ status }).eq('id', id);
   if (error) throw error;
 }

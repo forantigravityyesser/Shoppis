@@ -41,6 +41,7 @@
 //   Test 35 tutorial state RPC: authz чужого магазина, валидация значений, инвариант status↔step, дефолты нового магазина, идемпотентность, гранты (docs/26 TUT-02)
 //   Test 36 buyerAvailableProducts: семантика витрины (ACTIVE + ACTIVE-вариант + остаток > 0); архив/нет остатка/нет ACTIVE-варианта не считаются (docs/26 TUT-03)
 //   Test 37 growth facts: firstOrderAt/firstShippedAt/firstCompletedAt; историчность (отмена после отправки), REFUSED≠success, собственный заказ владельца учитывается (docs/26 TUT-08, §8.4 пересмотрено в 0060)
+//   Test 38 grants sweep: авто-обнаружение — все не-storefront RPC закрыты для anon/authenticated и доступны project_admin (edge); публичные storefront_* открыты (docs/11 §S1, 0062)
 //
 // Admin raw-SQL маскирует RAISE-сообщения в INTERNAL_ERROR, поэтому вызовы RPC
 // идут через временный `public._harness_try(text)`, который ловит SQL-исключение
@@ -1759,10 +1760,77 @@ async function run() {
       }
     }
   }
+
+  // Test 38 — grants sweep (docs/11 §S1, migration 0062): авто-обнаружение. Все
+  // проектные функции (owner project_admin) закрыты для клиентских ролей и
+  // оставлены только доверенному edge-пути (project_admin), а публичные
+  // `storefront_*` read-проекции — единственный открытый клиентский SQL-вход.
+  // Щит от случайного PUBLIC-гранта в будущих миграциях (default Postgres на
+  // функции). Расширения (owner postgres) не проверяем — гранты платформенные.
+  {
+    const fns = await rows(
+      `select p.proname,
+              bool_or(has_function_privilege('anon', p.oid, 'EXECUTE')) as anon_exec,
+              bool_or(has_function_privilege('authenticated', p.oid, 'EXECUTE')) as auth_exec,
+              bool_or(has_function_privilege('project_admin', p.oid, 'EXECUTE')) as admin_exec
+       from pg_proc p
+       join pg_namespace n on n.oid = p.pronamespace
+       where n.nspname = 'public' and pg_get_userbyid(p.proowner) = 'project_admin'
+       group by p.proname`,
+    );
+    const closed = fns.filter(
+      (f) => !f.proname.startsWith('storefront') && !f.proname.startsWith('app_'),
+    );
+    const publicReads = fns.filter((f) => f.proname.startsWith('storefront'));
+    const helpers = fns.filter((f) => f.proname.startsWith('app_'));
+
+    check('Test 38: найдены проектные функции', fns.length > 0, `n=${fns.length}`);
+    check(
+      'Test 38: не-storefront RPC закрыты для anon/authenticated',
+      closed.length > 0 && closed.every((f) => f.anon_exec === false && f.auth_exec === false),
+      closed
+        .filter((f) => f.anon_exec || f.auth_exec)
+        .map((f) => f.proname)
+        .join(','),
+    );
+    check(
+      'Test 38: не-storefront RPC доступны project_admin (edge-путь)',
+      closed.every((f) => f.admin_exec === true),
+      closed
+        .filter((f) => f.admin_exec !== true)
+        .map((f) => f.proname)
+        .join(','),
+    );
+    check(
+      'Test 38: storefront_* read открыты anon/authenticated',
+      publicReads.length > 0 &&
+        publicReads.every((f) => f.anon_exec === true && f.auth_exec === true),
+      publicReads
+        .filter((f) => !(f.anon_exec && f.auth_exec))
+        .map((f) => f.proname)
+        .join(','),
+    );
+    // RLS-хелперы (`app_*`) — не клиентские RPC, а внутренности политик: Postgres
+    // требует EXECUTE у роли, чьи политики их вызывают (`authenticated`); у `anon`
+    // их быть не должно.
+    check(
+      'Test 38: RLS-хелперы доступны authenticated и закрыты для anon',
+      helpers.length > 0 &&
+        helpers.every((f) => f.auth_exec === true && f.anon_exec === false),
+      helpers
+        .filter((f) => !(f.auth_exec && f.anon_exec === false))
+        .map((f) => f.proname)
+        .join(','),
+    );
+  }
 }
 
 try {
   await raw(HARNESS_TRY);
+  // Хелпер `_harness_try` — security definer и вызывается через админ-путь, но по
+  // умолчанию Postgres выдаёт PUBLIC EXECUTE. Закрываем: Test 38 требует, чтобы
+  // ни одна проектная не-storefront функция не имела клиентского EXECUTE.
+  await raw('revoke all on function public._harness_try(text) from public, anon, authenticated');
   const seeded = await seedStore();
   owner = seeded.ownerId;
   store = seeded.storeId;

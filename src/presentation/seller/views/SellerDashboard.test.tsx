@@ -78,6 +78,23 @@ function mockStore(overrides: Partial<MockStore> = {}): MockStore {
   };
 }
 
+/** Магазин с готовностью 5/5: все шаги чек-листа пройдены. */
+const readyStore = mockStore({
+  bannerUrl: 'https://cdn.example/banner.jpg',
+  supportHandle: 'Dnk_65',
+});
+
+/** Сводка готового магазина: есть товар и активная категория. */
+const readySummary: SellerDashboardSummary = {
+  ...summary,
+  inventory: {
+    activeProducts: 1,
+    archivedProducts: 0,
+    activeCategories: 1,
+    buyerAvailableProducts: 1,
+  },
+};
+
 beforeEach(() => {
   h.navigate.mockReset();
   h.refetch.mockReset();
@@ -181,8 +198,9 @@ describe('SellerDashboard (docs/25 SDB-06)', () => {
     expect(h.navigate).toHaveBeenCalledWith('/seller/sales');
   });
 
-  it('growth: ближайшая цель (первый заказ) + CTA ведёт на шаринг', async () => {
-    h.dash.summary = summary;
+  it('готовность 5/5 → growth: ближайшая цель (первый заказ) + CTA ведёт на шаринг', async () => {
+    h.state.currentStore = readyStore;
+    h.dash.summary = readySummary;
     render(<SellerDashboard />);
 
     const block = screen.getByTestId('dashboard-growth');
@@ -191,9 +209,10 @@ describe('SellerDashboard (docs/25 SDB-06)', () => {
     expect(h.navigate).toHaveBeenCalledWith('/seller/settings/share');
   });
 
-  it('growth: после первого заказа показывается следующая цель, не будущая', () => {
+  it('готовность 5/5 → growth: после первого заказа следующая цель, не будущая', () => {
+    h.state.currentStore = readyStore;
     h.dash.summary = {
-      ...summary,
+      ...readySummary,
       growth: {
         firstOrderAt: '2026-01-01T00:00:00.000Z',
         firstShippedAt: null,
@@ -208,26 +227,16 @@ describe('SellerDashboard (docs/25 SDB-06)', () => {
     expect(block).not.toHaveTextContent('Завершите первый заказ');
   });
 
-  it('неполная готовность → чек-лист виден над блоком развития', () => {
+  it('неполная готовность → виден только чек-лист, без блока развития', () => {
     h.dash.summary = summary;
     render(<SellerDashboard />);
     expect(screen.getByTestId('dashboard-checklist')).toBeInTheDocument();
+    expect(screen.queryByTestId('dashboard-growth')).toBeNull();
   });
 
-  it('готовность 5/5 → чек-лист скрыт, «Развитие магазина» остаётся', () => {
-    h.state.currentStore = mockStore({
-      bannerUrl: 'https://cdn.example/banner.jpg',
-      supportHandle: 'Dnk_65',
-    });
-    h.dash.summary = {
-      ...summary,
-      inventory: {
-        activeProducts: 1,
-        archivedProducts: 0,
-        activeCategories: 1,
-        buyerAvailableProducts: 1,
-      },
-    };
+  it('готовность 5/5 → чек-лист скрыт, появляется «Развитие магазина»', () => {
+    h.state.currentStore = readyStore;
+    h.dash.summary = readySummary;
     render(<SellerDashboard />);
 
     expect(screen.queryByTestId('dashboard-checklist')).toBeNull();

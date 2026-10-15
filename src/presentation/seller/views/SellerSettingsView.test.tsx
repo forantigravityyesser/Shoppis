@@ -212,7 +212,7 @@ describe('SellerSettingsView (Hub)', () => {
     expect(saveButton()).toBeNull();
   });
 
-  it('показывает загрузку и пустое состояние', () => {
+  it('показывает загрузку и пустое состояние', async () => {
     mockState.currentStore = null;
     mockState.authLoading = true;
     const { unmount } = render(<SellerSettingsView />);
@@ -221,7 +221,9 @@ describe('SellerSettingsView (Hub)', () => {
 
     mockState.authLoading = false;
     render(<SellerSettingsView />);
-    expect(screen.getByText('Магазин не найден')).toBeInTheDocument();
+    // R2: пока запрос не завершён — загрузка; «магазин не найден» появляется позже.
+    expect(screen.getByText('Загрузка магазина…')).toBeInTheDocument();
+    expect(await screen.findByText('Магазин не найден')).toBeInTheDocument();
   });
 
   it('ошибка загрузки → состояние ошибки с повтором, не «магазин не найден»', async () => {

@@ -25,7 +25,7 @@ export interface ProductRepository {
     patch: UpdateProductPatch,
     token: string | null,
   ): Promise<Array<{ storageKey: string; thumbStorageKey: string | null }>>;
-  updateVariantStock(variantId: string, patch: VariantStockPatch): Promise<void>;
+  updateVariantStock(variantId: string, patch: VariantStockPatch, token: string | null): Promise<void>;
   addVariantToProduct(
     productId: string,
     variant: AddVariantInput,

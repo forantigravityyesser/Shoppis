@@ -351,32 +351,35 @@ deep-link (`01 D21`).
 ## 25. SchemaMigration (миграционный трекинг)
 
 `schema_migrations(version text PK, name text, applied_at)`. Baseline `0001..0034` + каждая
-применённая проектная миграция (`0001..0056` сейчас). Трекинг появился после инцидента с дублем
+применённая проектная миграция (`0001..0068` сейчас). Трекинг появился после инцидента с дублем
 номера (`0030`); проверка/запись — `npm run migrations:check` / `migrations:record`
 (`01 D22`). Таблица закрыта от `anon`/`authenticated`.
 
 ## 26. Authorization / RLS
 
-**Фактическое состояние:** RLS выключен на всех таблицах; политик нет. Граница доступа сейчас:
+**Фактическое состояние (ADR-C, JWT-мост, 2026-10-15):** RLS включён на всех 22 бизнес-таблицах;
+у `anon` грантов на таблицы нет вообще, у `authenticated` — только `SELECT` + строковые политики.
+Полная модель, матрица и миграции — `27_SHOPPIS_RLS_PLAN.md`. Слои доступа:
 
-1. **Публичные read-проекции** (`security definer`, `search_path = public, pg_temp`) —
-   storefront-функции отдают только разрешённые покупателю поля (`31`).
-2. **Authenticated edge**: `telegram-auth`-сессия → edge проверяет actor и вызывает защищённые
-   RPC через admin-клиент.
-3. **REVOKE**: lifecycle- и приватные read-RPC недоступны `public`/`anon`/`authenticated` — только
-   `project_admin` (`0048`, конвенция `0053`/`0054`): `create_order_atomic`, `order_cancel`,
-   `order_transition`, `order_delivery_outcome`, `inventory_reconcile`, `order_list_read`,
-   `order_detail_read`, `seller_dashboard_read`, `seller_sales_list_read`, `buyer_store_list_read`,
-   `buyer_active_orders_read` (проверено `has_function_privilege` на dev-базе). Вызов — только из
-   edge через admin-клиент.
-4. **Actor из сессии**: все критичные RPC принимают `p_actor_user_id` и сами проверяют владение
+1. **JWT-мост**: edge `telegram-auth` выпускает платформенный access-JWT (`sub = users.id`,
+   `role = authenticated`); клиент ставит его в SDK (`setAccessToken`), и PostgREST/Storage/
+   Realtime видят `auth.uid()`. Кастомная HMAC-сессия остаётся для edge-пути.
+2. **Публичные read-проекции** (`security definer`, `search_path = public, pg_temp`, anon-execute)
+   — `storefront_*` отдают только разрешённые покупателю поля (`31`) и RLS обходят.
+3. **RLS-политики** (`0065`): `authenticated` видит только своё/публичное (матрица — `27`); `anon` —
+   ни строки; `order_idempotency`/`schema_migrations` — без политик (deny).
+4. **Authenticated edge**: мутации только через edge (роль `project_admin` обходит RLS); actor и
+   владение проверяются в atomic-RPC.
+5. **REVOKE функций** (`0062`, конвенция `0048`/`0053`/`0054`): все не-storefront RPC недоступны
+   `public`/`anon`/`authenticated` — только `project_admin` (вызов из edge admin-клиентом).
+   `app_*`-хелперы RLS — исключение (`GRANT EXECUTE` для `authenticated`, `0066`), т.к. Postgres
+   требует EXECUTE у роли, чьи политики вызывают функцию.
+6. **Actor из сессии**: критичные RPC принимают `p_actor_user_id` и сами проверяют владение
    (`stores_assert_owner`/`catalog_assert_store_owner`); клиент не может выбрать чужой scope.
 
-Плановое состояние (гейт перед продом, `11 §S1`): включить RLS и перевести оставшиеся anon-чтения
-на серверные функции; кастомная Telegram-сессия не видна PostgREST, поэтому порядок — «сначала
-перевод доступа, потом политики» (`01 D23`).
-
-Публичный бакет `shoppis-media` — отдельный слой: файлы по opaque-ключам, прямые URL публичны.
+Публичный бакет `shoppis-media`: SELECT публичный (прямые URL RLS не гейтит), запись — владелец
+(`uploaded_by = sub`, `0067`). Realtime-каналы `orders:*` — подписка только на «свой» канал
+(`orders:buyer:<uid>` / `orders:seller:<storeId>`, `0068`).
 
 ## 27. Invariants
 

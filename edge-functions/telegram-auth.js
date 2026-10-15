@@ -9,7 +9,7 @@
 // (по токену, чья подпись совпала). Клиент использует его для выбора контекста,
 // когда Telegram открыл приложение без startapp (главный Mini App / «Open App»).
 //
-// Env: INSFORGE_BASE_URL, ANON_KEY, SESSION_SECRET, SESSION_TTL_SECONDS?,
+// Env: INSFORGE_BASE_URL, API_KEY (admin), SESSION_SECRET, SESSION_TTL_SECONDS?,
 //      AUTH_MAX_AGE_SECONDS? (окно свежести auth_date, default 24ч),
 //      BUYER_BOT_TOKEN / SELLER_BOT_TOKEN (fallback BOT_TOKEN).
 //
@@ -17,19 +17,20 @@
 // аутентифицируется заново при каждом открытии (свежий initData), поэтому TTL
 // короткий, а не 30 дней.
 
-import { createClient } from 'npm:@insforge/sdk';
 import { env } from './_shared/env.js';
 import { json, methodNotAllowed, preflight, readJson } from './_shared/http.js';
 import { matchTelegramInitDataToken, namedBotTokens, signSession } from './_shared/auth.js';
+import { adminClient } from './_shared/clients.js';
+import { mintAccessToken } from './_shared/jwt.js';
 
 export default async function (request) {
   if (request.method === 'OPTIONS') return preflight();
   if (request.method !== 'POST') return methodNotAllowed();
 
   const baseUrl = env('INSFORGE_BASE_URL');
-  const anonKey = env('ANON_KEY');
+  const apiKey = env('API_KEY');
   const sessionSecret = env('SESSION_SECRET');
-  if (!baseUrl || !anonKey || !sessionSecret) {
+  if (!baseUrl || !apiKey || !sessionSecret) {
     return json({ success: false, error: 'Auth backend is not configured' }, 500);
   }
 
@@ -74,7 +75,7 @@ export default async function (request) {
   };
 
   try {
-    const client = createClient({ baseUrl, anonKey });
+    const client = adminClient(baseUrl);
 
     const { data: found, error: findError } = await client.database
       .from('telegram_identities')
@@ -118,9 +119,21 @@ export default async function (request) {
       sessionSecret,
     );
 
+    // Второй токен — платформенный access-JWT (RS256, sub = users.id). Нужен
+    // PostgREST/Storage/Realtime, чтобы видеть `authenticated` и `auth.uid()`
+    // (RLS-мост, docs/11 §S1). Best-effort: если подпись недоступна, сессия
+    // всё равно выдаётся (edge-путь работает на HMAC), accessToken = null.
+    let accessToken = null;
+    try {
+      accessToken = await mintAccessToken({ sub: userId, ttlSeconds });
+    } catch (e) {
+      console.error('[telegram-auth] access token mint failed:', e);
+    }
+
     return json({
       success: true,
       token,
+      accessToken,
       bot: entryBot,
       user: {
         id: userId,

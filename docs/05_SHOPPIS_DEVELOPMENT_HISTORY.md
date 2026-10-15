@@ -245,9 +245,27 @@ Test 1–30.
 - Гейт последнего закрытого этапа: `typecheck` · `lint` · `test` · `build` · `build:edge` ·
   `migrations:check` · `commerce:harness` (Test 1–34); ручные `LOCAL`/`TELEGRAM`-проверки — за
   человеком.
-- Открытые контуры (детали — `08`, `11`, `16`): RLS и политики, таблица доставки уведомлений,
+- Открытые контуры (детали — `08`, `11`, `16`): таблица доставки уведомлений,
   rate limiting, серверная upload-валидация, seller-редактор linking-атрибутов, blur-up/prefetch
   карточки, `product_groups` (DECIDE), мультивалютные суммы дашборда (MVP-ограничение).
+
+## 7. Access control / RLS (2026-10-15, гейт перед продом закрыт)
+
+Реализован **ADR-C (JWT-мост)**: edge `telegram-auth` выпускает платформенный RS256 access-JWT
+(`sub = users.id`, `role = authenticated`), клиент ставит его в SDK (`setAccessToken`); PostgREST/
+Storage/Realtime видят `auth.uid()`. Итог — полноценный RLS:
+
+- `0062` — `REVOKE EXECUTE` у `public`/`anon`/`authenticated` на все не-storefront RPC;
+- `0063`/`0067` — Storage: public-read + запись только владельцем (`uploaded_by = sub`);
+- `0064` — недостающие атомарные мутации (`category_create/update/set_status`, `variant_stock_update`);
+- `0065` — RLS на 22 таблицах: `anon` без грантов, `authenticated` — `SELECT` + политики, хелперы владения;
+- `0066` — `GRANT EXECUTE` на `app_*`-хелперы для `authenticated`;
+- `0068` — RLS на `realtime.channels` (подписка только на «свой» канал).
+
+Верификация: harness Test 38 (grants-автообход), end-to-end PostgREST-изоляция (`owner`/`non-owner`/
+`anon`), socket-тест каналов, `commerce:harness` 207/0, vitest 1447. Полная модель — `27_SHOPPIS_RLS_PLAN.md`.
+До этого граница была «anon-ключ = полный доступ»; заодно исправлен клиентский ключ
+(`VITE_INSForge_ANON_KEY` был admin-ключом → заменён на реальный anon, фронт редеплоен).
 
 ---
 

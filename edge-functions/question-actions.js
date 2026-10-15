@@ -10,12 +10,12 @@
 // магазина) отвечает 1 раз на любой вопрос и удаляет любой вопрос своего товара;
 // отвечать покупатель не может.
 //
-// Env: INSFORGE_BASE_URL, ANON_KEY, SESSION_SECRET.
+// Env: INSFORGE_BASE_URL, API_KEY (admin), SESSION_SECRET.
 
-import { createClient } from 'npm:@insforge/sdk';
 import { env } from './_shared/env.js';
 import { bearerToken, json, methodNotAllowed, preflight, readJson } from './_shared/http.js';
 import { verifySession } from './_shared/auth.js';
+import { adminClient } from './_shared/clients.js';
 import { errorToResponse } from './_shared/errors.js';
 
 const ERROR_STATUS = {
@@ -67,9 +67,9 @@ export default async function (request) {
   if (request.method !== 'POST') return methodNotAllowed();
 
   const baseUrl = env('INSFORGE_BASE_URL');
-  const anonKey = env('ANON_KEY');
+  const apiKey = env('API_KEY');
   const sessionSecret = env('SESSION_SECRET');
-  if (!baseUrl || !anonKey || !sessionSecret) {
+  if (!baseUrl || !apiKey || !sessionSecret) {
     return json({ success: false, error: 'Backend is not configured' }, 500);
   }
 
@@ -84,7 +84,7 @@ export default async function (request) {
 
   let result;
   try {
-    const client = createClient({ baseUrl, anonKey });
+    const client = adminClient(baseUrl);
     const { data, error } = await dispatch(client, action, session, body);
     if (error) return errorToResponse(ERROR_STATUS, error.message || error, 'Question action failed');
     result = Array.isArray(data) ? data[0] : data;

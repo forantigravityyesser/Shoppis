@@ -235,7 +235,8 @@ export const createProductSlice: StateCreator<RootStore, [], [], ProductSlice> =
 
   updateVariantStock: async (variantId: string, patch: VariantStockPatch) => {
     try {
-      await deps().productRepository.updateVariantStock(variantId, patch);
+      const { sessionToken } = get();
+      await deps().productRepository.updateVariantStock(variantId, patch, sessionToken);
       set((s) => ({
         inventories: s.inventories.map((row) =>
           row.variantId === variantId

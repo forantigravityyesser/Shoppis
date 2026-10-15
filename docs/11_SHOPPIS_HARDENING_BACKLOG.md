@@ -38,30 +38,21 @@ Severity: **S1** критично · **S2** высоко · **S3** средне 
   (`14`), Catalog (`17`), Cart (`18`), Orders (`22`), Favorites, Account.
 - **PD-R-01…04** (Product Detail residual) — DONE (галерея `contain`, gesture-фиксы, trailing
   slash, zoom-to-point).
+- **RLS-gate (S1)** — закрыт: ADR-C JWT-мост, миграции `0062`–`0068` (2026-10-15); модель — `27`.
 
 ---
 
-## S1 — RLS и закрытие anon-доступа (гейт перед продом) — ОТКРЫТО
+## S1 — RLS и закрытие anon-доступа (гейт перед продом) — ЗАКРЫТО (2026-10-15)
 
-- **Док:** `08 §1.1`, `03 §26`, `04 §12`, release gate `01 §9`.
-- **Сейчас:** `rlsEnabled: false` на всех таблицах. Прогресс с 2026-09-29:
-  - мутации каталога/настроек — через edge + атомарные RPC с actor из сессии;
-  - покупательское чтение — через `storefront_*` projections (`security definer`, `search_path`),
-    а не прямые `select('*')`;
-  - защищённые order/dashboard/sales/buyer-stores RPC `REVOKE`-нуты у `public`/`anon`/
-    `authenticated` (`0048`, `0053`, `0054`) — вызываются только из edge через admin-клиент;
-  - `fetchCurrentStore` (настройки продавца) переведён на owner-scoped `store_read_owned` (`0061`)
-    через edge `store-actions` (action `read`): actor из сессии, узкая проекция `_store_projection`
-    вместо `select('*')` (R1, 2026-10-15);
-  - **осталось:** `loadSellerStore` (`fetchStoresByOwnerUser/Telegram`) и `checkOwnership`
-    (`store-repository.ts`) всё ещё читают `stores` прямыми SDK-select через PostgREST с anon-ключом.
-- **Блокер:** кастомная Telegram-сессия не распознаётся PostgREST, поэтому RLS не может опираться
-  на `auth.uid()`.
-- **Варианты:**
-  - **A.** Перевести оставшиеся чтения за edge/RPC, затем включить RLS и политики.
-  - **B.** Смапить Telegram-identity → InsForge auth-user, включить RLS по `auth.uid()`.
-- **Выход:** выбрать ADR, спроектировать политики public / buyer-private / seller-private.
-  Это **единственный** обязательный пункт перед реальными пользователями.
+Реализован ADR-C (JWT-мост, `01 D23`): edge `telegram-auth` выпускает платформенный access-JWT
+(`sub = users.id`), клиент ставит его в SDK (`setAccessToken`); RLS включён на всех 22 таблицах
+(`0065`), гранты и EXECUTE сужены (`0062`/`0066`), недостающие мутации вынесены в atomic-RPC
+(`0064`), Storage — owner-scope (`0067`), Realtime — channel RLS (`0068`). Остаточные seller-чтения
+(`fetchStoresByOwnerUser`, `checkOwnership`) больше не анонимны — их легализуют `authenticated`-
+политики. Полная модель, матрица, верификация и rollback — `27_SHOPPIS_RLS_PLAN.md`.
+
+Follow-up (не блокеры): legacy storage-orphans (`uploaded_by IS NULL`); DEV-режим без серверной
+сессии читает как `anon` (dev-token — optional); rate limiting — `§S3`.
 
 ---
 

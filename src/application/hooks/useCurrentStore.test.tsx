@@ -54,6 +54,14 @@ describe('useCurrentStore (R4)', () => {
     await waitFor(() => expect(h.state.fetchCurrentStore).toHaveBeenCalledTimes(1));
   });
 
+  it('первый рендер без магазина → loading, не notFound (R2)', () => {
+    const { result } = renderHook(() => useCurrentStore());
+
+    // Синхронно, до завершения запроса: «магазин не найден» ещё не показываем.
+    expect(result.current.loading).toBe(true);
+    expect(result.current.notFound).toBe(false);
+  });
+
   it('с уже загруженным магазином в сеть не ходит', () => {
     h.state.currentStore = store();
     const { result } = renderHook(() => useCurrentStore());

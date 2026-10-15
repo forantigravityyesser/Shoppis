@@ -9,6 +9,11 @@ import { deps } from '../composition/container';
 export interface RuntimeSession {
   /** Подписанная сервером сессия. null только в dev mock. */
   token: string | null;
+  /**
+   * Платформенный access-JWT (RLS-мост, docs/11 §S1). null — dev mock / сбой
+   * подписи: клиент остаётся в роли `anon`.
+   */
+  accessToken: string | null;
   user: ServerUser;
   /** true — identity подтверждена сервером (HMAC); false — dev mock. */
   serverVerified: boolean;
@@ -27,18 +32,18 @@ export async function authenticate(): Promise<RuntimeSession> {
 
   if (rawInitData) {
     try {
-      const { token, user, bot } = await authApi.authenticateTelegram(rawInitData);
-      return { token, user, serverVerified: true, bot };
+      const { token, accessToken, user, bot } = await authApi.authenticateTelegram(rawInitData);
+      return { token, accessToken, user, serverVerified: true, bot };
     } catch (e) {
       const dev = identity.getDevServerUser();
       if (!dev) throw e;
       console.warn('[auth] server auth failed, falling back to dev identity:', e);
-      return { token: null, user: dev, serverVerified: false, bot: null };
+      return { token: null, accessToken: null, user: dev, serverVerified: false, bot: null };
     }
   }
 
   const dev = identity.getDevServerUser();
-  if (dev) return { token: null, user: dev, serverVerified: false, bot: null };
+  if (dev) return { token: null, accessToken: null, user: dev, serverVerified: false, bot: null };
 
   throw new Error('Telegram initData is unavailable');
 }

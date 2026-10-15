@@ -18,15 +18,14 @@ Severity: **S1** критично · **S2** высоко · **S3** средне 
 
 ## S1 — критично
 
-### [ ] 1.1 RLS и закрытие anon-доступа
-- **Док:** `03 §26`, `04 §12`, release gate `01 §9`; план и варианты — `11 §S1`.
-- **Сейчас:** `rlsEnabled: false` на всех таблицах. Прогресс: мутации каталога/настроек — через
-  edge + атомарные RPC; покупательское чтение — через `storefront_*` projections; защищённые
-  order/dashboard/sales/buyer-stores RPC `REVOKE`-нуты от `anon`/`authenticated` (`0048`/`0053`/
-  `0054`). **Осталось:** часть seller-чтений идёт direct SDK-select с anon-ключом.
-- **Блокер:** кастомная Telegram-сессия не видна PostgREST → RLS не может опираться на `auth.uid()`.
-- **Выход:** выбрать ADR (вариант A «всё за edge» или B «маппинг identity→auth-user») и включить
-  политики public / buyer-private / seller-private. **Единственный обязательный гейт перед продом.**
+_Открытых нет._
+
+### [x] 1.1 RLS и закрытие anon-доступа — ЗАКРЫТО (2026-10-15)
+
+Реализован ADR-C (JWT-мост): RLS включён на всех 22 таблицах (`0065`), `telegram-auth` выпускает
+платформенный access-JWT (`sub = users.id`), grants/REVOKE sweep (`0062`), storage owner-scope
+(`0067`), realtime channel RLS (`0068`). Прежний блокер («кастомная сессия не видна PostgREST»)
+снят выпуском платформенного JWT. Модель, матрица и rollback — `27_SHOPPIS_RLS_PLAN.md`.
 
 ---
 

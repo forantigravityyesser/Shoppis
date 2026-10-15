@@ -9,7 +9,7 @@
 // Авторизация: сессия + проверка на уровне БД (seller = владелец магазина,
 // buyer = владелец заказа). Логика и инвентарь — атомарно в PL/pgSQL rpc.
 //
-// Env: INSFORGE_BASE_URL, API_KEY (admin), ANON_KEY, SESSION_SECRET,
+// Env: INSFORGE_BASE_URL, API_KEY (admin), SESSION_SECRET,
 //      BUYER_BOT_TOKEN / SELLER_BOT_TOKEN (fallback BOT_TOKEN), APP_URL?
 
 import { env } from './_shared/env.js';
@@ -162,9 +162,8 @@ export default async function (request) {
 
   const baseUrl = env('INSFORGE_BASE_URL');
   const apiKey = env('API_KEY');
-  const anonKey = env('ANON_KEY');
   const sessionSecret = env('SESSION_SECRET');
-  if (!baseUrl || !apiKey || !anonKey || !sessionSecret) {
+  if (!baseUrl || !apiKey || !sessionSecret) {
     return json({ success: false, error: 'Backend is not configured' }, 500);
   }
 

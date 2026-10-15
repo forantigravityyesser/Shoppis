@@ -7,6 +7,11 @@ import type { CreateShopPayload, StoreProfilePatch, TutorialStatePatch } from '.
 /** telegram-auth: валидация initData → сессия. */
 export interface AuthApi {
   authenticateTelegram(initData: string): Promise<AuthSession>;
+  /**
+   * Применить/сбросить платформенный access-JWT на едином SDK-клиенте (RLS-мост,
+   * docs/11 §S1). `null` — вернуться к роли `anon`.
+   */
+  setAccessToken(token: string | null): void;
 }
 
 /** shop-create: создание витрины по валидной сессии. */

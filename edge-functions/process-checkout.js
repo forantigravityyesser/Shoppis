@@ -13,12 +13,12 @@
 // (идемпотентность, перепроверка цены/остатка, AVAILABLE->HELD, снапшоты, история)
 // → уведомления (best-effort, вне транзакции).
 //
-// Env: INSFORGE_BASE_URL, API_KEY (admin), ANON_KEY, SESSION_SECRET,
+// Env: INSFORGE_BASE_URL, API_KEY (admin), SESSION_SECRET,
 //      BUYER_BOT_TOKEN / SELLER_BOT_TOKEN (fallback BOT_TOKEN),
 //      TELEGRAM_NOTIFY_URL? , APP_URL?
 
 import { env } from './_shared/env.js';
-import { adminClient, anonClient } from './_shared/clients.js';
+import { adminClient } from './_shared/clients.js';
 import { bearerToken, json, methodNotAllowed, preflight, readJson } from './_shared/http.js';
 import { verifySession } from './_shared/auth.js';
 import { notify, storeReplyMarkup } from './_shared/telegram.js';
@@ -52,9 +52,8 @@ export default async function (request) {
 
   const baseUrl = env('INSFORGE_BASE_URL');
   const apiKey = env('API_KEY');
-  const anonKey = env('ANON_KEY');
   const sessionSecret = env('SESSION_SECRET');
-  if (!baseUrl || !apiKey || !anonKey || !sessionSecret) {
+  if (!baseUrl || !apiKey || !sessionSecret) {
     return json({ success: false, error: 'Backend is not configured' }, 500);
   }
 
@@ -91,7 +90,7 @@ export default async function (request) {
   // checkout не падает.
   let telegramUsername = null;
   try {
-    const client = anonClient(baseUrl);
+    const client = adminClient(baseUrl);
     telegramUsername = await resolveCheckoutUsername(client, session.uid);
   } catch (e) {
     console.error('[checkout] username lookup failed:', e);
@@ -124,7 +123,7 @@ export default async function (request) {
   let storePublicId = '';
   let storeSupportHandle = '';
   try {
-    const client = anonClient(baseUrl);
+    const client = adminClient(baseUrl);
     const { data: storeRow } = await client.database
       .from('stores')
       .select('public_id, support_handle')
@@ -140,7 +139,7 @@ export default async function (request) {
   // флаг notifications_enabled). Нет разрешения/бота — не отправляем (docs/18 §25-26).
   let buyerNotify = false;
   try {
-    const client = anonClient(baseUrl);
+    const client = adminClient(baseUrl);
     const { data: identity } = await client.database
       .from('telegram_identities')
       .select('notifications_enabled')

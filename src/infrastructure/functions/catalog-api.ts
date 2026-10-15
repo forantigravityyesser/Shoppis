@@ -6,7 +6,9 @@ import type {
   ProductImageInput,
   UpdateProductPatch,
 } from '../../application/contracts/product';
+import type { AddCategoryInput, UpdateCategoryPatch } from '../../application/contracts/category';
 import type { ProductStatus } from '../../domain/models/product';
+import type { CategoryStatus } from '../../domain/models/category';
 
 /**
  * Клиент edge-диспетчера catalog-actions. Все мутации каталога уходят на сервер,
@@ -24,6 +26,20 @@ interface CatalogActionResult {
   variantId?: string;
   images?: Array<{ storage_key: string; thumb_storage_key: string | null }>;
   imageStorageKey?: string | null;
+  category?: CategoryRowRaw;
+}
+
+/** Сырая строка категории из RPC (`to_jsonb` строки `categories`). */
+interface CategoryRowRaw {
+  id: string;
+  store_id: string;
+  name: string;
+  normalized_name: string;
+  sort_order: number;
+  status: CategoryStatus;
+  created_at: string;
+  image_storage_key: string | null;
+  low_stock_threshold: number | null;
 }
 
 async function callCatalog(
@@ -148,6 +164,55 @@ export async function reorderCategory(
   position: number,
 ): Promise<void> {
   await callCatalog(token, { action: 'category-reorder', categoryId, position });
+}
+
+/** Создание категории (атомарно на сервере); возвращает проекцию строки. */
+export async function createCategory(
+  token: string,
+  storeId: string,
+  input: AddCategoryInput,
+): Promise<CategoryRowRaw> {
+  const result = await callCatalog(token, {
+    action: 'category-create',
+    storeId,
+    name: input.name.trim(),
+    imageStorageKey: input.imageStorageKey ?? null,
+    lowStockThreshold: input.lowStockThreshold ?? null,
+  });
+  if (!result.category) throw new Error('Category create returned no data');
+  return result.category;
+}
+
+/** Обновление категории; возвращает прежний ключ обложки (для очистки Storage). */
+export async function updateCategory(
+  token: string,
+  categoryId: string,
+  patch: UpdateCategoryPatch,
+): Promise<string | null> {
+  const p: Record<string, unknown> = {};
+  if (patch.name !== undefined) p.name = patch.name.trim();
+  if (patch.imageStorageKey !== undefined) p.image_storage_key = patch.imageStorageKey;
+  if (patch.lowStockThreshold !== undefined) p.low_stock_threshold = patch.lowStockThreshold;
+  const result = await callCatalog(token, { action: 'category-update', categoryId, patch: p });
+  return result.imageStorageKey ?? null;
+}
+
+/** Архив/возврат категории (status), атомарно на сервере. */
+export async function setCategoryStatus(
+  token: string,
+  categoryId: string,
+  status: CategoryStatus,
+): Promise<void> {
+  await callCatalog(token, { action: 'category-status', categoryId, status });
+}
+
+/** Правка только `available_quantity` варианта (held не трогается). */
+export async function updateVariantStock(
+  token: string,
+  variantId: string,
+  availableQuantity: number,
+): Promise<void> {
+  await callCatalog(token, { action: 'variant-stock-update', variantId, availableQuantity });
 }
 
 /** Связать два товара («Похожее»); связь двусторонняя, без транзитивности. */

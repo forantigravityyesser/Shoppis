@@ -27,7 +27,16 @@ hardening `0033`: PAUSED-boundary + literal search), продавец управ
 `StorefrontCatalogRepository`/`useStorefrontCatalog` (`useInfiniteQuery` + `keepPreviousData`),
 URL-состояние (`category`/`q`/`minPrice`/`maxPrice`), поиск с debounce, фильтр цены, чипсы,
 infinite loading, состояния. План/аудит — `17` (CAT-00…CAT-16).
-Осталось: ручная визуальная проверка в Telegram; RLS — вне scope.
+Осталось: ручная визуальная проверка в Telegram (RLS — реализован, см. `27`).
+
+**Актуализация (2026-10-15) — Access control / RLS (ADR-C, гейт перед продом закрыт):**
+реализован JWT-мост — edge `telegram-auth` выпускает платформенный access-JWT (`sub = users.id`,
+`role = authenticated`), клиент ставит его в SDK (`setAccessToken`); RLS включён на всех 22
+таблицах (`0065`), у `anon` грантов нет, у `authenticated` — `SELECT` + строковые политики; мутации
+только через edge (роль `project_admin` обходит RLS); все не-storefront RPC `REVOKE`-нуты (`0062`);
+Storage — owner-scope (`0067`), Realtime — channel RLS (`0068`). Модель, матрица, верификация и
+rollback — `27_SHOPPIS_RLS_PLAN.md`. Блокер «кастомная сессия не видна PostgREST» снят выпуском
+платформенного JWT.
 
 **Актуализация (2026-10-05) — migration hygiene:** убран дубль номера
 (`0030_storefront_catalog_hardening` → `0033_storefront_catalog_hardening`), введён трекинг
@@ -327,11 +336,12 @@ technical plan + Product Copy).
 - `23` — Product Copy Plan: независимые черновики карточки `PC-00…PC-08` `[LAN]`.
 
 ### Cross-cutting
-- `08` — Docs/Code Divergence: открытые расхождения (S1 RLS, notifications, search scope, SKU, …).
-- `11` — Hardening Backlog: тех-долг (журнал закрытого + актуальный остаток, RLS-гейт).
+- `08` — Docs/Code Divergence: открытые расхождения (notifications, search scope, SKU, …; S1 RLS — закрыт, `27`).
+- `11` — Hardening Backlog: тех-долг (журнал закрытого + актуальный остаток).
 - `16` — Remaining Work: продуктовые follow-up'ы (`FD-1…FD-6`, `CATALOG-20`).
 - `21` — Cart/Commerce Hardening Audit (`CART-HARDEN-01…12`) `[LAN]`.
 - `24` — Orders Hardening Audit (`ORD-HARDEN-00…12`) `[LAN]`.
+- `27` — RLS / Access Control (ADR-C, JWT-мост): модель, матрица политик, миграции `0062`–`0068`, rollback.
 
 ### Source material (не пронумеровано)
 - `Списки и детали товара.md` / `.txt` — исходные пожелания заказчика по карточке товара (основа `14`).

@@ -282,10 +282,15 @@ No write permission: order still succeeds, notifications simply do not send.
 - `search_path = public, pg_temp` у `security definer` функций;
 - opaque public IDs; снимки в заказах; PII не попадает в публичные проекции;
 - секреты — только в env edge-функций; на клиент отдаётся лишь anon key + bot username/shortname;
-- вход валидируется на edge (`validate`), ошибки не раскрывают внутренности.
+- вход валидируется на edge (`validate`), ошибки не раскрывают внутренности;
+- **RLS включён на всех 22 бизнес-таблицах** (`0065`): `anon` — без грантов, `authenticated` —
+  `SELECT` + строковые политики (`27_SHOPPIS_RLS_PLAN.md`); записи — только edge (`project_admin`);
+- **платформенный access-JWT** (`sub = users.id`) как мост к PostgREST/Storage/Realtime (`27`);
+- **REVOKE EXECUTE** у `public`/`anon`/`authenticated` на все не-storefront RPC (`0062`);
+- **Storage** — запись только владельцем (`uploaded_by = sub`, `0067`); **Realtime** — подписка
+  только на «свой» канал (`0068`).
 
 Планово / не закрыто:
-- RLS + политики (главный гейт перед продом, `11 §S1`);
 - rate limiting (SQL/edge) для checkout/upload/questions;
 - серверная upload-валидация MIME/контента;
 - `audit logs` как отдельный слой (сейчас — movement/history ledger + console-логи).

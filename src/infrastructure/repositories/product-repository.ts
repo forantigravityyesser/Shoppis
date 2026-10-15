@@ -31,6 +31,7 @@ import {
   deleteProduct as deleteProductViaApi,
   linkProduct as linkProductViaApi,
   unlinkProduct as unlinkProductViaApi,
+  updateVariantStock as updateVariantStockViaApi,
 } from '../functions/catalog-api';
 
 interface ProductImageRow {
@@ -438,7 +439,12 @@ export async function updateProduct(
 export async function updateVariantStock(
   variantId: string,
   patch: VariantStockPatch,
+  token: string | null,
 ): Promise<void> {
+  if (token) {
+    await updateVariantStockViaApi(token, variantId, patch.availableQuantity ?? 0);
+    return;
+  }
   const updateData: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (patch.availableQuantity !== undefined) {
     updateData.available_quantity = Math.max(0, Math.round(patch.availableQuantity));

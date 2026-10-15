@@ -85,13 +85,15 @@ describe('SettingsProfileView (R4)', () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
   });
 
-  it('магазина нет → пустое состояние, не ошибка', () => {
+  it('магазина нет → сначала загрузка, потом пустое состояние, не ошибка', async () => {
     mockState.currentStore = null;
     mockState.fetchCurrentStore = vi.fn().mockResolvedValue(undefined);
 
     render(<SettingsProfileView />);
 
-    expect(screen.getByText('Магазин не найден')).toBeInTheDocument();
+    // R2: до завершения запроса показываем загрузку, не «магазин не найден».
+    expect(screen.getByText('Загрузка магазина…')).toBeInTheDocument();
+    expect(await screen.findByText('Магазин не найден')).toBeInTheDocument();
     expect(screen.queryByRole('alert')).toBeNull();
   });
 });

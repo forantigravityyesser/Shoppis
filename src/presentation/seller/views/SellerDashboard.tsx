@@ -86,15 +86,17 @@ export default function SellerDashboard() {
     />
   ) : (
     <>
-      {/* docs/26 §4.5: при готовности магазина (5/5) чек-лист убирается —
-          «Развитие магазина» остаётся единственным блоком такого формата. */}
+      {/* docs/26 §4.5: пока подготовка не завершена — показываем только чек-лист.
+          При готовности магазина (5/5) чек-лист убирается, и появляется «Развитие». */}
       {readiness && !readiness.preparationReady ? (
         <DashboardChecklistBlock tutorialCta={tutorialCta} readiness={readiness} />
       ) : null}
-      <DashboardGrowthBlock
-        growth={summary.growth}
-        onShare={() => navigate('/seller/settings/share')}
-      />
+      {readiness && readiness.preparationReady ? (
+        <DashboardGrowthBlock
+          growth={summary.growth}
+          onShare={() => navigate('/seller/settings/share')}
+        />
+      ) : null}
       <DashboardSalesBlock
         sales={summary.sales}
         currencySymbol={symbol}

@@ -21,6 +21,12 @@ export type EntryBot = 'buyer' | 'seller' | null;
 /** Серверная runtime-сессия. */
 export interface AuthSession {
   token: string;
+  /**
+   * Платформенный access-JWT (RS256, `sub = users.id`) для PostgREST/Storage/
+   * Realtime: даёт роль `authenticated` и `auth.uid()` под RLS (docs/11 §S1).
+   * `null` — токен не выпущен (dev mock / сбой подписи): клиент ходит как `anon`.
+   */
+  accessToken: string | null;
   user: ServerUser;
   /**
    * Источник входа (подпись initData совпала с токеном этого бота). Используется,

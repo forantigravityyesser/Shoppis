@@ -41,8 +41,12 @@ export interface AuthSlice {
   isAppInitializing: boolean;
   setIsAppInitializing: (value: boolean) => void;
   setContext: (context: AppContext) => void;
-  /** Установить runtime-сессию после серверной аутентификации. */
-  setSession: (token: string | null, user: ServerUser | null) => void;
+  /** Установить runtime-сессию после серверной аутентификации (+ access-JWT). */
+  setSession: (
+    token: string | null,
+    user: ServerUser | null,
+    accessToken: string | null,
+  ) => void;
   /** Сбросить identity (серверная сессия stateless — достаточно очистить память). */
   clearSession: () => void;
   /**
@@ -51,7 +55,6 @@ export interface AuthSlice {
    * значение попадает после успешного write-access и persist в БД.
    */
   setNotificationsEnabled: (enabled: boolean) => void;
-  setStoreId: (storeId: string | null) => void;
   checkOwnership: () => Promise<boolean>;
   /**
    * Создание нового магазина.
@@ -112,16 +115,20 @@ export const createAuthSlice: StateCreator<RootStore, [], [], AuthSlice> = (set,
 
   setContext: (context) => set({ context }),
 
-  setSession: (token, user) => {
+  setSession: (token, user, accessToken) => {
     // Смена личности → сбросить orders-кэш прошлого пользователя (docs/24 §3.4).
     if ((get().serverUser?.id ?? null) !== (user?.id ?? null)) {
       clearOrderCache(queryClient);
     }
+    // RLS-мост (docs/11 §S1): SDK-клиент переключается на access-JWT
+    // (`authenticated` + auth.uid). Без identity — возврат к `anon`.
+    deps().authApi.setAccessToken(user ? (accessToken ?? null) : null);
     set({ sessionToken: token, serverUser: user });
   },
 
   clearSession: () => {
     clearOrderCache(queryClient);
+    deps().authApi.setAccessToken(null);
     set({ sessionToken: null, serverUser: null });
   },
 
@@ -129,14 +136,6 @@ export const createAuthSlice: StateCreator<RootStore, [], [], AuthSlice> = (set,
     set((s) =>
       s.serverUser ? { serverUser: { ...s.serverUser, notificationsEnabled: enabled } } : {},
     ),
-
-  setStoreId: (storeId) => {
-    if (get().storeId === storeId) return;
-    get().resetCatalog();
-    get().resetCategories();
-    get().resetOrders();
-    set({ storeId, currentStore: null });
-  },
 
   checkOwnership: async () => {
     const { storeId, serverUser, sessionToken } = get();
@@ -275,18 +274,34 @@ export const createAuthSlice: StateCreator<RootStore, [], [], AuthSlice> = (set,
   },
 
   fetchCurrentStore: async () => {
-    const { storeId, sessionToken } = get();
+    const { storeId, currentStore, sessionToken } = get();
     if (!storeId) {
       set({ currentStore: null });
       return;
     }
+
+    // R1/A1: единый канонический ref — `public_id` текущего seller-скоупа
+    // (как в useSellerDashboard, R3). Внутренний `storeId` остаётся локальным
+    // (каталог/заказы/realtime) и внешним ref для чтения `stores` не служит.
+    // Прямого `storeRepository.fetchStore` здесь нет: и с сессией, и без неё
+    // readStore сам решает, разрешён ли DEV-fallback.
+    const storeRef = currentStore?.publicId ?? null;
+    if (!storeRef) {
+      // `storeId` выставлен без канонического ref — рассинхрон скоупа
+      // (недостижим: идентификаторы ставятся атомарно). Прямо `stores` не читаем;
+      // трактуем как недоступный магазин и отдаём онбординг.
+      get().resetCatalog();
+      get().resetCategories();
+      get().resetOrders();
+      set({ storeId: null, currentStore: null });
+      return;
+    }
+
     set({ authLoading: true, authError: null });
     try {
-      // С сессией — owner-scoped чтение через сервер (R1); без сессии (dev mock) —
-      // прямой read. Возврат `null` — магазин недоступен, не сетевая ошибка.
-      const store = sessionToken
-        ? await deps().storeSettingsApi.readStore(sessionToken, storeId)
-        : await deps().storeRepository.fetchStore(storeId);
+      // Owner-scoped серверное чтение (R1). Возврат `null` — магазин недоступен
+      // (чужой/удалён), не сетевая ошибка.
+      const store = await deps().storeSettingsApi.readStore(sessionToken, storeRef);
       if (!store) {
         // Магазин удалён/недоступен — сбрасываем scope, роутер вернёт онбординг.
         get().resetCatalog();

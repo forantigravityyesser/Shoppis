@@ -9,7 +9,7 @@
 /**
  * Resolve the buyer's Telegram username for the immutable order snapshot.
  *
- * @param {object} client - InsForge SDK client (`createClient`).
+ * @param {object} client - InsForge SDK admin client (`adminClient`).
  * @param {string} userId - authoritative user id from the verified session.
  * @returns {Promise<string|null>} username, or `null` when unavailable.
  */

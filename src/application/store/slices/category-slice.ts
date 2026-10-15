@@ -50,15 +50,16 @@ export const createCategorySlice: StateCreator<RootStore, [], [], CategorySlice>
   resetCategories: () => set({ categories: [], categoriesError: null, categoriesStoreId: null }),
 
   addCategory: async (input: AddCategoryInput) => {
-    const { storeId } = get();
+    const { storeId, sessionToken } = get();
     if (!storeId) throw new Error('No store selected');
-    const category = await deps().categoryRepository.addCategory(storeId, input);
+    const category = await deps().categoryRepository.addCategory(storeId, input, sessionToken);
     set((s) => ({ categories: [...s.categories, category] }));
     return category;
   },
 
   updateCategory: async (id: string, patch: UpdateCategoryPatch) => {
-    const removedImageKey = await deps().categoryRepository.updateCategory(id, patch);
+    const { sessionToken } = get();
+    const removedImageKey = await deps().categoryRepository.updateCategory(id, patch, sessionToken);
     set((s) => ({
       categories: s.categories.map((c) =>
         c.id === id
@@ -104,7 +105,8 @@ export const createCategorySlice: StateCreator<RootStore, [], [], CategorySlice>
   },
 
   archiveCategory: async (id: string) => {
-    await deps().categoryRepository.setCategoryStatus(id, 'ARCHIVED');
+    const { sessionToken } = get();
+    await deps().categoryRepository.setCategoryStatus(id, 'ARCHIVED', sessionToken);
     set((s) => ({ categories: s.categories.filter((c) => c.id !== id) }));
   },
 

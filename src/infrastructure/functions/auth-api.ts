@@ -1,9 +1,11 @@
 import { invokeFunction } from '../insforge/functions-gateway';
+import { insforge } from '../insforge/client';
 import type { AuthSession, EntryBot, ServerUser } from '../../application/contracts/auth';
 
 interface AuthResponse {
   success?: boolean;
   token?: string;
+  accessToken?: string | null;
   user?: ServerUser;
   bot?: string | null;
   error?: string;
@@ -25,5 +27,14 @@ export async function authenticateTelegram(initData: string): Promise<AuthSessio
   if (!data?.success || !data.token || !data.user) {
     throw new Error(data?.error ?? 'Telegram authentication failed');
   }
-  return { token: data.token, user: data.user, bot: toEntryBot(data.bot) };
+  return { token: data.token, accessToken: data.accessToken ?? null, user: data.user, bot: toEntryBot(data.bot) };
+}
+
+/**
+ * Применить/сбросить платформенный access-JWT на SDK-клиенте: после этого
+ * database/storage/realtime-запросы идут как `authenticated` с `auth.uid()`
+ * (RLS-мост, docs/11 §S1). `null` — вернуться к `anon`.
+ */
+export function setAccessToken(token: string | null): void {
+  insforge.setAccessToken(token);
 }

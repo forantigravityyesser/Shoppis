@@ -6,12 +6,12 @@
 // Магазин создаётся с owner_user_id из сессии (сервер-валидированная identity),
 // status ACTIVE и уникальным opaque public_id. Клиентский telegram id не доверяется.
 //
-// Env: INSFORGE_BASE_URL, ANON_KEY, SESSION_SECRET.
+// Env: INSFORGE_BASE_URL, API_KEY (admin), SESSION_SECRET.
 
-import { createClient } from 'npm:@insforge/sdk';
 import { env } from './_shared/env.js';
 import { bearerToken, json, methodNotAllowed, preflight, readJson } from './_shared/http.js';
 import { verifySession } from './_shared/auth.js';
+import { adminClient } from './_shared/clients.js';
 
 const CURRENCY_SYMBOLS = { USD: '$', RUB: '₽', BYN: 'Br' };
 const CURRENCIES = Object.keys(CURRENCY_SYMBOLS);
@@ -51,9 +51,9 @@ export default async function (request) {
   if (request.method !== 'POST') return methodNotAllowed();
 
   const baseUrl = env('INSFORGE_BASE_URL');
-  const anonKey = env('ANON_KEY');
+  const apiKey = env('API_KEY');
   const sessionSecret = env('SESSION_SECRET');
-  if (!baseUrl || !anonKey || !sessionSecret) {
+  if (!baseUrl || !apiKey || !sessionSecret) {
     return json({ success: false, error: 'Backend is not configured' }, 500);
   }
 
@@ -71,7 +71,7 @@ export default async function (request) {
   const bannerUrl = String(body?.bannerUrl || '');
 
   try {
-    const client = createClient({ baseUrl, anonKey });
+    const client = adminClient(baseUrl);
     const { data, error } = await client.database
       .from('stores')
       .insert([

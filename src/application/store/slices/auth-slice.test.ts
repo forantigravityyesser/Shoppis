@@ -14,6 +14,10 @@ const storeSettingsApi = {
   updateTutorialState: vi.fn(),
 };
 
+const authApi = {
+  setAccessToken: vi.fn(),
+};
+
 vi.mock('../../composition/container', () => ({
   deps: () => ({
     i18n: {
@@ -23,6 +27,7 @@ vi.mock('../../composition/container', () => ({
     },
     storeRepository,
     storeSettingsApi,
+    authApi,
   }),
 }));
 
@@ -58,6 +63,7 @@ beforeEach(() => {
   storeSettingsApi.updateProfile.mockReset();
   storeSettingsApi.updateStatus.mockReset();
   storeSettingsApi.updateTutorialState.mockReset();
+  authApi.setAccessToken.mockReset();
 });
 
 describe('orders-кэш ↔ личность (docs/24 §3.4, ORD-HARDEN-04)', () => {
@@ -78,7 +84,7 @@ describe('orders-кэш ↔ личность (docs/24 §3.4, ORD-HARDEN-04)', ()
     queryClient.setQueryData(LIST_KEY, PAGE);
     useStore.setState({ sessionToken: 'tok', serverUser: user('u1') });
 
-    useStore.getState().setSession('tok2', user('u2'));
+    useStore.getState().setSession('tok2', user('u2'), null);
 
     expect(queryClient.getQueryData(LIST_KEY)).toBeUndefined();
   });
@@ -87,7 +93,7 @@ describe('orders-кэш ↔ личность (docs/24 §3.4, ORD-HARDEN-04)', ()
     queryClient.setQueryData(LIST_KEY, PAGE);
     useStore.setState({ sessionToken: 'tok', serverUser: user('u1') });
 
-    useStore.getState().setSession('tok2', user('u1'));
+    useStore.getState().setSession('tok2', user('u1'), null);
 
     expect(queryClient.getQueryData(LIST_KEY)).toBeDefined();
   });
@@ -260,26 +266,26 @@ describe('tutorial state (docs/26 §3.2/§3.6, TUT-02)', () => {
   });
 });
 
-describe('fetchCurrentStore — owner-scoped read (R1)', () => {
-  it('с сессией читает через серверный readStore', async () => {
-    useStore.setState({ storeId: 's1', sessionToken: 'tok', currentStore: null });
+describe('fetchCurrentStore — owner-scoped read (R1/A1)', () => {
+  it('с сессией читает через серверный readStore по каноническому public_id', async () => {
+    useStore.setState({ storeId: 's1', sessionToken: 'tok', currentStore: store('s1') });
     storeSettingsApi.readStore.mockResolvedValue(store('s1'));
 
     await useStore.getState().fetchCurrentStore();
 
-    expect(storeSettingsApi.readStore).toHaveBeenCalledWith('tok', 's1');
+    expect(storeSettingsApi.readStore).toHaveBeenCalledWith('tok', 'pub_s1');
     expect(storeRepository.fetchStore).not.toHaveBeenCalled();
     expect(useStore.getState().currentStore?.id).toBe('s1');
   });
 
-  it('без сессии — прямой fetchStore (dev)', async () => {
-    useStore.setState({ storeId: 's1', sessionToken: null, currentStore: null });
-    storeRepository.fetchStore.mockResolvedValue(store('s1'));
+  it('без сессии — readStore сам решает DEV-fallback (нет прямого fetchStore)', async () => {
+    useStore.setState({ storeId: 's1', sessionToken: null, currentStore: store('s1') });
+    storeSettingsApi.readStore.mockResolvedValue(store('s1'));
 
     await useStore.getState().fetchCurrentStore();
 
-    expect(storeRepository.fetchStore).toHaveBeenCalledWith('s1');
-    expect(storeSettingsApi.readStore).not.toHaveBeenCalled();
+    expect(storeSettingsApi.readStore).toHaveBeenCalledWith(null, 'pub_s1');
+    expect(storeRepository.fetchStore).not.toHaveBeenCalled();
     expect(useStore.getState().currentStore?.id).toBe('s1');
   });
 
@@ -289,17 +295,29 @@ describe('fetchCurrentStore — owner-scoped read (R1)', () => {
 
     await useStore.getState().fetchCurrentStore();
 
+    expect(storeSettingsApi.readStore).toHaveBeenCalledWith('tok', 'pub_s1');
     expect(useStore.getState().storeId).toBeNull();
     expect(useStore.getState().currentStore).toBeNull();
     expect(useStore.getState().authLoading).toBe(false);
   });
 
   it('ошибка чтения → authError и проброс', async () => {
-    useStore.setState({ storeId: 's1', sessionToken: 'tok', currentStore: null });
+    useStore.setState({ storeId: 's1', sessionToken: 'tok', currentStore: store('s1') });
     storeSettingsApi.readStore.mockRejectedValue(new Error('network'));
 
     await expect(useStore.getState().fetchCurrentStore()).rejects.toThrow('network');
     expect(useStore.getState().authError).toBe('network');
     expect(useStore.getState().authLoading).toBe(false);
+  });
+
+  it('storeId без currentStore (нет канонического ref) → запрос не уходит', async () => {
+    useStore.setState({ storeId: 's1', sessionToken: 'tok', currentStore: null });
+
+    await useStore.getState().fetchCurrentStore();
+
+    expect(storeSettingsApi.readStore).not.toHaveBeenCalled();
+    expect(storeRepository.fetchStore).not.toHaveBeenCalled();
+    expect(useStore.getState().storeId).toBeNull();
+    expect(useStore.getState().currentStore).toBeNull();
   });
 });

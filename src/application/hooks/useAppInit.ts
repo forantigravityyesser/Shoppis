@@ -68,7 +68,7 @@ export function useAppInit(): void {
         let entryBot: EntryBot = null;
         try {
           const session = await authenticate();
-          useStore.getState().setSession(session.token, session.user);
+          useStore.getState().setSession(session.token, session.user, session.accessToken);
           sessionToken = session.token;
           entryBot = session.bot;
           authenticated = true;
